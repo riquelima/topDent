@@ -1,15 +1,19 @@
-import React from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { UserPlusIcon, CalendarDaysIcon, ClipboardDocumentListIcon, DocumentPlusIcon, ArrowRightOnRectangleIcon, BellIcon } from '../components/icons/HeroIcons';
-import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons'; // Import IconProps
+import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
 import { NavigationPath, Appointment } from '../types';
+import { AppointmentModal } from '../components/AppointmentModal'; // Import Modal
+import { getAppointmentsByDate } from '../services/supabaseService';
+import { isoToDdMmYyyy } from '../src/utils/formatDate';
 
 interface QuickAccessCardProps {
   title: string;
-  icon: React.ReactElement<HeroIconProps>; // Use imported IconProps
-  to: NavigationPath | '#';
+  icon: React.ReactElement<HeroIconProps>;
+  to?: NavigationPath | '#'; // Make 'to' optional
   onClick?: () => void;
   color?: 'primary' | 'danger';
 }
@@ -24,36 +28,72 @@ const QuickAccessCard: React.FC<QuickAccessCardProps> = ({ title, icon, to, onCl
     </div>
   );
 
-  if (to === '#') {
+  if (onClick) {
     return (
-      <Card className="text-center" hoverEffect onClick={onClick}>
-        {content}
-      </Card>
+      <div onClick={onClick} className="cursor-pointer">
+        <Card className="text-center" hoverEffect>
+          {content}
+        </Card>
+      </div>
+    );
+  }
+  
+  if (to && to !== '#') {
+    return (
+      <Link to={to}>
+        <Card className="text-center" hoverEffect>
+          {content}
+        </Card>
+      </Link>
     );
   }
 
+  // Fallback for items that might not have 'to' or 'onClick' initially
   return (
-    <Link to={to}>
-      <Card className="text-center" hoverEffect>
-        {content}
-      </Card>
-    </Link>
+    <Card className="text-center" hoverEffect>
+      {content}
+    </Card>
   );
 };
 
-const todayAppointments: Appointment[] = [
-  { id: '1', time: '09:00', patientName: 'Carlos Silva', procedure: 'Limpeza' },
-  { id: '2', time: '10:30', patientName: 'Mariana Costa', procedure: 'Consulta de Rotina' },
-  { id: '3', time: '14:00', patientName: 'João Pereira', procedure: 'Extração' },
-];
 
 const notifications = [
-  "Consulta de Ana Beatriz às 16:00 (confirmada)",
   "Lembrete: Encomendar material de resina",
   "Paciente Pedro Alves ligou para reagendar",
 ];
 
 export const DashboardPage: React.FC = () => {
+  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+  const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(true);
+
+  const fetchTodaysAppointments = useCallback(async () => {
+    setIsLoadingAppointments(true);
+    const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const { data, error } = await getAppointmentsByDate(todayStr);
+    if (error) {
+      console.error("Error fetching today's appointments:", error.message ? error.message : 'Unknown error', 'Details:', JSON.stringify(error, null, 2));
+      setTodayAppointments([]);
+    } else {
+      setTodayAppointments(data || []);
+    }
+    setIsLoadingAppointments(false);
+  }, []);
+
+  useEffect(() => {
+    fetchTodaysAppointments();
+  }, [fetchTodaysAppointments]);
+
+  const handleAppointmentSaved = (appointment: Appointment) => {
+    // If the saved appointment is for today, refresh today's list
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (appointment.appointment_date === todayStr) {
+      fetchTodaysAppointments();
+    }
+    setIsAppointmentModalOpen(false); // Close modal
+  };
+
+
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold text-white text-center mb-10">Bem-vindo à Top Dent</h1>
@@ -62,25 +102,30 @@ export const DashboardPage: React.FC = () => {
         <h2 className="text-2xl font-semibold text-gray-300 mb-6">Acesso Rápido</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           <QuickAccessCard title="Novo Paciente" icon={<UserPlusIcon />} to={NavigationPath.NewPatient} />
-          <QuickAccessCard title="Agendar Consulta" icon={<CalendarDaysIcon />} to={NavigationPath.Appointments} /> {/* Placeholder link */}
-          <QuickAccessCard title="Ver Prontuário" icon={<ClipboardDocumentListIcon />} to={NavigationPath.ViewRecord} /> {/* Placeholder link */}
+          <QuickAccessCard title="Agendar Consulta" icon={<CalendarDaysIcon />} onClick={() => setIsAppointmentModalOpen(true)} />
+          <QuickAccessCard title="Ver Prontuário" icon={<ClipboardDocumentListIcon />} to={NavigationPath.ViewRecord} /> 
           <QuickAccessCard title="Adicionar Plano" icon={<DocumentPlusIcon />} to={NavigationPath.TreatmentPlan} />
-          <QuickAccessCard title="Sair" icon={<ArrowRightOnRectangleIcon />} to="#" onClick={() => alert('Sair Clicado!')} color="danger" />
+          <QuickAccessCard title="Sair" icon={<ArrowRightOnRectangleIcon />} onClick={() => alert('Sair Clicado!')} color="danger" />
         </div>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2">
           <Card title="Agendamentos do Dia">
-            {todayAppointments.length > 0 ? (
+            {isLoadingAppointments ? (
+                <p className="text-gray-400 text-center py-4">Carregando agendamentos...</p>
+            ) : todayAppointments.length > 0 ? (
               <ul className="space-y-4">
                 {todayAppointments.map(appt => (
                   <li key={appt.id} className="p-4 bg-gray-700 rounded-md shadow flex justify-between items-center">
                     <div>
-                      <p className="font-semibold text-teal-400">{appt.time} - {appt.patientName}</p>
+                      <p className="font-semibold text-teal-400">{appt.appointment_time} - {appt.patient_name || appt.patient_cpf}</p>
                       <p className="text-sm text-gray-300">{appt.procedure}</p>
+                       <p className="text-xs text-gray-400">Status: {appt.status}</p>
                     </div>
-                    <Button size="sm" variant="ghost">Detalhes</Button>
+                     <Link to={`/patient/${appt.patient_cpf}`}>
+                        <Button size="sm" variant="ghost">Ver Paciente</Button>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -89,16 +134,13 @@ export const DashboardPage: React.FC = () => {
             )}
             <div className="mt-6 text-center">
                 <Link to={NavigationPath.Appointments}>
-                    <Button variant="primary">Ver Calendário Completo</Button>
+                    <Button variant="primary">Ver Todos Agendamentos</Button>
                 </Link>
             </div>
           </Card>
         </section>
         
         <section>
-          {/* Original structure had Card wrapped around BellIcon + Text, then another Card.
-              Consolidating for simpler structure and correct title usage.
-          */}
           <Card titleClassName="flex items-center" title={<><BellIcon className="w-5 h-5 mr-2 text-teal-400" /> Notificações</>}>
              {notifications.length > 0 ? (
               <ul className="space-y-3">
@@ -114,6 +156,11 @@ export const DashboardPage: React.FC = () => {
           </Card>
         </section>
       </div>
+      <AppointmentModal 
+        isOpen={isAppointmentModalOpen} 
+        onClose={() => setIsAppointmentModalOpen(false)}
+        onAppointmentSaved={handleAppointmentSaved}
+      />
     </div>
   );
 };

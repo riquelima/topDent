@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { HashRouter, Routes, Route, Outlet, Link } from 'react-router-dom'; // Added Link
 import { Header } from './components/layout/Header';
@@ -7,8 +6,12 @@ import { DashboardPage } from './pages/DashboardPage';
 import { NewPatientPage } from './pages/NewPatientPage';
 import { AnamnesisFormPage } from './pages/AnamnesisFormPage';
 import { TreatmentPlanPage } from './pages/TreatmentPlanPage';
-import { PatientListPage } from './pages/PatientListPage'; // New import
-import { PatientDetailPage } from './pages/PatientDetailPage'; // New import
+import { PatientListPage } from './pages/PatientListPage'; 
+import { PatientDetailPage } from './pages/PatientDetailPage'; 
+import { AppointmentsPage } from './pages/AppointmentsPage';
+import { PatientAnamnesisPage } from './pages/PatientAnamnesisPage';
+import { PatientTreatmentPlansPage } from './pages/PatientTreatmentPlansPage'; 
+import { AllTreatmentPlansPage } from './pages/AllTreatmentPlansPage'; // Import the new page
 import { NavigationPath } from './types';
 import { Button } from './components/ui/Button';
 
@@ -45,13 +48,20 @@ const App: React.FC = () => {
         <Route path="/" element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path={NavigationPath.NewPatient} element={<NewPatientPage />} />
-          <Route path={NavigationPath.PatientsList} element={<PatientListPage />} /> {/* New Route */}
-          <Route path={NavigationPath.PatientDetail} element={<PatientDetailPage />} /> {/* New Route */}
-          <Route path={NavigationPath.Anamnesis} element={<AnamnesisFormPage />} />
+          <Route path={NavigationPath.PatientsList} element={<PatientListPage />} /> 
+          <Route path={NavigationPath.PatientDetail} element={<PatientDetailPage />} /> 
+          <Route path={NavigationPath.PatientAnamnesis} element={<PatientAnamnesisPage />} />
+          <Route path={NavigationPath.PatientTreatmentPlans} element={<PatientTreatmentPlansPage />} />
+          <Route 
+            path={NavigationPath.Anamnesis} 
+            element={<AnamnesisFormPage />}
+          />
           <Route path={NavigationPath.TreatmentPlan} element={<TreatmentPlanPage />} />
+          <Route path={NavigationPath.EditTreatmentPlan} element={<TreatmentPlanPage />} />
+          <Route path={NavigationPath.AllTreatmentPlans} element={<AllTreatmentPlansPage />} /> {/* Add new route */}
           <Route 
             path={NavigationPath.Appointments} 
-            element={<PlaceholderPage title="Agendamentos" />} 
+            element={<AppointmentsPage />}
           />
            <Route 
             path={NavigationPath.ViewRecord} 

@@ -1,4 +1,3 @@
-
 export interface Patient {
   id: string; // Should be unique, CPF can serve this role for now
   fullName: string;
@@ -33,43 +32,74 @@ export interface DiseaseOptions {
 }
 
 export interface BloodPressureReading {
-  date: string;
+  id?: string; // Optional, for existing records from DB
+  created_at?: string; // Optional, for existing records from DB
+  date: string; // YYYY-MM-DD
   value: string;
 }
 
-export interface Anamnesis {
-  patientId: string; // CPF of the patient
-  medications: AnamnesisQuestion;
-  isSmoker: AnamnesisQuestion;
-  isPregnant: AnamnesisQuestion;
-  allergies: AnamnesisQuestion;
-  hasDisease: AnamnesisQuestion;
-  diseases?: DiseaseOptions;
-  surgeries: AnamnesisQuestion;
-  bloodPressureReadings: BloodPressureReading[];
+// This is the shape for the UI and for what we might fetch initially
+export interface AnamnesisFormUIData {
+  medications_taken: 'Sim' | 'Não' | null;
+  medications_details: string;
+  is_smoker: 'Sim' | 'Não' | null;
+  is_pregnant: 'Sim' | 'Não' | null;
+  allergies_exist: 'Sim' | 'Não' | 'Não sei' | null;
+  allergies_details: string;
+  has_disease: 'Sim' | 'Não' | null;
+  disease_cardiovascular: boolean;
+  disease_respiratory: boolean;
+  disease_vascular: boolean;
+  disease_diabetes: boolean;
+  disease_hypertension: boolean;
+  disease_renal: boolean;
+  disease_neoplasms: boolean;
+  disease_hereditary: boolean;
+  disease_other_details: string;
+  surgeries_had: 'Sim' | 'Não' | null;
+  surgeries_details: string;
 }
 
-export interface TreatmentPlan {
-  patientId: string; // CPF of the patient
-  description: string;
-  files?: File[];
-  dentistSignature: string; // Could be text or image data if advanced
-}
 
 export interface Appointment {
-  id: string;
-  time: string;
-  patientName: string;
+  id: string; // UUID from Supabase
+  patient_cpf: string;
+  patient_name?: string; // Denormalized for easier display
+  appointment_date: string; // YYYY-MM-DD
+  appointment_time: string; // HH:MM
   procedure: string;
+  notes?: string | null;
+  status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+  created_at?: string; // ISO timestamp string
 }
+
+// Added to services/supabaseService.ts but should be here for consistency
+export interface SupabaseTreatmentPlanData {
+    id?: string;
+    created_at?: string;
+    patient_cpf: string;
+    description: string;
+    file_names?: string | null; 
+    dentist_signature?: string | null;
+    file_url?: string | null; // Added for storing the public URL of the uploaded file
+}
+
+export interface TreatmentPlanWithPatientInfo extends SupabaseTreatmentPlanData {
+  patient_full_name?: string | null;
+}
+
 
 export enum NavigationPath {
   Home = "/",
   NewPatient = "/new-patient",
-  PatientsList = "/patients", // New: For listing patients
-  PatientDetail = "/patient/:patientId", // New: For patient details, :patientId will be CPF
+  PatientsList = "/patients", 
+  PatientDetail = "/patient/:patientId", 
+  PatientAnamnesis = "/patient/:patientId/anamnesis",
+  PatientTreatmentPlans = "/patient/:patientId/treatment-plans",
   Anamnesis = "/anamnesis", 
   TreatmentPlan = "/treatment-plan", 
+  EditTreatmentPlan = "/treatment-plan/edit/:planId",
+  AllTreatmentPlans = "/all-treatment-plans", 
   Appointments = "/appointments", 
   ViewRecord = "/view-record", 
 }

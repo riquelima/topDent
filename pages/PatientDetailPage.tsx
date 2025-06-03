@@ -1,12 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ArrowUturnLeftIcon } from '../components/icons/HeroIcons';
 import { Patient, NavigationPath } from '../types';
 import { isoToDdMmYyyy } from '../src/utils/formatDate';
-import { getPatientByCpf } from '../services/supabaseService'; // Changed import
+import { getPatientByCpf } from '../services/supabaseService'; 
 
 
 interface DetailItemProps {
@@ -108,13 +107,15 @@ export const PatientDetailPage: React.FC = () => {
             </dl>
           </div>
           
-          {/* TODO: Placeholder for links to Anamnesis, Treatment Plans etc. based on patient.cpf */}
-          {/* You would fetch these related records using patient.cpf */}
           <div className="pt-4">
-            <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4">Histórico do Paciente (em breve)</h3>
-             <div className="flex space-x-4">
-                 <Button variant="ghost" disabled>Ver Anamnese</Button>
-                 <Button variant="ghost" disabled>Ver Planos de Tratamento</Button>
+            <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4">Histórico do Paciente</h3>
+             <div className="flex flex-wrap gap-4">
+                 <Link to={NavigationPath.PatientAnamnesis.replace(':patientId', patient.cpf)}>
+                    <Button variant="ghost">Ver/Preencher Anamnese</Button>
+                 </Link>
+                 <Link to={NavigationPath.PatientTreatmentPlans.replace(':patientId', patient.cpf)}>
+                    <Button variant="ghost">Ver/Preencher Planos de Tratamento</Button>
+                 </Link>
              </div>
           </div>
 

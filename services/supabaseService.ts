@@ -1,7 +1,6 @@
-
 // services/supabaseService.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Patient } from '../types';
+import { Patient, Appointment, BloodPressureReading, AnamnesisFormUIData, SupabaseTreatmentPlanData, TreatmentPlanWithPatientInfo } from '../types'; // Added SupabaseTreatmentPlanData, TreatmentPlanWithPatientInfo
 
 // IMPORTANT: Replace these with your actual Supabase Project URL and Anon Key
 // You can find these in your Supabase project settings under "API"
@@ -52,27 +51,29 @@ export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
     emergency_contact_phone: emergencyContactPhone || null,
   };
 
-  const { data, error } = await client.from('patients').insert([dataToInsert]).select();
-  if (error) console.error('Error adding patient to Supabase:', error);
-  return { data, error };
+  const { data, error: supabaseError } = await client.from('patients').insert([dataToInsert]).select();
+  if (supabaseError) {
+    console.error('Error adding patient to Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  }
+  return { data, error: supabaseError };
 };
 
 export const getPatients = async (): Promise<{ data: Patient[] | null, error: any }> => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
-  const { data, error } = await client.from('patients').select('*').order('full_name', { ascending: true });
+  const { data, error: supabaseError } = await client.from('patients').select('*').order('full_name', { ascending: true });
   
-  if (error) {
-    console.error('Error fetching patients from Supabase:', error);
-    return { data: null, error };
+  if (supabaseError) {
+    console.error('Error fetching patients from Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    return { data: null, error: supabaseError };
   }
 
   const transformedData: Patient[] = data ? data.map(p => ({
-    id: p.cpf, // Using CPF as main ID for consistency with current app structure
+    id: p.cpf, 
     cpf: p.cpf,
     fullName: p.full_name,
-    dob: p.dob, // Supabase returns date as YYYY-MM-DD
+    dob: p.dob, 
     guardian: p.guardian,
     rg: p.rg,
     phone: p.phone,
@@ -89,11 +90,15 @@ export const getPatientByCpf = async (cpf: string): Promise<{ data: Patient | nu
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
-  const { data, error } = await client.from('patients').select('*').eq('cpf', cpf).single();
+  const { data, error: supabaseError } = await client.from('patients').select('*').eq('cpf', cpf).single();
 
-  if (error) {
-    console.error(`Error fetching patient by CPF ${cpf} from Supabase:`, error);
-    return { data: null, error };
+  if (supabaseError) {
+    if (supabaseError.code === 'PGRST204' || supabaseError.message.includes('query returned no rows')) {
+        console.log(`Patient with CPF ${cpf} not found.`);
+        return { data: null, error: null }; 
+    }
+    console.error(`Error fetching patient by CPF ${cpf} from Supabase:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    return { data: null, error: supabaseError };
   }
   
   const transformedData: Patient | null = data ? {
@@ -115,6 +120,8 @@ export const getPatientByCpf = async (cpf: string): Promise<{ data: Patient | nu
 
 // --- ANAMNESIS FORM FUNCTIONS ---
 export interface SupabaseAnamnesisData {
+    id?: string; 
+    created_at?: string; 
     patient_cpf: string;
     medications_taken: 'Sim' | 'Não' | null;
     medications_details?: string | null;
@@ -136,50 +143,281 @@ export interface SupabaseAnamnesisData {
     surgeries_details?: string | null;
 }
 
-export const addAnamnesisForm = async (anamnesisData: SupabaseAnamnesisData) => {
+export const addAnamnesisForm = async (anamnesisData: Omit<SupabaseAnamnesisData, 'id' | 'created_at'>) => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-  const { data, error } = await client.from('anamnesis_forms').insert([anamnesisData]).select();
-  if (error) console.error('Error adding anamnesis form to Supabase:', error);
-  return { data, error };
+  const { id, created_at, ...insertData } = anamnesisData as SupabaseAnamnesisData;
+
+  const { data, error: supabaseError } = await client.from('anamnesis_forms').insert([insertData]).select().single();
+  if (supabaseError) {
+    console.error('Error adding anamnesis form to Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  }
+  return { data, error: supabaseError };
 };
 
+export const getAnamnesisFormByPatientCpf = async (patientCpf: string): Promise<{ data: SupabaseAnamnesisData | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const { data, error: supabaseError } = await client
+    .from('anamnesis_forms')
+    .select('*')
+    .eq('patient_cpf', patientCpf)
+    .order('created_at', { ascending: false }) 
+    .limit(1)
+    .maybeSingle(); 
+
+  if (supabaseError) {
+    console.error(`Error fetching anamnesis form for CPF ${patientCpf}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    return { data: null, error: supabaseError };
+  }
+  return { data: data as SupabaseAnamnesisData | null, error: null };
+};
+
+
 export interface SupabaseBloodPressureReading {
+    id?: string; 
+    created_at?: string; 
     patient_cpf: string;
     reading_date: string; // YYYY-MM-DD
     reading_value: string;
 }
 
-export const addBloodPressureReadings = async (bpReadings: SupabaseBloodPressureReading[]) => {
+export const addBloodPressureReadings = async (bpReadings: Omit<SupabaseBloodPressureReading, 'id' | 'created_at'>[]) => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-  const { data, error } = await client.from('blood_pressure_readings').insert(bpReadings).select();
-  if (error) console.error('Error adding blood pressure readings to Supabase:', error);
-  return { data, error };
+  
+  const insertData = bpReadings.map(bp => {
+    const { id, created_at, ...reading } = bp as SupabaseBloodPressureReading;
+    return reading;
+  });
+
+  const { data, error: supabaseError } = await client.from('blood_pressure_readings').insert(insertData).select();
+  if (supabaseError) {
+    console.error('Error adding blood pressure readings to Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  }
+  return { data, error: supabaseError };
 };
+
+export const getBloodPressureReadingsByPatientCpf = async (patientCpf: string): Promise<{ data: BloodPressureReading[] | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const { data, error: supabaseError } = await client
+    .from('blood_pressure_readings')
+    .select('id, created_at, reading_date, reading_value') 
+    .eq('patient_cpf', patientCpf)
+    .order('reading_date', { ascending: false })
+    .order('created_at', { ascending: false });
+
+  if (supabaseError) {
+    console.error(`Error fetching blood pressure readings for CPF ${patientCpf}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    return { data: null, error: supabaseError };
+  }
+
+  const transformedData: BloodPressureReading[] = data ? data.map(bp => ({
+    id: bp.id,
+    created_at: bp.created_at,
+    date: bp.reading_date, 
+    value: bp.reading_value, 
+  })) : [];
+  
+  return { data: transformedData, error: null };
+};
+
 
 // --- TREATMENT PLAN FUNCTIONS ---
-export interface SupabaseTreatmentPlanData {
-    patient_cpf: string;
-    description: string;
-    file_names?: string | null;
-    dentist_signature?: string | null;
-}
+// SupabaseTreatmentPlanData is now imported from types.ts
 
-export const addTreatmentPlan = async (planData: SupabaseTreatmentPlanData) => {
+export const addTreatmentPlan = async (planData: Omit<SupabaseTreatmentPlanData, 'id' | 'created_at'>) => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-  const { data, error } = await client.from('treatment_plans').insert([planData]).select();
-  if (error) console.error('Error adding treatment plan to Supabase:', error);
-  return { data, error };
+  // Ensure id and created_at are not part of the insertData if they somehow sneak in
+  const { id, created_at, ...insertData } = planData as SupabaseTreatmentPlanData;
+  const { data, error: supabaseError } = await client.from('treatment_plans').insert([insertData]).select().single();
+  if (supabaseError) {
+    console.error('Error adding treatment plan to Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  }
+  return { data, error: supabaseError };
 };
 
-// TODO: Add functions for fetching Anamnesis, BP Readings, Treatment Plans associated with a patient.
-// Example:
-// export const getAnamnesisFormsForPatient = async (patientCpf: string) => {
-//   const client = getSupabaseClient();
-//   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-//   const { data, error } = await client.from('anamnesis_forms').select('*').eq('patient_cpf', patientCpf);
-//   // Transform data if necessary
-//   return { data, error };
-// };
+export const getTreatmentPlanById = async (planId: string): Promise<{ data: SupabaseTreatmentPlanData | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const { data, error: supabaseError } = await client
+    .from('treatment_plans')
+    .select('*') // Ensure file_url is selected if the column exists
+    .eq('id', planId)
+    .single();
+
+  if (supabaseError) {
+    console.error(`Error fetching treatment plan by ID ${planId}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    return { data: null, error: supabaseError };
+  }
+  return { data: data as SupabaseTreatmentPlanData | null, error: null };
+};
+
+export const updateTreatmentPlan = async (planId: string, planData: Partial<Omit<SupabaseTreatmentPlanData, 'id' | 'created_at' | 'patient_cpf'>>) => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const updateData = planData; // file_url should be part of this if provided
+
+  const { data, error: supabaseError } = await client
+    .from('treatment_plans')
+    .update(updateData)
+    .eq('id', planId)
+    .select() // Ensure file_url is selected
+    .single();
+
+  if (supabaseError) {
+    console.error(`Error updating treatment plan ID ${planId}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  }
+  return { data, error: supabaseError };
+};
+
+export const deleteTreatmentPlan = async (planId: string): Promise<{ error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { error: { message: "Supabase client not initialized." } };
+
+  // Note: This does not delete files from Supabase Storage.
+  // If you need to delete files from storage, you must do that separately.
+  const { error: supabaseError } = await client
+    .from('treatment_plans')
+    .delete()
+    .eq('id', planId);
+
+  if (supabaseError) {
+    console.error(`Error deleting treatment plan ID ${planId}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  }
+  return { error: supabaseError };
+};
+
+
+export const getTreatmentPlansByPatientCpf = async (patientCpf: string): Promise<{ data: SupabaseTreatmentPlanData[] | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const { data, error: supabaseError } = await client
+    .from('treatment_plans')
+    .select('*') // Ensure file_url is selected
+    .eq('patient_cpf', patientCpf)
+    .order('created_at', { ascending: false });
+
+  if (supabaseError) {
+    console.error(`Error fetching treatment plans for CPF ${patientCpf} from Supabase:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    return { data: null, error: supabaseError };
+  }
+  return { data: data as SupabaseTreatmentPlanData[] | null, error: null };
+};
+
+// TreatmentPlanWithPatientInfo is now imported from types.ts
+export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithPatientInfo[] | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const { data, error: supabaseError } = await client
+    .from('treatment_plans')
+    .select(`
+      *,
+      file_url, 
+      patients (
+        full_name,
+        cpf
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (supabaseError) {
+    console.error('Error fetching all treatment plans from Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    return { data: null, error: supabaseError };
+  }
+
+  const transformedData: TreatmentPlanWithPatientInfo[] = data ? data.map(plan => {
+    const patientInfo = plan.patients as { full_name: string, cpf: string } | null; 
+    return {
+      ...plan,
+      patient_full_name: patientInfo ? patientInfo.full_name : 'Paciente Desconhecido',
+      patients: undefined, 
+    } as TreatmentPlanWithPatientInfo;
+  }) : [];
+  
+  return { data: transformedData, error: null };
+};
+
+
+// --- APPOINTMENT FUNCTIONS ---
+export type SupabaseAppointmentData = Omit<Appointment, 'id' | 'created_at'>;
+
+export const addAppointment = async (appointmentData: SupabaseAppointmentData) => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  
+  const dataToInsert = {
+    patient_cpf: appointmentData.patient_cpf,
+    patient_name: appointmentData.patient_name,
+    appointment_date: appointmentData.appointment_date,
+    appointment_time: appointmentData.appointment_time,
+    procedure: appointmentData.procedure,
+    notes: appointmentData.notes,
+    status: appointmentData.status,
+  };
+
+  const { data, error: supabaseError } = await client.from('appointments').insert([dataToInsert]).select().single();
+  if (supabaseError) {
+    console.error('Error adding appointment to Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  }
+  return { data: data as Appointment | null, error: supabaseError }; 
+};
+
+export const getAppointments = async (): Promise<{ data: Appointment[] | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  
+  const { data, error: supabaseError } = await client
+    .from('appointments')
+    .select('*')
+    .order('appointment_date', { ascending: false })
+    .order('appointment_time', { ascending: false });
+
+  if (supabaseError) {
+    console.error('Error fetching appointments from Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    return { data: null, error: supabaseError };
+  }
+  return { data: data as Appointment[] | null, error: null };
+};
+
+export const getAppointmentsByDate = async (date: string): Promise<{ data: Appointment[] | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  
+  const { data, error: supabaseError } = await client
+    .from('appointments')
+    .select('*')
+    .eq('appointment_date', date)
+    .order('appointment_time', { ascending: true });
+
+  if (supabaseError) {
+    console.error(`Error fetching appointments for date ${date} from Supabase:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    return { data: null, error: supabaseError };
+  }
+  return { data: data as Appointment[] | null, error: null };
+};
+
+export const updateAppointmentStatus = async (appointmentId: string, status: Appointment['status']): Promise<{ data: Appointment | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const { data, error: supabaseError } = await client
+    .from('appointments')
+    .update({ status })
+    .eq('id', appointmentId)
+    .select()
+    .single();
+  
+  if (supabaseError) {
+    console.error(`Error updating status for appointment ${appointmentId}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  }
+  return { data: data as Appointment | null, error: supabaseError };
+};
