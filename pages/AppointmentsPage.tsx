@@ -52,7 +52,30 @@ export const AppointmentsPage: React.FC = () => {
       setError(`Falha ao carregar agendamentos: ${errorMessage}`);
       setAppointments([]);
     } else {
-      setAppointments(data || []);
+      const fetchedAppointments = data || [];
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+      const upcomingOrTodayAppointments = fetchedAppointments.filter(
+        (appt) => appt.appointment_date >= today
+      );
+      const pastAppointments = fetchedAppointments.filter(
+        (appt) => appt.appointment_date < today
+      );
+
+      // Sort upcoming appointments: ascending by date, then by time
+      upcomingOrTodayAppointments.sort((a, b) => {
+        if (a.appointment_date < b.appointment_date) return -1;
+        if (a.appointment_date > b.appointment_date) return 1;
+        // Dates are equal, sort by time
+        if (a.appointment_time < b.appointment_time) return -1;
+        if (a.appointment_time > b.appointment_time) return 1;
+        return 0;
+      });
+
+      // Past appointments are already sorted by date (DESC) and time (DESC)
+      // by the getAppointments function, so no explicit sort needed here for pastAppointments.
+
+      setAppointments([...upcomingOrTodayAppointments, ...pastAppointments]);
     }
     setIsLoading(false);
   }, []);

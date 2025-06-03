@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, ChangeEvent, FormEvent, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -7,15 +8,21 @@ import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { DatePicker } from '../components/ui/DatePicker';
 import { ArrowUturnLeftIcon, PlusIcon, TrashIcon } from '../components/icons/HeroIcons';
-import { BloodPressureReading, AnamnesisFormUIData, Patient } from '../types';
+import { 
+    BloodPressureReading, 
+    AnamnesisFormUIData, 
+    Patient,
+    SupabaseAnamnesisData, // Imported from types.ts
+    SupabaseBloodPressureReading // Imported from types.ts
+} from '../types';
 import { 
     getPatientByCpf,
     getAnamnesisFormByPatientCpf,
     getBloodPressureReadingsByPatientCpf,
     addAnamnesisForm, 
     addBloodPressureReadings,
-    SupabaseAnamnesisData,
-    SupabaseBloodPressureReading
+    // SupabaseAnamnesisData, // No longer from here
+    // SupabaseBloodPressureReading // No longer from here
 } from '../services/supabaseService';
 
 // Helper component for Yes/No/Details fields
@@ -116,7 +123,7 @@ export const PatientAnamnesisPage: React.FC = () => {
     disease_neoplasms: false, disease_hereditary: false, disease_other_details: '',
     surgeries_had: null, surgeries_details: '',
   });
-  const [formBPReadings, setFormBPReadings] = useState<BloodPressureReading[]>([{ date: '', value: '' }]);
+  const [formBPReadings, setFormBPReadings] = useState<Omit<BloodPressureReading, 'id' | 'created_at'>[]>([{ date: '', value: '' }]);
 
   const populateFormFromExistingData = useCallback((anamnesis: SupabaseAnamnesisData | null, bps: BloodPressureReading[]) => {
     if (anamnesis) {
@@ -203,9 +210,9 @@ export const PatientAnamnesisPage: React.FC = () => {
     setFormData(prev => ({ ...prev, [diseaseKey]: checked }));
   };
 
-  const handleBPChange = (index: number, field: keyof BloodPressureReading, value: string) => {
+  const handleBPChange = (index: number, field: keyof Omit<BloodPressureReading, 'id' | 'created_at'>, value: string) => {
     const updated = [...formBPReadings];
-    updated[index] = { ...updated[index], [field]: value };
+    (updated[index] as any)[field] = value;
     setFormBPReadings(updated);
   };
 
@@ -231,7 +238,7 @@ export const PatientAnamnesisPage: React.FC = () => {
     setIsLoading(true);
 
     // Map UI form data to SupabaseAnamnesisData
-    const anamnesisToSave: SupabaseAnamnesisData = {
+    const anamnesisToSave: Omit<SupabaseAnamnesisData, 'id' | 'created_at'> = {
         patient_cpf: patientId,
         medications_taken: formData.medications_taken,
         medications_details: formData.medications_details || null,
@@ -261,7 +268,7 @@ export const PatientAnamnesisPage: React.FC = () => {
 
         const validBPReadings = formBPReadings.filter(bp => bp.date && bp.value);
         if (validBPReadings.length > 0) {
-            const bpDataToSave: SupabaseBloodPressureReading[] = validBPReadings.map(bp => ({
+            const bpDataToSave: Omit<SupabaseBloodPressureReading, 'id' | 'created_at'>[] = validBPReadings.map(bp => ({
                 patient_cpf: patientId,
                 reading_date: bp.date,
                 reading_value: bp.value
@@ -316,7 +323,7 @@ export const PatientAnamnesisPage: React.FC = () => {
             <p className="text-gray-100 mb-2">{formData.has_disease || "Não informado"}</p>
             {formData.has_disease === 'Sim' && (
                 <div className="ml-4 space-y-1 text-sm">
-                    {diseaseOptionsList.map(d => formData[d.id] && <p key={d.id} className="text-gray-200">- {d.label}</p>)}
+                    {diseaseOptionsList.map(d => formData[d.id as keyof AnamnesisFormUIData] && <p key={d.id} className="text-gray-200">- {d.label}</p>)}
                     {formData.disease_other_details && <p className="text-gray-200">- Outras: {formData.disease_other_details}</p>}
                 </div>
             )}
@@ -382,8 +389,8 @@ export const PatientAnamnesisPage: React.FC = () => {
                   {diseaseOptionsList.map(opt => (
                      <label key={opt.id} className={`flex items-center space-x-2 text-gray-200 p-2 hover:bg-gray-700 rounded ${isLoading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
                       <input type="checkbox" className="form-checkbox h-5 w-5 text-teal-500 bg-gray-700 border-gray-600 rounded focus:ring-teal-400"
-                        checked={formData[opt.id]}
-                        onChange={(e) => handleDiseaseCheckboxChange(opt.id, e.target.checked)}
+                        checked={!!formData[opt.id as keyof AnamnesisFormUIData]}
+                        onChange={(e) => handleDiseaseCheckboxChange(opt.id as keyof Pick<AnamnesisFormUIData, 'disease_cardiovascular' | 'disease_respiratory' | 'disease_vascular' | 'disease_diabetes' | 'disease_hypertension' | 'disease_renal' | 'disease_neoplasms' | 'disease_hereditary'>, e.target.checked)}
                         disabled={isLoading}
                       />
                       <span>{opt.label}</span>

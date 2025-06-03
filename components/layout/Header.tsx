@@ -62,6 +62,8 @@ export const Header: React.FC = () => {
               <NavLink to={NavigationPath.Home}>Início</NavLink>
               <NavLink to={NavigationPath.PatientsList}>Pacientes</NavLink>
               <NavLink to={NavigationPath.Appointments}>Agendamentos</NavLink>
+              <NavLink to={NavigationPath.ViewRecord}>Prontuários</NavLink>
+              <NavLink to={NavigationPath.AllTreatmentPlans}>Tratamentos</NavLink>
             </div>
           </nav>
           <div className="hidden md:block">
@@ -104,6 +106,8 @@ export const Header: React.FC = () => {
             <NavLink to={NavigationPath.Home} onClick={closeMobileMenu} isMobile>Início</NavLink>
             <NavLink to={NavigationPath.PatientsList} onClick={closeMobileMenu} isMobile>Pacientes</NavLink>
             <NavLink to={NavigationPath.Appointments} onClick={closeMobileMenu} isMobile>Agendamentos</NavLink>
+            <NavLink to={NavigationPath.ViewRecord} onClick={closeMobileMenu} isMobile>Prontuários</NavLink>
+            <NavLink to={NavigationPath.AllTreatmentPlans} onClick={closeMobileMenu} isMobile>Tratamentos</NavLink>
           </div>
           <div className="pt-3 pb-3 border-t border-gray-700">
             <div className="flex items-center px-5">

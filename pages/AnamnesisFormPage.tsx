@@ -8,13 +8,19 @@ import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { DatePicker } from '../components/ui/DatePicker';
 import { ArrowUturnLeftIcon, PlusIcon } from '../components/icons/HeroIcons';
-import { NavigationPath, BloodPressureReading, DiseaseOptions } from '../types';
+import { 
+    NavigationPath, 
+    BloodPressureReading, 
+    DiseaseOptions,
+    SupabaseAnamnesisData, // Imported from types.ts
+    SupabaseBloodPressureReading // Imported from types.ts
+} from '../types';
 import { 
     addAnamnesisForm, 
     addBloodPressureReadings,
-    SupabaseAnamnesisData,
-    SupabaseBloodPressureReading
-} from '../services/supabaseService'; // Changed import
+    // SupabaseAnamnesisData, // No longer from here
+    // SupabaseBloodPressureReading // No longer from here
+} from '../services/supabaseService'; 
 // isoToDdMmYyyy is for display, not for saving to DB if already in YYYY-MM-DD
 
 interface YesNoDetailsProps {
@@ -80,7 +86,7 @@ export const AnamnesisFormPage: React.FC = () => {
     hypertension: false, renal: false, neoplasms: false, hereditary: false, other: ''
   });
   const [surgeries, setSurgeries] = useState<{ value: 'Sim' | 'Não' | null, details: string }>({ value: null, details: '' });
-  const [bloodPressureReadings, setBloodPressureReadings] = useState<BloodPressureReading[]>([
+  const [bloodPressureReadings, setBloodPressureReadings] = useState<Omit<BloodPressureReading, 'id' | 'created_at'>[]>([ // Use UI type for form
     { date: '', value: '' }, // date is YYYY-MM-DD from DatePicker
   ]);
 
@@ -88,9 +94,9 @@ export const AnamnesisFormPage: React.FC = () => {
     setDiseases(prev => ({ ...prev, [diseaseKey]: value }));
   };
 
-  const handleBloodPressureChange = (index: number, field: keyof BloodPressureReading, value: string) => {
+  const handleBloodPressureChange = (index: number, field: keyof Omit<BloodPressureReading, 'id' | 'created_at'>, value: string) => {
     const updatedReadings = [...bloodPressureReadings];
-    updatedReadings[index] = { ...updatedReadings[index], [field]: value };
+    (updatedReadings[index] as any)[field] = value;
     setBloodPressureReadings(updatedReadings);
   };
 
@@ -121,7 +127,7 @@ export const AnamnesisFormPage: React.FC = () => {
     }
     setIsLoading(true);
     
-    const anamnesisDataToSave: SupabaseAnamnesisData = {
+    const anamnesisDataToSave: Omit<SupabaseAnamnesisData, 'id' | 'created_at'> = {
         patient_cpf: patientCPF,
         medications_taken: medications.value,
         medications_details: medications.details || null,
@@ -158,7 +164,7 @@ export const AnamnesisFormPage: React.FC = () => {
 
         const validBPReadings = bloodPressureReadings.filter(bp => bp.date && bp.value);
         if (validBPReadings.length > 0) {
-            const bpDataToSave: SupabaseBloodPressureReading[] = validBPReadings.map(bp => ({
+            const bpDataToSave: Omit<SupabaseBloodPressureReading, 'id' | 'created_at'>[] = validBPReadings.map(bp => ({
                 patient_cpf: patientCPF,
                 reading_date: bp.date, // Already YYYY-MM-DD
                 reading_value: bp.value

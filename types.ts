@@ -1,3 +1,4 @@
+
 export interface Patient {
   id: string; // Should be unique, CPF can serve this role for now
   fullName: string;
@@ -11,6 +12,8 @@ export interface Patient {
   addressDistrict: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
+  created_at?: string; // ISO timestamp string
+  updated_at?: string; // ISO timestamp string
 }
 
 export interface AnamnesisQuestion {
@@ -71,9 +74,9 @@ export interface Appointment {
   notes?: string | null;
   status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
   created_at?: string; // ISO timestamp string
+  updated_at?: string; // ISO timestamp string
 }
 
-// Added to services/supabaseService.ts but should be here for consistency
 export interface SupabaseTreatmentPlanData {
     id?: string;
     created_at?: string;
@@ -86,6 +89,40 @@ export interface SupabaseTreatmentPlanData {
 
 export interface TreatmentPlanWithPatientInfo extends SupabaseTreatmentPlanData {
   patient_full_name?: string | null;
+}
+
+// Type definition for Supabase Anamnesis data structure
+export interface SupabaseAnamnesisData {
+  id?: string; 
+  created_at?: string; 
+  patient_cpf: string;
+  medications_taken: 'Sim' | 'Não' | null;
+  medications_details?: string | null;
+  is_smoker: 'Sim' | 'Não' | null;
+  is_pregnant: 'Sim' | 'Não' | null;
+  allergies_exist: 'Sim' | 'Não' | 'Não sei' | null;
+  allergies_details?: string | null;
+  has_disease: 'Sim' | 'Não' | null;
+  disease_cardiovascular?: boolean | null;
+  disease_respiratory?: boolean | null;
+  disease_vascular?: boolean | null;
+  disease_diabetes?: boolean | null;
+  disease_hypertension?: boolean | null;
+  disease_renal?: boolean | null;
+  disease_neoplasms?: boolean | null;
+  disease_hereditary?: boolean | null;
+  disease_other_details?: string | null;
+  surgeries_had: 'Sim' | 'Não' | null;
+  surgeries_details?: string | null;
+}
+
+// Type definition for Supabase Blood Pressure Reading data structure
+export interface SupabaseBloodPressureReading {
+  id?: string; 
+  created_at?: string; 
+  patient_cpf: string;
+  reading_date: string; // YYYY-MM-DD
+  reading_value: string;
 }
 
 

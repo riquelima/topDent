@@ -139,7 +139,7 @@ export const DashboardPage: React.FC = () => {
         </section>
         
         <section>
-          <Card titleClassName="flex items-center" title={<><BellIcon className="w-5 h-5 mr-2 text-teal-400" /> Notificações</>}>
+          <Card titleClassName="flex items-center" title={<><BellIcon className="w-5 h-5 mr-2 text-teal-400" /> Lembretes</>}>
              {notifications.length > 0 ? (
               <ul className="space-y-3">
                 {notifications.map((note, index) => (
@@ -149,7 +149,7 @@ export const DashboardPage: React.FC = () => {
                 ))}
               </ul>
             ) : (
-              <p className="text-gray-400">Nenhuma notificação nova.</p>
+              <p className="text-gray-400">Nenhum lembrete novo.</p>
             )}
           </Card>
         </section>

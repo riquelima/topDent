@@ -111,5 +111,30 @@ export const ExclamationTriangleIcon: React.FC<IconProps> = ({ className = "w-6 
   </svg>
 );
 
+export const ChevronUpDownIcon: React.FC<IconProps> = ({ className = "w-5 h-5" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
+  </svg>
+);
+
+export const DocumentTextIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625A2.25 2.25 0 004.5 3.375v17.25A2.25 2.25 0 006.75 22.5h10.5A2.25 2.25 0 0019.5 20.25V11.25a9 9 0 00-9-9z" />
+  </svg>
+);
+
+export const HeartIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+  </svg>
+);
+
+export const BriefcaseIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.073a2.25 2.25 0 01-2.25 2.25h-12a2.25 2.25 0 01-2.25-2.25V6.323a2.25 2.25 0 012.25-2.25h4.956a2.25 2.25 0 012.25 2.25V14.15M18 18.375V9.75M12 18.375V9.75M6 18.375V9.75M21 14.15v-3.82a2.25 2.25 0 00-2.25-2.25h-3.818a2.25 2.25 0 00-2.25 2.25v3.82a2.25 2.25 0 002.25 2.25h3.818a2.25 2.25 0 002.25-2.25z" />
+  </svg>
+);
+
+
 // Export IconProps for use in other components like DashboardPage
 export type { IconProps };

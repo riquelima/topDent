@@ -1,36 +1,117 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { DatePicker } from '../components/ui/DatePicker';
-import { ArrowUturnLeftIcon } from '../components/icons/HeroIcons';
-import { NavigationPath, Patient } from '../types';
-import { addPatient, getPatientByCpf, updatePatient } from '../services/supabaseService'; 
-import { useToast } from '../contexts/ToastContext'; // Import useToast
+import { Textarea } from '../components/ui/Textarea';
+import { Select } from '../components/ui/Select';
+import { ArrowUturnLeftIcon, PlusIcon, TrashIcon } from '../components/icons/HeroIcons';
+import { 
+    NavigationPath, 
+    Patient, 
+    BloodPressureReading, 
+    DiseaseOptions as AnamnesisDiseaseOptions,
+    SupabaseAnamnesisData, // Imported from types.ts
+    SupabaseBloodPressureReading // Imported from types.ts
+} from '../types';
+import { 
+    addPatient, 
+    getPatientByCpf, 
+    updatePatient,
+    addAnamnesisForm,
+    addBloodPressureReadings,
+    // SupabaseAnamnesisData, // No longer from here
+    // SupabaseBloodPressureReading // No longer from here
+} from '../services/supabaseService'; 
+import { useToast } from '../contexts/ToastContext';
+
+// Local helper for Yes/No/Details fields specific to this page
+interface YesNoDetailsProps {
+  id: string;
+  label: string;
+  value: 'Sim' | 'Não' | 'Não sei' | null;
+  detailsValue: string;
+  onValueChange: (value: 'Sim' | 'Não' | 'Não sei' | null) => void;
+  onDetailsChange: (details: string) => void;
+  detailsLabel?: string;
+  options?: { value: string; label: string }[];
+  selectPlaceholder?: string;
+  disabled?: boolean;
+}
+
+const YesNoDetailsField: React.FC<YesNoDetailsProps> = ({ id, label, value, detailsValue, onValueChange, onDetailsChange, detailsLabel = "Quais?", options, selectPlaceholder, disabled }) => {
+  const showDetails = value === 'Sim';
+  const currentOptions = options || [
+    { value: "Sim", label: "Sim" },
+    { value: "Não", label: "Não" },
+  ];
+
+  return (
+    <div className="space-y-2 p-3 border border-gray-700 rounded-md bg-gray-800">
+      <Select
+        id={id}
+        label={label}
+        value={value || ''}
+        onChange={(e: ChangeEvent<HTMLSelectElement>) => onValueChange(e.target.value as 'Sim' | 'Não' | 'Não sei' | null)}
+        options={currentOptions}
+        containerClassName="mb-0"
+        placeholder={selectPlaceholder || "Selecione..."}
+        disabled={disabled}
+      />
+      {showDetails && (
+        <Textarea
+          id={`${id}Details`}
+          label={detailsLabel}
+          value={detailsValue}
+          onChange={(e) => onDetailsChange(e.target.value)}
+          placeholder={detailsLabel}
+          containerClassName="mb-0 mt-2"
+          disabled={disabled}
+        />
+      )}
+    </div>
+  );
+};
+
+const diseaseOptionsList = [
+    { id: 'cardiovascular', label: 'Cardíaca' }, { id: 'respiratory', label: 'Respiratória' },
+    { id: 'vascular', label: 'Vascular' }, { id: 'diabetes', label: 'Diabetes' },
+    { id: 'hypertension', label: 'Hipertensão' }, { id: 'renal', label: 'Renal' },
+    { id: 'neoplasms', label: 'Neoplasias' }, { id: 'hereditary', label: 'Doenças Hereditárias' },
+] as const;
+
 
 export const NewPatientPage: React.FC = () => {
   const navigate = useNavigate();
-  const { patientId } = useParams<{ patientId?: string }>(); // patientId is CPF for edit mode
+  const { patientId } = useParams<{ patientId?: string }>(); 
   const isEditMode = !!patientId;
-  const { showToast } = useToast(); // Initialize useToast
+  const { showToast } = useToast(); 
 
   const [isLoading, setIsLoading] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  
+  // Patient Form Data
   const [formData, setFormData] = useState<Omit<Patient, 'id'>>({
-    fullName: '',
-    dob: '', // YYYY-MM-DD
-    guardian: '',
-    rg: '',
-    cpf: '',
-    phone: '',
-    addressStreet: '',
-    addressNumber: '',
-    addressDistrict: '',
-    emergencyContactName: '',
-    emergencyContactPhone: '',
+    fullName: '', dob: '', guardian: '', rg: '', cpf: '', phone: '',
+    addressStreet: '', addressNumber: '', addressDistrict: '',
+    emergencyContactName: '', emergencyContactPhone: '',
   });
+
+  // Anamnesis Form Data (only for new patient mode)
+  const [medications, setMedications] = useState<{ value: 'Sim' | 'Não' | null, details: string }>({ value: null, details: '' });
+  const [isSmoker, setIsSmoker] = useState<'Sim' | 'Não' | null>(null);
+  const [isPregnant, setIsPregnant] = useState<'Sim' | 'Não' | null>(null);
+  const [allergies, setAllergies] = useState<{ value: 'Sim' | 'Não' | 'Não sei' | null, details: string }>({ value: null, details: '' });
+  const [hasDisease, setHasDisease] = useState<'Sim' | 'Não' | null>(null);
+  const [diseases, setDiseases] = useState<AnamnesisDiseaseOptions>({
+    cardiovascular: false, respiratory: false, vascular: false, diabetes: false,
+    hypertension: false, renal: false, neoplasms: false, hereditary: false, other: ''
+  });
+  const [surgeries, setSurgeries] = useState<{ value: 'Sim' | 'Não' | null, details: string }>({ value: null, details: '' });
+  const [bloodPressureReadings, setBloodPressureReadings] = useState<BloodPressureReading[]>([{ date: '', value: '' }]);
+  const [anamnesisFilled, setAnamnesisFilled] = useState(false); // Track if anamnesis was touched
 
   useEffect(() => {
     if (isEditMode && patientId) {
@@ -44,14 +125,9 @@ export const NewPatientPage: React.FC = () => {
             showToast("Falha ao carregar dados do paciente.", "error");
           } else if (data) {
             setFormData({
-              fullName: data.fullName,
-              dob: data.dob, 
-              guardian: data.guardian || '',
-              rg: data.rg || '',
-              cpf: data.cpf, 
-              phone: data.phone || '',
-              addressStreet: data.addressStreet || '',
-              addressNumber: data.addressNumber || '',
+              fullName: data.fullName, dob: data.dob, guardian: data.guardian || '',
+              rg: data.rg || '', cpf: data.cpf, phone: data.phone || '',
+              addressStreet: data.addressStreet || '', addressNumber: data.addressNumber || '',
               addressDistrict: data.addressDistrict || '',
               emergencyContactName: data.emergencyContactName || '',
               emergencyContactPhone: data.emergencyContactPhone || '',
@@ -62,11 +138,76 @@ export const NewPatientPage: React.FC = () => {
           }
         })
         .finally(() => setIsLoading(false));
+    } else {
+        // Reset anamnesis fields if not in edit mode (e.g., navigating back from edit to new)
+        handleClearAnamnesisFields();
     }
-  }, [patientId, isEditMode, showToast]); // Added showToast to dependencies
+  }, [patientId, isEditMode, showToast]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleAnamnesisInputChange = () => {
+    if (!anamnesisFilled) setAnamnesisFilled(true);
+  };
+
+  const handleDiseaseChange = <K extends keyof AnamnesisDiseaseOptions,>(diseaseKey: K, value: AnamnesisDiseaseOptions[K]) => {
+    setDiseases(prev => ({ ...prev, [diseaseKey]: value }));
+    handleAnamnesisInputChange();
+  };
+
+  const handleBloodPressureChange = (index: number, field: keyof Omit<BloodPressureReading, 'id' | 'created_at'>, value: string) => {
+    const updatedReadings = [...bloodPressureReadings];
+    // Ensure we're updating a plain object structure compatible with state
+    const currentReading = { ...updatedReadings[index] };
+    (currentReading as any)[field] = value;
+    updatedReadings[index] = currentReading;
+    setBloodPressureReadings(updatedReadings);
+    handleAnamnesisInputChange();
+  };
+
+  const addBloodPressureReading = () => {
+    setBloodPressureReadings([...bloodPressureReadings, { date: '', value: '' }]);
+    handleAnamnesisInputChange();
+  };
+
+  const removeBPReadingField = (index: number) => {
+    if (bloodPressureReadings.length > 1) {
+      setBloodPressureReadings(bloodPressureReadings.filter((_, i) => i !== index));
+    } else {
+      setBloodPressureReadings([{ date: '', value: '' }]); // Clear if only one
+    }
+    handleAnamnesisInputChange();
+  };
+  
+  const clearPatientFields = () => {
+    setFormData({
+      fullName: '', dob: '', guardian: '', rg: '', cpf: '', phone: '',
+      addressStreet: '', addressNumber: '', addressDistrict: '',
+      emergencyContactName: '', emergencyContactPhone: '',
+    });
+  };
+
+  const handleClearAnamnesisFields = () => {
+    setMedications({ value: null, details: '' });
+    setIsSmoker(null);
+    setIsPregnant(null);
+    setAllergies({ value: null, details: '' });
+    setHasDisease(null);
+    setDiseases({
+        cardiovascular: false, respiratory: false, vascular: false, diabetes: false,
+        hypertension: false, renal: false, neoplasms: false, hereditary: false, other: ''
+    });
+    setSurgeries({ value: null, details: '' });
+    setBloodPressureReadings([{ date: '', value: '' }]);
+    setAnamnesisFilled(false);
+  };
+
+  const handleClear = () => {
+    if (isEditMode) return; 
+    clearPatientFields();
+    handleClearAnamnesisFields();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,55 +219,92 @@ export const NewPatientPage: React.FC = () => {
     setIsLoading(true);
 
     const patientDataPayload = { ...formData };
+    let patientSavedSuccessfully = false;
+    let savedPatientCpf = patientDataPayload.cpf;
 
     try {
       if (isEditMode && patientId) {
         const { cpf, ...updateData } = patientDataPayload; 
-        const { data, error } = await updatePatient(patientId, updateData);
+        const { error } = await updatePatient(patientId, updateData);
         if (error) {
-          console.error('Supabase update error:', error);
+          console.error('Supabase update patient error:', error);
           showToast('Erro ao atualizar paciente: ' + error.message, 'error');
         } else {
           showToast('Paciente atualizado com sucesso!', 'success');
-          navigate(NavigationPath.PatientDetail.replace(':patientId', patientId));
+          patientSavedSuccessfully = true;
+          savedPatientCpf = patientId; // Use the ID from params for navigation
         }
-      } else {
-        const { data, error } = await addPatient(patientDataPayload);
-        if (error) {
-          console.error('Supabase add error:', error);
-          if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code === '23505') {
+      } else { // Creating new patient
+        const { data: newPatientData, error: addPatientError } = await addPatient(patientDataPayload);
+        if (addPatientError) {
+          console.error('Supabase add patient error:', addPatientError);
+          if (addPatientError && typeof addPatientError === 'object' && 'code' in addPatientError && (addPatientError as { code: string }).code === '23505') {
             showToast('Erro ao salvar paciente: CPF já cadastrado.', 'error');
           } else {
-            showToast('Erro ao salvar paciente: ' + error.message, 'error');
+            showToast('Erro ao salvar paciente: ' + addPatientError.message, 'error');
           }
         } else {
           showToast('Paciente salvo com sucesso!', 'success');
+          patientSavedSuccessfully = true;
+          // savedPatientCpf is already formData.cpf
+          
+          // Now, if anamnesis was filled, save it
+          if (anamnesisFilled) {
+            const anamnesisDataToSave: Omit<SupabaseAnamnesisData, 'id' | 'created_at'> = {
+                patient_cpf: savedPatientCpf,
+                medications_taken: medications.value,
+                medications_details: medications.details || null,
+                is_smoker: isSmoker,
+                is_pregnant: isPregnant,
+                allergies_exist: allergies.value,
+                allergies_details: allergies.details || null,
+                has_disease: hasDisease,
+                disease_cardiovascular: diseases.cardiovascular,
+                disease_respiratory: diseases.respiratory,
+                disease_vascular: diseases.vascular,
+                disease_diabetes: diseases.diabetes,
+                disease_hypertension: diseases.hypertension,
+                disease_renal: diseases.renal,
+                disease_neoplasms: diseases.neoplasms,
+                disease_hereditary: diseases.hereditary,
+                disease_other_details: diseases.other || null,
+                surgeries_had: surgeries.value,
+                surgeries_details: surgeries.details || null,
+            };
+            const { error: anamnesisError } = await addAnamnesisForm(anamnesisDataToSave);
+            if (anamnesisError) {
+                showToast("Paciente salvo, mas erro ao salvar anamnese: " + anamnesisError.message, "warning");
+            } else {
+                showToast("Anamnese salva com sucesso!", "success");
+            }
+
+            const validBPReadings = bloodPressureReadings.filter(bp => bp.date && bp.value);
+            if (validBPReadings.length > 0) {
+                const bpDataToSave: Omit<SupabaseBloodPressureReading, 'id' | 'created_at'>[] = validBPReadings.map(bp => ({
+                    patient_cpf: savedPatientCpf,
+                    reading_date: bp.date, 
+                    reading_value: bp.value
+                }));
+                const { error: bpError } = await addBloodPressureReadings(bpDataToSave);
+                if (bpError) {
+                    showToast("Erro ao salvar aferições de P.A.: " + bpError.message, "warning");
+                } else {
+                    showToast("Aferições de P.A. salvas com sucesso!", "success");
+                }
+            }
+          }
           handleClear(); 
         }
       }
+      if (patientSavedSuccessfully && isEditMode && savedPatientCpf) {
+        navigate(NavigationPath.PatientDetail.replace(':patientId', savedPatientCpf));
+      }
     } catch (error: any) {
-      console.error('Unexpected error:', error);
+      console.error('Unexpected error in handleSubmit:', error);
       showToast('Erro inesperado: ' + error.message, 'error');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleClear = () => {
-    if (isEditMode) return; 
-    setFormData({
-      fullName: '',
-      dob: '',
-      guardian: '',
-      rg: '',
-      cpf: '',
-      phone: '',
-      addressStreet: '',
-      addressNumber: '',
-      addressDistrict: '',
-      emergencyContactName: '',
-      emergencyContactPhone: '',
-    });
   };
 
   const pageTitle = isEditMode ? "Editar Paciente" : "Cadastro de Novo Paciente";
@@ -153,29 +331,21 @@ export const NewPatientPage: React.FC = () => {
     <div className="max-w-4xl mx-auto">
       <Card title={pageTitle}>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Patient Data Section */}
           <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4">Dados Pessoais</h3>
           <Input label="Nome Completo" name="fullName" value={formData.fullName} onChange={handleChange} required disabled={isLoading} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <DatePicker 
-              label="Data de Nascimento" 
-              name="dob" 
-              value={formData.dob} 
-              onChange={handleChange} 
-              required 
-              disabled={isLoading}
+              label="Data de Nascimento" name="dob" value={formData.dob} onChange={handleChange} 
+              required disabled={isLoading}
               description="O navegador exibirá a data no formato dia/mês/ano (ex: 31/12/2000). Use o calendário para selecionar."
             />
             <Input label="Responsável (se menor)" name="guardian" value={formData.guardian} onChange={handleChange} disabled={isLoading} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Input label="RG" name="rg" value={formData.rg} onChange={handleChange} disabled={isLoading} />
-            <Input 
-              label="CPF (Será usado como ID do Paciente)" 
-              name="cpf" 
-              value={formData.cpf} 
-              onChange={handleChange} 
-              required 
-              disabled={isLoading || isEditMode} 
+            <Input label="CPF (Será usado como ID do Paciente)" name="cpf" value={formData.cpf} onChange={handleChange} 
+                   required disabled={isLoading || isEditMode} 
             />
             <Input label="Telefone" name="phone" type="tel" value={formData.phone} onChange={handleChange} disabled={isLoading} />
           </div>
@@ -193,19 +363,113 @@ export const NewPatientPage: React.FC = () => {
             <Input label="Telefone (Contato Emergência)" name="emergencyContactPhone" type="tel" value={formData.emergencyContactPhone} onChange={handleChange} disabled={isLoading} />
           </div>
 
+          {/* Anamnesis Section - Only for New Patient */}
+          {!isEditMode && (
+            <>
+              <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4 pt-6">Anamnese (Opcional)</h3>
+              <div className="space-y-4">
+                <YesNoDetailsField 
+                    id="medications" label="Uso de medicação?"
+                    value={medications.value} detailsValue={medications.details}
+                    onValueChange={(val) => { setMedications(prev => ({ ...prev, value: val as 'Sim' | 'Não' | null })); handleAnamnesisInputChange(); }}
+                    onDetailsChange={(details) => { setMedications(prev => ({ ...prev, details })); handleAnamnesisInputChange(); }}
+                    detailsLabel="Quais medicações?"
+                    options={[{ value: "Sim", label: "Sim" }, { value: "Não", label: "Não" }]}
+                    disabled={isLoading}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Select id="isSmoker" label="Fumante?" value={isSmoker || ''}
+                        onChange={(e) => { setIsSmoker(e.target.value as 'Sim' | 'Não' | null); handleAnamnesisInputChange(); }}
+                        options={[{ value: "Sim", label: "Sim" }, { value: "Não", label: "Não" }]}
+                        placeholder="Selecione..." disabled={isLoading} containerClassName="mb-0"
+                    />
+                    <Select id="isPregnant" label="Gestante?" value={isPregnant || ''}
+                        onChange={(e) => { setIsPregnant(e.target.value as 'Sim' | 'Não' | null); handleAnamnesisInputChange(); }}
+                        options={[{ value: "Sim", label: "Sim" }, { value: "Não", label: "Não" }]}
+                        placeholder="Selecione..." disabled={isLoading} containerClassName="mb-0"
+                    />
+                </div>
+                <YesNoDetailsField 
+                    id="allergies" label="Possui algum tipo de alergia?"
+                    value={allergies.value} detailsValue={allergies.details}
+                    onValueChange={(val) => { setAllergies(prev => ({ ...prev, value: val as 'Sim' | 'Não' | 'Não sei' | null })); handleAnamnesisInputChange(); }}
+                    onDetailsChange={(details) => { setAllergies(prev => ({ ...prev, details })); handleAnamnesisInputChange(); }}
+                    detailsLabel="Especificar alergias"
+                    options={[{ value: "Sim", label: "Sim" }, { value: "Não", label: "Não" }, {value: "Não sei", label: "Não sei"}]}
+                    disabled={isLoading}
+                />
+                <div>
+                    <Select id="hasDisease" label="Possui alguma doença?" value={hasDisease || ''}
+                        onChange={(e) => { setHasDisease(e.target.value as 'Sim' | 'Não' | null); handleAnamnesisInputChange(); }}
+                        options={[{ value: "Sim", label: "Sim" }, { value: "Não", label: "Não" }]}
+                        placeholder="Selecione..." disabled={isLoading}
+                    />
+                    {hasDisease === 'Sim' && (
+                    <div className="mt-4 p-4 bg-gray-800 rounded-md space-y-3">
+                        <p className="text-gray-300 mb-2">Selecione as opções abaixo:</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {diseaseOptionsList.map(opt => (
+                            <label key={opt.id} className={`flex items-center space-x-2 text-gray-200 p-2 hover:bg-gray-700 rounded ${isLoading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
+                            <input type="checkbox" className="form-checkbox h-5 w-5 text-teal-500 bg-gray-700 border-gray-600 rounded focus:ring-teal-400"
+                                checked={diseases[opt.id]}
+                                onChange={(e) => handleDiseaseChange(opt.id, e.target.checked)}
+                                disabled={isLoading}
+                            />
+                            <span>{opt.label}</span>
+                            </label>
+                        ))}
+                        </div>
+                        <Textarea label="Outras doenças (especificar)" value={diseases.other}
+                            onChange={(e) => handleDiseaseChange('other', e.target.value)}
+                            containerClassName="mt-3 mb-0" disabled={isLoading}
+                        />
+                    </div>
+                    )}
+                </div>
+                <YesNoDetailsField 
+                    id="surgeries" label="Já fez alguma cirurgia?"
+                    value={surgeries.value} detailsValue={surgeries.details}
+                    onValueChange={(val) => { setSurgeries(prev => ({ ...prev, value: val as 'Sim' | 'Não' | null })); handleAnamnesisInputChange(); }}
+                    onDetailsChange={(details) => { setSurgeries(prev => ({ ...prev, details })); handleAnamnesisInputChange(); }}
+                    detailsLabel="Qual(is) cirurgia(s)?"
+                    options={[{ value: "Sim", label: "Sim" }, { value: "Não", label: "Não" }]}
+                    disabled={isLoading}
+                />
+              </div>
+
+              <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4 pt-6">Pressão Arterial (Opcional)</h3>
+              <div className="space-y-4">
+                {bloodPressureReadings.map((reading, index) => (
+                  <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-4 p-3 border border-gray-700 rounded-md items-end bg-gray-800">
+                    <DatePicker label={`Data da Aferição ${index + 1}`} value={reading.date}
+                      onChange={(e) => handleBloodPressureChange(index, 'date', e.target.value)} disabled={isLoading}
+                    />
+                    <Input label={`Valor (ex: 120/80 mmHg)`} value={reading.value}
+                      onChange={(e) => handleBloodPressureChange(index, 'value', e.target.value)} disabled={isLoading}
+                    />
+                    <Button type="button" variant="danger" size="sm" onClick={() => removeBPReadingField(index)} disabled={isLoading || bloodPressureReadings.length <= 1} className="mb-4 h-10">
+                        <TrashIcon className="w-4 h-4"/>
+                    </Button>
+                  </div>
+                ))}
+                <Button type="button" variant="ghost" size="sm" onClick={addBloodPressureReading} leftIcon={<PlusIcon />} disabled={isLoading}>
+                  Adicionar Aferição de P.A.
+                </Button>
+              </div>
+            </>
+          )}
+
           <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-6">
             <Button 
-              type="button" 
-              variant="ghost" 
+              type="button" variant="ghost" 
               onClick={() => navigate(isEditMode && patientId ? NavigationPath.PatientDetail.replace(':patientId', patientId) : NavigationPath.Home)} 
-              leftIcon={<ArrowUturnLeftIcon />} 
-              disabled={isLoading}
+              leftIcon={<ArrowUturnLeftIcon />} disabled={isLoading}
             >
               {isEditMode ? 'Voltar Detalhes Paciente' : 'Voltar ao Início'}
             </Button>
             {!isEditMode && (
               <Button type="button" variant="danger" onClick={handleClear} disabled={isLoading}>
-                Limpar
+                Limpar Tudo
               </Button>
             )}
             <Button type="submit" variant="primary" disabled={isLoading}>

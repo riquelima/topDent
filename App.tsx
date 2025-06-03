@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route, Outlet, Link } from 'react-router-dom'; // Added Link
 import { Header } from './components/layout/Header';
@@ -12,6 +13,7 @@ import { AppointmentsPage } from './pages/AppointmentsPage';
 import { PatientAnamnesisPage } from './pages/PatientAnamnesisPage';
 import { PatientTreatmentPlansPage } from './pages/PatientTreatmentPlansPage'; 
 import { AllTreatmentPlansPage } from './pages/AllTreatmentPlansPage'; // Import the new page
+import { ViewRecordPage } from './pages/ViewRecordPage'; // Import ViewRecordPage
 import { NavigationPath } from './types';
 import { Button } from './components/ui/Button';
 import { ToastProvider } from './contexts/ToastContext'; // Import ToastProvider
@@ -68,7 +70,7 @@ const App: React.FC = () => {
             />
             <Route 
               path={NavigationPath.ViewRecord} 
-              element={<PlaceholderPage title="Visualizar Prontuário" />} 
+              element={<ViewRecordPage />} 
             />
             {/* Catch-all for undefined routes under AppLayout */}
             <Route path="*" element={<PlaceholderPage title="Página não encontrada" />} />
