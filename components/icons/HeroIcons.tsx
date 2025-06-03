@@ -80,7 +80,7 @@ export const PencilIcon: React.FC<IconProps> = ({ className = "w-5 h-5" }) => (
 export const TopDentLogo: React.FC<IconProps> = ({ className = "h-10 w-auto" }) => (
   <svg className={className} viewBox="0 0 200 40" fill="none" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
     <image 
-      href="https://sdmntpreastus.oaiusercontent.com/files/00000000-dde0-61f9-8474-6a5483ddb4b3/raw?se=2025-06-03T16%3A22%3A42Z&sp=r&sv=2024-08-04&sr=b&scid=180c5378-2c45-5e05-a1fb-99284a26edc1&skoid=b0fd38cc-3d33-418f-920e-4798de4acdd1&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-06-03T13%3A08%3A22Z&ske=2025-06-04T13%3A08%3A22Z&sks=b&skv=2024-08-04&sig=P/KDY5RrdYkY6sNeXrNdth1fW5NMWkLBK2WyZHIc13E%3D" 
+      href="https://raw.githubusercontent.com/riquelima/topDent/refs/heads/main/d9de1a64-7882-437f-a166-d84c81542726.png" 
       x="5" 
       y="3" 
       height="34" 
