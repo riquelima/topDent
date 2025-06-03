@@ -6,14 +6,14 @@ import { Button } from '../components/ui/Button';
 import { UserPlusIcon, CalendarDaysIcon, ClipboardDocumentListIcon, DocumentPlusIcon, ArrowRightOnRectangleIcon, BellIcon } from '../components/icons/HeroIcons';
 import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
 import { NavigationPath, Appointment } from '../types';
-import { AppointmentModal } from '../components/AppointmentModal'; // Import Modal
-import { getAppointmentsByDate } from '../services/supabaseService';
+import { AppointmentModal } from '../components/AppointmentModal'; 
+import { getUpcomingAppointments } from '../services/supabaseService'; // Changed import
 import { isoToDdMmYyyy } from '../src/utils/formatDate';
 
 interface QuickAccessCardProps {
   title: string;
   icon: React.ReactElement<HeroIconProps>;
-  to?: NavigationPath | '#'; // Make 'to' optional
+  to?: NavigationPath | '#'; 
   onClick?: () => void;
   color?: 'primary' | 'danger';
 }
@@ -48,7 +48,6 @@ const QuickAccessCard: React.FC<QuickAccessCardProps> = ({ title, icon, to, onCl
     );
   }
 
-  // Fallback for items that might not have 'to' or 'onClick' initially
   return (
     <Card className="text-center" hoverEffect>
       {content}
@@ -64,32 +63,28 @@ const notifications = [
 
 export const DashboardPage: React.FC = () => {
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
-  const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
-  const [isLoadingAppointments, setIsLoadingAppointments] = useState(true);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
+  const [isLoadingUpcomingAppointments, setIsLoadingUpcomingAppointments] = useState(true);
 
-  const fetchTodaysAppointments = useCallback(async () => {
-    setIsLoadingAppointments(true);
-    const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const { data, error } = await getAppointmentsByDate(todayStr);
+  const fetchUpcomingAppointments = useCallback(async (limit: number = 5) => {
+    setIsLoadingUpcomingAppointments(true);
+    const { data, error } = await getUpcomingAppointments(limit);
     if (error) {
-      console.error("Error fetching today's appointments:", error.message ? error.message : 'Unknown error', 'Details:', JSON.stringify(error, null, 2));
-      setTodayAppointments([]);
+      console.error("Error fetching upcoming appointments:", error.message ? error.message : 'Unknown error', 'Details:', JSON.stringify(error, null, 2));
+      setUpcomingAppointments([]);
     } else {
-      setTodayAppointments(data || []);
+      setUpcomingAppointments(data || []);
     }
-    setIsLoadingAppointments(false);
+    setIsLoadingUpcomingAppointments(false);
   }, []);
 
   useEffect(() => {
-    fetchTodaysAppointments();
-  }, [fetchTodaysAppointments]);
+    fetchUpcomingAppointments();
+  }, [fetchUpcomingAppointments]);
 
   const handleAppointmentSaved = (appointment: Appointment) => {
-    // If the saved appointment is for today, refresh today's list
-    const todayStr = new Date().toISOString().split('T')[0];
-    if (appointment.appointment_date === todayStr) {
-      fetchTodaysAppointments();
-    }
+    // Refresh the list of upcoming appointments if a new one is added
+    fetchUpcomingAppointments(); 
     setIsAppointmentModalOpen(false); // Close modal
   };
 
@@ -104,22 +99,25 @@ export const DashboardPage: React.FC = () => {
           <QuickAccessCard title="Novo Paciente" icon={<UserPlusIcon />} to={NavigationPath.NewPatient} />
           <QuickAccessCard title="Agendar Consulta" icon={<CalendarDaysIcon />} onClick={() => setIsAppointmentModalOpen(true)} />
           <QuickAccessCard title="Ver Prontuário" icon={<ClipboardDocumentListIcon />} to={NavigationPath.ViewRecord} /> 
-          <QuickAccessCard title="Adicionar Plano" icon={<DocumentPlusIcon />} to={NavigationPath.TreatmentPlan} />
+          <QuickAccessCard title="Adicionar Tratamento" icon={<DocumentPlusIcon />} to={NavigationPath.TreatmentPlan} />
           <QuickAccessCard title="Sair" icon={<ArrowRightOnRectangleIcon />} onClick={() => alert('Sair Clicado!')} color="danger" />
         </div>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2">
-          <Card title="Agendamentos do Dia">
-            {isLoadingAppointments ? (
-                <p className="text-gray-400 text-center py-4">Carregando agendamentos...</p>
-            ) : todayAppointments.length > 0 ? (
+          <Card title="Próximos Agendamentos">
+            {isLoadingUpcomingAppointments ? (
+                <p className="text-gray-400 text-center py-4">Carregando próximos agendamentos...</p>
+            ) : upcomingAppointments.length > 0 ? (
               <ul className="space-y-4">
-                {todayAppointments.map(appt => (
+                {upcomingAppointments.map(appt => (
                   <li key={appt.id} className="p-4 bg-gray-700 rounded-md shadow flex justify-between items-center">
                     <div>
-                      <p className="font-semibold text-teal-400">{appt.appointment_time} - {appt.patient_name || appt.patient_cpf}</p>
+                      <p className="font-semibold text-teal-400">
+                        {isoToDdMmYyyy(appt.appointment_date)} às {appt.appointment_time}
+                      </p>
+                      <p className="text-sm text-gray-200">{appt.patient_name || appt.patient_cpf}</p>
                       <p className="text-sm text-gray-300">{appt.procedure}</p>
                        <p className="text-xs text-gray-400">Status: {appt.status}</p>
                     </div>
@@ -130,7 +128,7 @@ export const DashboardPage: React.FC = () => {
                 ))}
               </ul>
             ) : (
-              <p className="text-gray-400">Nenhum agendamento para hoje.</p>
+              <p className="text-gray-400">Nenhum próximo agendamento encontrado.</p>
             )}
             <div className="mt-6 text-center">
                 <Link to={NavigationPath.Appointments}>

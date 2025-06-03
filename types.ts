@@ -92,6 +92,7 @@ export interface TreatmentPlanWithPatientInfo extends SupabaseTreatmentPlanData 
 export enum NavigationPath {
   Home = "/",
   NewPatient = "/new-patient",
+  EditPatient = "/patient/edit/:patientId", // Added for editing patient
   PatientsList = "/patients", 
   PatientDetail = "/patient/:patientId", 
   PatientAnamnesis = "/patient/:patientId/anamnesis",

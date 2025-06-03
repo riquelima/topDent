@@ -14,6 +14,7 @@ import { PatientTreatmentPlansPage } from './pages/PatientTreatmentPlansPage';
 import { AllTreatmentPlansPage } from './pages/AllTreatmentPlansPage'; // Import the new page
 import { NavigationPath } from './types';
 import { Button } from './components/ui/Button';
+import { ToastProvider } from './contexts/ToastContext'; // Import ToastProvider
 
 const AppLayout: React.FC = () => {
   return (
@@ -43,35 +44,38 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
 
 const App: React.FC = () => {
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<AppLayout />}>
-          <Route index element={<DashboardPage />} />
-          <Route path={NavigationPath.NewPatient} element={<NewPatientPage />} />
-          <Route path={NavigationPath.PatientsList} element={<PatientListPage />} /> 
-          <Route path={NavigationPath.PatientDetail} element={<PatientDetailPage />} /> 
-          <Route path={NavigationPath.PatientAnamnesis} element={<PatientAnamnesisPage />} />
-          <Route path={NavigationPath.PatientTreatmentPlans} element={<PatientTreatmentPlansPage />} />
-          <Route 
-            path={NavigationPath.Anamnesis} 
-            element={<AnamnesisFormPage />}
-          />
-          <Route path={NavigationPath.TreatmentPlan} element={<TreatmentPlanPage />} />
-          <Route path={NavigationPath.EditTreatmentPlan} element={<TreatmentPlanPage />} />
-          <Route path={NavigationPath.AllTreatmentPlans} element={<AllTreatmentPlansPage />} /> {/* Add new route */}
-          <Route 
-            path={NavigationPath.Appointments} 
-            element={<AppointmentsPage />}
-          />
-           <Route 
-            path={NavigationPath.ViewRecord} 
-            element={<PlaceholderPage title="Visualizar Prontuário" />} 
-          />
-          {/* Catch-all for undefined routes under AppLayout */}
-          <Route path="*" element={<PlaceholderPage title="Página não encontrada" />} />
-        </Route>
-      </Routes>
-    </HashRouter>
+    <ToastProvider> {/* Wrap with ToastProvider */}
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={<AppLayout />}>
+            <Route index element={<DashboardPage />} />
+            <Route path={NavigationPath.NewPatient} element={<NewPatientPage />} />
+            <Route path={NavigationPath.EditPatient} element={<NewPatientPage />} /> {/* Added route for editing patient */}
+            <Route path={NavigationPath.PatientsList} element={<PatientListPage />} /> 
+            <Route path={NavigationPath.PatientDetail} element={<PatientDetailPage />} /> 
+            <Route path={NavigationPath.PatientAnamnesis} element={<PatientAnamnesisPage />} />
+            <Route path={NavigationPath.PatientTreatmentPlans} element={<PatientTreatmentPlansPage />} />
+            <Route 
+              path={NavigationPath.Anamnesis} 
+              element={<AnamnesisFormPage />}
+            />
+            <Route path={NavigationPath.TreatmentPlan} element={<TreatmentPlanPage />} />
+            <Route path={NavigationPath.EditTreatmentPlan} element={<TreatmentPlanPage />} />
+            <Route path={NavigationPath.AllTreatmentPlans} element={<AllTreatmentPlansPage />} /> {/* Add new route */}
+            <Route 
+              path={NavigationPath.Appointments} 
+              element={<AppointmentsPage />}
+            />
+            <Route 
+              path={NavigationPath.ViewRecord} 
+              element={<PlaceholderPage title="Visualizar Prontuário" />} 
+            />
+            {/* Catch-all for undefined routes under AppLayout */}
+            <Route path="*" element={<PlaceholderPage title="Página não encontrada" />} />
+          </Route>
+        </Routes>
+      </HashRouter>
+    </ToastProvider>
   );
 };
 

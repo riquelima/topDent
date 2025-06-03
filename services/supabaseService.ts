@@ -58,6 +58,51 @@ export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
   return { data, error: supabaseError };
 };
 
+export const updatePatient = async (cpf: string, patientData: Partial<Omit<Patient, 'id' | 'cpf'>>) => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  // Map Patient interface fields to Supabase column names
+  const dataToUpdate: Record<string, any> = {};
+  if (patientData.fullName !== undefined) dataToUpdate.full_name = patientData.fullName;
+  if (patientData.dob !== undefined) dataToUpdate.dob = patientData.dob;
+  if (patientData.guardian !== undefined) dataToUpdate.guardian = patientData.guardian || null;
+  if (patientData.rg !== undefined) dataToUpdate.rg = patientData.rg || null;
+  if (patientData.phone !== undefined) dataToUpdate.phone = patientData.phone || null;
+  if (patientData.addressStreet !== undefined) dataToUpdate.address_street = patientData.addressStreet || null;
+  if (patientData.addressNumber !== undefined) dataToUpdate.address_number = patientData.addressNumber || null;
+  if (patientData.addressDistrict !== undefined) dataToUpdate.address_district = patientData.addressDistrict || null;
+  if (patientData.emergencyContactName !== undefined) dataToUpdate.emergency_contact_name = patientData.emergencyContactName || null;
+  if (patientData.emergencyContactPhone !== undefined) dataToUpdate.emergency_contact_phone = patientData.emergencyContactPhone || null;
+
+  if (Object.keys(dataToUpdate).length === 0) {
+    return { data: null, error: { message: "No data provided for update." } };
+  }
+
+  const { data, error: supabaseError } = await client
+    .from('patients')
+    .update(dataToUpdate)
+    .eq('cpf', cpf)
+    .select();
+  
+  if (supabaseError) {
+    console.error(`Error updating patient CPF ${cpf}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  }
+  return { data, error: supabaseError };
+};
+
+export const deletePatientByCpf = async (cpf: string): Promise<{ error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { error: { message: "Supabase client not initialized." } };
+
+  const { error: supabaseError } = await client.from('patients').delete().eq('cpf', cpf);
+  if (supabaseError) {
+    console.error(`Error deleting patient CPF ${cpf}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  }
+  return { error: supabaseError };
+};
+
+
 export const getPatients = async (): Promise<{ data: Patient[] | null, error: any }> => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
@@ -348,6 +393,7 @@ export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithP
 
 
 // --- APPOINTMENT FUNCTIONS ---
+// Define SupabaseAppointmentData based on the Appointment type, excluding id and created_at for inserts
 export type SupabaseAppointmentData = Omit<Appointment, 'id' | 'created_at'>;
 
 export const addAppointment = async (appointmentData: SupabaseAppointmentData) => {
@@ -369,6 +415,42 @@ export const addAppointment = async (appointmentData: SupabaseAppointmentData) =
     console.error('Error adding appointment to Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
   }
   return { data: data as Appointment | null, error: supabaseError }; 
+};
+
+export const updateAppointment = async (appointmentId: string, appointmentData: Partial<SupabaseAppointmentData>): Promise<{ data: Appointment | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  // Ensure we don't try to update patient_cpf if it's part of appointmentData for some reason during edit
+  const { patient_cpf, patient_name, ...updatePayload } = appointmentData;
+
+
+  const { data, error: supabaseError } = await client
+    .from('appointments')
+    .update(updatePayload) // Use the payload that excludes patient_cpf and patient_name
+    .eq('id', appointmentId)
+    .select()
+    .single();
+  
+  if (supabaseError) {
+    console.error(`Error updating appointment ${appointmentId}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  }
+  return { data: data as Appointment | null, error: supabaseError };
+};
+
+export const deleteAppointment = async (appointmentId: string): Promise<{ error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { error: { message: "Supabase client not initialized." } };
+
+  const { error: supabaseError } = await client
+    .from('appointments')
+    .delete()
+    .eq('id', appointmentId);
+
+  if (supabaseError) {
+    console.error(`Error deleting appointment ${appointmentId}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  }
+  return { error: supabaseError };
 };
 
 export const getAppointments = async (): Promise<{ data: Appointment[] | null, error: any }> => {
@@ -404,6 +486,28 @@ export const getAppointmentsByDate = async (date: string): Promise<{ data: Appoi
   }
   return { data: data as Appointment[] | null, error: null };
 };
+
+export const getUpcomingAppointments = async (limit: number = 5): Promise<{ data: Appointment[] | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+  const { data, error: supabaseError } = await client
+    .from('appointments')
+    .select('*')
+    .gte('appointment_date', today) // Greater than or equal to today
+    .order('appointment_date', { ascending: true })
+    .order('appointment_time', { ascending: true })
+    .limit(limit);
+
+  if (supabaseError) {
+    console.error('Error fetching upcoming appointments from Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    return { data: null, error: supabaseError };
+  }
+  return { data: data as Appointment[] | null, error: null };
+};
+
 
 export const updateAppointmentStatus = async (appointmentId: string, status: Appointment['status']): Promise<{ data: Appointment | null, error: any }> => {
   const client = getSupabaseClient();

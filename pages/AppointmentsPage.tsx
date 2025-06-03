@@ -1,14 +1,14 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom'; // Added import
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { PlusIcon } from '../components/icons/HeroIcons';
+import { PlusIcon, PencilIcon, TrashIcon } from '../components/icons/HeroIcons'; // Added PencilIcon, TrashIcon
 import { Appointment } from '../types';
-import { getAppointments, updateAppointmentStatus } from '../services/supabaseService';
+import { getAppointments, deleteAppointment } from '../services/supabaseService'; // Added deleteAppointment
 import { isoToDdMmYyyy } from '../src/utils/formatDate';
 import { AppointmentModal } from '../components/AppointmentModal';
 import { Select } from '../components/ui/Select';
+import { useToast } from '../contexts/ToastContext'; // Import useToast
 
 const statusColorMap: Record<Appointment['status'], string> = {
     Scheduled: 'bg-blue-500',
@@ -25,6 +25,7 @@ const statusLabelMap: Record<Appointment['status'], string> = {
 
 
 export const AppointmentsPage: React.FC = () => {
+  const { showToast } = useToast(); // Initialize useToast
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,15 +64,21 @@ export const AppointmentsPage: React.FC = () => {
   const handleAppointmentSaved = (savedAppointment: Appointment) => {
     fetchAppointments(); 
     handleCloseModal();
+    // Toast for saved appointment is handled within AppointmentModal
   };
   
-  const handleStatusChange = async (appointmentId: string, newStatus: Appointment['status']) => {
-    const { error: updateError } = await updateAppointmentStatus(appointmentId, newStatus);
-    if (updateError) {
-        alert(`Erro ao atualizar status: ${updateError.message}`);
+  const handleDeleteAppointment = async (appointmentId: string, appointmentDetails: string) => {
+    if (window.confirm(`Tem certeza que deseja excluir o agendamento: ${appointmentDetails}?`)) {
+      setIsLoading(true); 
+      const { error: deleteError } = await deleteAppointment(appointmentId);
+      if (deleteError) {
+        showToast(`Erro ao excluir agendamento: ${deleteError.message}`, 'error');
+        console.error("Delete appointment error:", deleteError);
+      } else {
+        showToast("Agendamento excluído com sucesso!", 'success');
         fetchAppointments(); 
-    } else {
-        fetchAppointments(); 
+      }
+      setIsLoading(false);
     }
   };
 
@@ -130,10 +137,24 @@ export const AppointmentsPage: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <Button variant="ghost" size="sm" onClick={() => handleOpenModal(appt)}>
-                        Editar Status
-                    </Button>
-                    {/* Future actions: View Details, Cancel, etc. */}
+                    <div className="flex items-center space-x-2">
+                        <button 
+                            onClick={() => handleOpenModal(appt)} 
+                            className="text-blue-400 hover:text-blue-300 p-1"
+                            title="Editar Agendamento"
+                            disabled={isLoading}
+                        >
+                            <PencilIcon className="w-5 h-5" />
+                        </button>
+                        <button 
+                            onClick={() => handleDeleteAppointment(appt.id, `${appt.procedure} - ${appt.patient_name || appt.patient_cpf} em ${isoToDdMmYyyy(appt.appointment_date)}`)}
+                            className="text-red-400 hover:text-red-300 p-1"
+                            title="Excluir Agendamento"
+                            disabled={isLoading}
+                        >
+                            <TrashIcon className="w-5 h-5" />
+                        </button>
+                    </div>
                   </td>
                 </tr>
               ))}

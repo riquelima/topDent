@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, FormEvent } from 'react';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
@@ -6,7 +5,8 @@ import { DatePicker } from './ui/DatePicker';
 import { Textarea } from './ui/Textarea';
 import { Select } from './ui/Select';
 import { Appointment, Patient } from '../types';
-import { addAppointment, getPatientByCpf, SupabaseAppointmentData, updateAppointmentStatus } from '../services/supabaseService';
+import { addAppointment, getPatientByCpf, updateAppointment, SupabaseAppointmentData } from '../services/supabaseService';
+import { useToast } from '../contexts/ToastContext'; // Import useToast
 
 interface AppointmentModalProps {
   isOpen: boolean;
@@ -23,6 +23,7 @@ const statusOptions: { value: Appointment['status']; label: string }[] = [
 ];
 
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onClose, onAppointmentSaved, existingAppointment }) => {
+  const { showToast } = useToast(); // Initialize useToast
   const [patientCpf, setPatientCpf] = useState('');
   const [patientName, setPatientName] = useState('');
   const [appointmentDate, setAppointmentDate] = useState(''); // YYYY-MM-DD
@@ -54,7 +55,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onCl
       setStatus('Scheduled');
     }
     setCpfError('');
-  }, [existingAppointment, isOpen]); // Re-populate form when modal opens or existingAppointment changes
+  }, [existingAppointment, isOpen]);
 
   const handleCpfBlur = async () => {
     if (!patientCpf) {
@@ -79,44 +80,51 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onCl
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!patientCpf || !appointmentDate || !appointmentTime || !procedure) {
-      alert('Por favor, preencha CPF, Data, Hora e Procedimento.');
+      showToast('Por favor, preencha CPF, Data, Hora e Procedimento.', 'error');
       return;
     }
     setIsLoading(true);
 
-    const appointmentData: SupabaseAppointmentData = {
-      patient_cpf: patientCpf,
-      patient_name: patientName || null, // Store name if available
+    // Prepare data for update or insert
+    // patient_cpf and patient_name are not updated for existing appointments via this modal
+    const updatableAppointmentData: Partial<SupabaseAppointmentData> = {
       appointment_date: appointmentDate,
       appointment_time: appointmentTime,
       procedure,
-      notes,
+      notes: notes || undefined,
       status,
     };
+    
+    // For new appointments, include patient_cpf and patient_name
+    const newAppointmentData: SupabaseAppointmentData = {
+      patient_cpf: patientCpf,
+      patient_name: patientName || undefined,
+      ...updatableAppointmentData,
+    } as SupabaseAppointmentData; // Cast because updatableAppointmentData is Partial
 
     try {
       let savedAppointment: Appointment | null = null;
       if (existingAppointment?.id) {
-        // Update existing appointment (status is part of appointmentData, if changing other fields, adapt here)
-        const { data, error } = await updateAppointmentStatus(existingAppointment.id, status); // Example, expand if more fields are editable
+        // Update existing appointment
+        const { data, error } = await updateAppointment(existingAppointment.id, updatableAppointmentData);
         if (error) throw error;
         savedAppointment = data;
-         alert('Status do agendamento atualizado!');
+        showToast('Agendamento atualizado com sucesso!', 'success');
       } else {
         // Add new appointment
-        const { data, error } = await addAppointment(appointmentData);
+        const { data, error } = await addAppointment(newAppointmentData);
         if (error) throw error;
-        savedAppointment = data as Appointment; // Supabase returns the inserted row
-        alert('Agendamento salvo com sucesso!');
+        savedAppointment = data as Appointment;
+        showToast('Agendamento salvo com sucesso!', 'success');
       }
       
       if (savedAppointment) {
         onAppointmentSaved(savedAppointment);
       }
-      onClose(); // Close modal on success
+      onClose();
     } catch (error: any) {
       console.error('Error saving appointment:', error);
-      alert(`Erro ao salvar agendamento: ${error.message}`);
+      showToast(`Erro ao salvar agendamento: ${error.message}`, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -136,15 +144,15 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onCl
             onBlur={handleCpfBlur}
             placeholder="Digite o CPF e pressione Tab"
             required
-            disabled={isLoading || !!existingAppointment} // Disable CPF edit for existing
+            disabled={isLoading || !!existingAppointment}
             error={cpfError}
           />
           <Input
             label="Nome do Paciente"
             value={patientName}
-            onChange={(e) => setPatientName(e.target.value)} // Allow manual override or if CPF not found
+            onChange={(e) => setPatientName(e.target.value)}
             placeholder="Nome será preenchido ou digite"
-            disabled={isLoading}
+            disabled={isLoading || !!existingAppointment} 
           />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <DatePicker
@@ -170,14 +178,14 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onCl
             onChange={(e) => setProcedure(e.target.value)}
             placeholder="Ex: Limpeza, Consulta, Extração"
             required
-            disabled={isLoading && !!existingAppointment} // Only allow editing status for now on existing
+            disabled={isLoading}
           />
           <Textarea
             label="Observações (Opcional)"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Alguma observação adicional sobre a consulta ou paciente."
-            disabled={isLoading && !!existingAppointment}
+            disabled={isLoading}
           />
            <Select
             label="Status"
@@ -192,7 +200,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onCl
               Cancelar
             </Button>
             <Button type="submit" variant="primary" disabled={isLoading}>
-              {isLoading ? (existingAppointment ? 'Atualizando...' : 'Salvando...') : (existingAppointment ? 'Atualizar Status' : 'Salvar Agendamento')}
+              {isLoading ? (existingAppointment ? 'Atualizando...' : 'Salvando...') : (existingAppointment ? 'Atualizar Agendamento' : 'Salvar Agendamento')}
             </Button>
           </div>
         </form>
