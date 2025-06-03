@@ -9,17 +9,28 @@ import { Patient, NavigationPath } from '../types';
 import { isoToDdMmYyyy } from '../src/utils/formatDate';
 import { getPatients, deletePatientByCpf } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal'; // Import ConfirmationModal
 
 type ViewMode = 'card' | 'list';
+
+interface PatientToDelete {
+  cpf: string;
+  name: string;
+}
 
 export const PatientListPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast(); 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false); // Specific loading state for delete
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('card');
+
+  // State for ConfirmationModal
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [patientToDelete, setPatientToDelete] = useState<PatientToDelete | null>(null);
 
   const fetchPatients = useCallback(async () => {
     setIsLoading(true);
@@ -57,51 +68,75 @@ export const PatientListPage: React.FC = () => {
     navigate(NavigationPath.PatientDetail.replace(':patientId', patientId));
   };
 
-  const handleDeletePatient = async (patientCpf: string, patientName: string) => {
-    console.log(`[handleDeletePatient] Called for CPF: ${patientCpf}, Name: ${patientName}`);
+  const requestDeletePatient = (cpf: string, name: string) => {
+    console.log(`[requestDeletePatient] Called for CPF: ${cpf}, Name: ${name}`);
+    setPatientToDelete({ cpf, name });
+    setIsConfirmModalOpen(true);
+  };
 
-    if (window.confirm(`Tem certeza que deseja excluir o paciente ${patientName} (CPF: ${patientCpf})? Esta ação removerá também todos os dados associados (anamnese, planos, agendamentos) se configurado com ON DELETE CASCADE.`)) {
-      console.log("[handleDeletePatient] Confirmed deletion by user.");
-      setIsLoading(true);
-      console.log("[handleDeletePatient] isLoading set to true. About to call deletePatientByCpf.");
-      try {
-        const { error: deleteError } = await deletePatientByCpf(patientCpf);
-        console.log("[handleDeletePatient] deletePatientByCpf returned. Error object:", deleteError);
+  const closeConfirmModal = () => {
+    setIsConfirmModalOpen(false);
+    setPatientToDelete(null);
+  };
 
-        if (deleteError) {
-          console.error("[handleDeletePatient] Delete error received:", deleteError);
-          let displayMessage = "Erro ao excluir paciente.";
-          if (deleteError && typeof deleteError.message === 'string' && deleteError.message) {
-            displayMessage = `Erro: ${deleteError.message}`;
-          } else if (deleteError && typeof (deleteError as any).error_description === 'string' && (deleteError as any).error_description) {
-            displayMessage = `Erro: ${(deleteError as any).error_description}`;
-          }
-          
-          if (deleteError && typeof (deleteError as any).hint === 'string' && (deleteError as any).hint) {
-            displayMessage += ` (Dica: ${(deleteError as any).hint})`;
-          }
+  const executeDeletePatient = async () => {
+    if (!patientToDelete) return;
 
-          showToast(displayMessage, "error");
-          console.error("Delete patient error object (raw):", deleteError);
-          if (typeof deleteError === 'object' && deleteError !== null) {
-              console.error("Full delete error details (JSON):", JSON.stringify(deleteError, null, 2));
-          }
-        } else {
-          console.log("[handleDeletePatient] Deletion successful (no error object from deletePatientByCpf).");
-          showToast(`Paciente ${patientName} excluído com sucesso.`, 'success');
-          fetchPatients(); 
+    console.log(`[executeDeletePatient] Confirmed deletion for CPF: ${patientToDelete.cpf}`);
+    setIsDeleting(true); 
+    try {
+      const { data: deleteData, error: deleteError } = await deletePatientByCpf(patientToDelete.cpf);
+      console.log("[executeDeletePatient] deletePatientByCpf returned. Error object:", deleteError, "Data object:", deleteData);
+
+      if (deleteError) {
+        console.error("[executeDeletePatient] Delete error received:", deleteError);
+        let displayMessage = "Erro ao excluir paciente.";
+        if (deleteError && typeof deleteError.message === 'string' && deleteError.message) {
+          displayMessage = `Erro: ${deleteError.message}`;
+        } else if (deleteError && typeof (deleteError as any).error_description === 'string' && (deleteError as any).error_description) {
+          displayMessage = `Erro: ${(deleteError as any).error_description}`;
         }
-      } catch (catchedError: any) {
-        console.error("[handleDeletePatient] CATCH BLOCK EXECUTED. Unexpected error during deletion process:", catchedError);
-        showToast(`Erro inesperado ao tentar excluir paciente: ${catchedError.message || 'Verifique o console.'}`, "error");
-      } finally {
-        console.log("[handleDeletePatient] Finally block: Setting isLoading to false.");
-        setIsLoading(false);
+        
+        if (deleteError && typeof (deleteError as any).hint === 'string' && (deleteError as any).hint) {
+          displayMessage += ` (Dica: ${(deleteError as any).hint})`;
+        } else if (deleteError.message && deleteError.message.includes("violates foreign key constraint")) {
+          displayMessage += " Verifique se o paciente possui agendamentos, planos de tratamento ou anamnese vinculados. Eles podem precisar ser removidos primeiro se a exclusão em cascata (ON DELETE CASCADE) não estiver configurada no banco de dados.";
+        }
+
+        showToast(displayMessage, "error");
+        console.error("Delete patient error object (raw):", deleteError);
+        if (typeof deleteError === 'object' && deleteError !== null) {
+            console.error("Full delete error details (JSON):", JSON.stringify(deleteError, null, 2));
+        }
+      } else {
+        // Check if deleteData actually indicates a successful deletion from Supabase
+        if (deleteData && deleteData.length > 0) {
+            console.log(`[executeDeletePatient] Supabase confirmed deletion of ${deleteData.length} record(s). Refreshing list.`);
+            showToast(`Paciente ${patientToDelete.name} excluído com sucesso.`, 'success');
+            fetchPatients(); // Refresh the list from the database
+        } else if (deleteData && deleteData.length === 0) {
+            console.warn(`[executeDeletePatient] Supabase reported 0 records deleted for CPF ${patientToDelete.cpf}. The patient might not exist, or RLS/constraints prevented deletion.`);
+            showToast(`Nenhum paciente encontrado com CPF ${patientToDelete.cpf} para excluir, ou a exclusão foi impedida por regras do banco. Verifique o console para mais detalhes.`, 'warning');
+            // Still fetch patients to ensure UI consistency if the record was already gone or RLS silently blocked.
+            fetchPatients();
+        } else {
+            // This case means deleteError is null, but deleteData is also null or not an array as expected from .select().
+            // This is an ambiguous "success" from Supabase.
+            console.warn(`[executeDeletePatient] Deletion call for ${patientToDelete.name} returned no error from Supabase, but also no confirmation data. The record might not have existed or RLS/constraints prevented action. Refreshing list.`);
+            showToast(`Tentativa de exclusão para ${patientToDelete.name} processada. Verifique a lista.`, 'warning');
+            fetchPatients();
+        }
       }
-    } else {
-      console.log("[handleDeletePatient] User cancelled deletion confirmation.");
+    } catch (catchedError: any) {
+      console.error("[executeDeletePatient] CATCH BLOCK EXECUTED. Unexpected error during deletion process:", catchedError);
+      showToast(`Erro inesperado ao tentar excluir paciente: ${catchedError.message || 'Verifique o console.'}`, "error");
+    } finally {
+      console.log("[executeDeletePatient] Finally block: Setting isDeleting to false.");
+      setIsDeleting(false);
+      closeConfirmModal();
     }
   };
+
 
   if (isLoading && patients.length === 0 && !error) { 
     return <div className="text-center py-10 text-gray-400">Carregando pacientes...</div>;
@@ -123,23 +158,23 @@ export const PatientListPage: React.FC = () => {
         variant="ghost"
         onClick={() => handleViewDetails(patient.id)} 
         leftIcon={<ClipboardDocumentListIcon className="w-4 h-4"/>}
-        disabled={isLoading}
+        disabled={isLoading || isDeleting}
         className="p-1.5 sm:p-2"
         title="Ver Detalhes"
       >
         <span className="hidden sm:inline">Detalhes</span>
       </Button>
-      <Link to={NavigationPath.EditPatient.replace(':patientId', patient.cpf)} title="Editar Paciente" className={`p-1.5 sm:p-2 rounded-md ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>
+      <Link to={NavigationPath.EditPatient.replace(':patientId', patient.cpf)} title="Editar Paciente" className={`p-1.5 sm:p-2 rounded-md ${isLoading || isDeleting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>
         <PencilIcon className="w-4 h-4 text-blue-400 hover:text-blue-300 transition-colors" />
       </Link>
       <button 
         onClick={() => {
-          if (!isLoading) handleDeletePatient(patient.cpf, patient.fullName);
+          if (!isLoading && !isDeleting) requestDeletePatient(patient.cpf, patient.fullName);
         }} 
         title="Excluir Paciente" 
-        disabled={isLoading}
+        disabled={isLoading || isDeleting}
         aria-label={`Excluir paciente ${patient.fullName}`}
-        className={`p-1.5 sm:p-2 rounded-md ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
+        className={`p-1.5 sm:p-2 rounded-md ${isLoading || isDeleting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
       >
         <TrashIcon className="w-4 h-4 text-red-400 hover:text-red-300 transition-colors" />
       </button>
@@ -154,7 +189,7 @@ export const PatientListPage: React.FC = () => {
         <Button 
           onClick={() => navigate(NavigationPath.NewPatient)} 
           leftIcon={<UserPlusIcon className="w-5 h-5" />}
-          disabled={isLoading}
+          disabled={isLoading || isDeleting}
         >
           Adicionar Novo Paciente
         </Button>
@@ -166,13 +201,13 @@ export const PatientListPage: React.FC = () => {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           containerClassName="flex-grow sm:mb-0" 
-          disabled={isLoading}
+          disabled={isLoading || isDeleting}
         />
         <div className="flex space-x-2">
           <Button
             variant={viewMode === 'card' ? 'primary' : 'ghost'}
             onClick={() => setViewMode('card')}
-            disabled={isLoading}
+            disabled={isLoading || isDeleting}
             title="Visualizar em Cards"
             aria-pressed={viewMode === 'card'}
           >
@@ -182,7 +217,7 @@ export const PatientListPage: React.FC = () => {
           <Button
             variant={viewMode === 'list' ? 'primary' : 'ghost'}
             onClick={() => setViewMode('list')}
-            disabled={isLoading}
+            disabled={isLoading || isDeleting}
             title="Visualizar em Lista"
             aria-pressed={viewMode === 'list'}
           >
@@ -204,22 +239,22 @@ export const PatientListPage: React.FC = () => {
           {filteredPatients.map(patient => (
             <Card key={patient.id} className="flex flex-col justify-between relative" hoverEffect>
               <div className="absolute top-3 right-3 flex space-x-1 z-10"> 
-                <Link to={NavigationPath.EditPatient.replace(':patientId', patient.cpf)} title="Editar Paciente" className={`p-1.5 rounded-md ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>
+                <Link to={NavigationPath.EditPatient.replace(':patientId', patient.cpf)} title="Editar Paciente" className={`p-1.5 rounded-md ${isLoading || isDeleting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>
                   <PencilIcon className="w-5 h-5 text-blue-400 hover:text-blue-300 transition-colors" />
                 </Link>
                 <button 
                   onClick={() => {
-                    console.log(`[TrashIcon onClick] Button clicked. Patient: ${patient.fullName}, CPF: ${patient.cpf}. Current isLoading state: ${isLoading}`);
-                    if (!isLoading) {
-                      handleDeletePatient(patient.cpf, patient.fullName);
+                    console.log(`[TrashIcon onClick] Button clicked. Patient: ${patient.fullName}, CPF: ${patient.cpf}. Current isLoading state: ${isLoading}, isDeleting: ${isDeleting}`);
+                    if (!isLoading && !isDeleting) {
+                      requestDeletePatient(patient.cpf, patient.fullName);
                     } else {
-                      console.warn(`[TrashIcon onClick] Action prevented: isLoading is true. The button should be disabled.`);
+                      console.warn(`[TrashIcon onClick] Action prevented: isLoading is ${isLoading}, isDeleting is ${isDeleting}. The button should be disabled.`);
                     }
                   }} 
                   title="Excluir Paciente" 
-                  disabled={isLoading}
+                  disabled={isLoading || isDeleting}
                   aria-label={`Excluir paciente ${patient.fullName}`}
-                   className={`p-1.5 rounded-md ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
+                   className={`p-1.5 rounded-md ${isLoading || isDeleting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
                 >
                   <TrashIcon className="w-5 h-5 text-red-400 hover:text-red-300 transition-colors" />
                 </button>
@@ -236,7 +271,7 @@ export const PatientListPage: React.FC = () => {
                   variant="primary"
                   onClick={() => handleViewDetails(patient.id)} 
                   leftIcon={<ClipboardDocumentListIcon className="w-5 h-5"/>}
-                  disabled={isLoading}
+                  disabled={isLoading || isDeleting}
                 >
                   Ver Detalhes
                 </Button>
@@ -269,6 +304,22 @@ export const PatientListPage: React.FC = () => {
             </tbody>
           </table>
         </Card>
+      )}
+      {patientToDelete && (
+        <ConfirmationModal
+          isOpen={isConfirmModalOpen}
+          onClose={closeConfirmModal}
+          onConfirm={executeDeletePatient}
+          title="Confirmar Exclusão de Paciente"
+          message={
+            <>
+              <p>Tem certeza que deseja excluir o paciente <strong className="text-teal-400">{patientToDelete.name}</strong> (CPF: <strong className="text-teal-400">{patientToDelete.cpf}</strong>)?</p>
+              <p className="mt-2 text-sm text-yellow-400">Atenção: Esta ação é irreversível. Se houver dados vinculados (agendamentos, anamnese, planos de tratamento) e a exclusão em cascata (<code className="bg-gray-700 px-1 rounded">ON DELETE CASCADE</code>) não estiver configurada no banco de dados, a exclusão poderá falhar ou deixar dados órfãos.</p>
+            </>
+          }
+          confirmButtonText="Excluir Paciente"
+          isLoading={isDeleting}
+        />
       )}
     </div>
   );

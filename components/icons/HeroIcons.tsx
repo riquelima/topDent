@@ -77,18 +77,17 @@ export const PencilIcon: React.FC<IconProps> = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
-
 export const TopDentLogo: React.FC<IconProps> = ({ className = "h-10 w-auto" }) => (
-  <svg className={className} viewBox="0 0 170 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Tooth Icon: original path is 12 units wide, 20 units high. Scaled by 1.8 -> 21.6w, 36h */}
-    {/* Positioned with x-offset 15, y-offset 7 to center vertically ( (50-36)/2 = 7 ) */}
-    <g transform="translate(15, 7) scale(1.8)">
-        {/* Original path: M12,6 C12,2.686 9.314,0 6,0 C2.686,0 0,2.686 0,6 C0,9.851 2.001,13.401 4.001,14.801 L4,20 L8,20 L8.001,14.801 C10,13.401 12,9.851 12,6 Z */}
-        {/* The path below is already shifted so its internal top-left is (0,0) before scaling */}
-        <path d="M12 6C12 2.686 9.314 0 6 0C2.686 0 0 2.686 0 6C0 9.851 2.001 13.401 4.001 14.801L4 20H8L8.001 14.801C10 13.401 12 9.851 12 6Z" fill="#00BCD4"/>
-    </g>
-    {/* Text: Top Dent. Tooth icon ends around x = 15 (offset) + 21.6 (scaled width) = 36.6. Text starts at x=48. */}
-    <text x="48" y="33" fontFamily="Arial, Helvetica, sans-serif" fontSize="24" fontWeight="bold" fill="white" style={{ whiteSpace: "pre" }}>
+  <svg className={className} viewBox="0 0 200 40" fill="none" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
+    <image 
+      href="https://sdmntpreastus.oaiusercontent.com/files/00000000-dde0-61f9-8474-6a5483ddb4b3/raw?se=2025-06-03T16%3A22%3A42Z&sp=r&sv=2024-08-04&sr=b&scid=180c5378-2c45-5e05-a1fb-99284a26edc1&skoid=b0fd38cc-3d33-418f-920e-4798de4acdd1&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-06-03T13%3A08%3A22Z&ske=2025-06-04T13%3A08%3A22Z&sks=b&skv=2024-08-04&sig=P/KDY5RrdYkY6sNeXrNdth1fW5NMWkLBK2WyZHIc13E%3D" 
+      x="5" 
+      y="3" 
+      height="34" 
+      width="34" 
+    />
+    {/* Texto: Top Dent - Ajustado x para dar espaço à imagem */}
+    <text x="48" y="28" fontFamily="Arial, Helvetica, sans-serif" fontSize="24" fontWeight="bold" fill="white" style={{ whiteSpace: "pre" }}>
       Top <tspan fill="#00BCD4">Dent</tspan>
     </text>
   </svg>
@@ -103,6 +102,12 @@ export const Squares2X2Icon: React.FC<IconProps> = ({ className = "w-5 h-5" }) =
 export const ListBulletIcon: React.FC<IconProps> = ({ className = "w-5 h-5" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+  </svg>
+);
+
+export const ExclamationTriangleIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
   </svg>
 );
 

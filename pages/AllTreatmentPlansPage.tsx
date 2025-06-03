@@ -3,21 +3,34 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input'; // Added import
+import { Input } from '../components/ui/Input'; 
 import { ArrowUturnLeftIcon, PencilIcon, TrashIcon, PlusIcon } from '../components/icons/HeroIcons';
-import { NavigationPath, TreatmentPlanWithPatientInfo } from '../types'; // TreatmentPlanWithPatientInfo imported from types
+import { NavigationPath, TreatmentPlanWithPatientInfo } from '../types'; 
 import { 
     getAllTreatmentPlans, 
     deleteTreatmentPlan
 } from '../services/supabaseService';
 import { isoToDdMmYyyy } from '../src/utils/formatDate';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal'; // Import ConfirmationModal
+import { useToast } from '../contexts/ToastContext'; // Import useToast
+
+interface PlanToDelete {
+    id: string;
+    description: string; 
+}
 
 export const AllTreatmentPlansPage: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [allPlans, setAllPlans] = useState<TreatmentPlanWithPatientInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // State for ConfirmationModal
+  const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] = useState(false);
+  const [planToDelete, setPlanToDelete] = useState<PlanToDelete | null>(null);
 
   const fetchAllPlans = useCallback(async () => {
     setIsLoading(true);
@@ -46,19 +59,34 @@ export const AllTreatmentPlansPage: React.FC = () => {
     navigate(NavigationPath.EditTreatmentPlan.replace(':planId', planId));
   };
 
-  const handleDeletePlan = async (planId: string | undefined) => {
-    if (!planId) return;
-    if (window.confirm("Tem certeza que deseja apagar este plano de tratamento? Esta ação não pode ser desfeita.")) {
-      // Consider adding a loading state specifically for delete if it takes time
-      const { error: deleteError } = await deleteTreatmentPlan(planId);
-      if (deleteError) {
-        alert("Erro ao apagar o plano de tratamento: " + deleteError.message);
-        console.error("Delete error:", deleteError);
-      } else {
-        alert("Plano de tratamento apagado com sucesso.");
-        fetchAllPlans(); // Refresh the list
-      }
+  const requestDeletePlan = (plan: TreatmentPlanWithPatientInfo) => {
+    if (!plan.id) return;
+    setPlanToDelete({
+      id: plan.id,
+      description: `Plano para ${plan.patient_full_name} (CPF: ${plan.patient_cpf}), criado em ${plan.created_at ? isoToDdMmYyyy(plan.created_at.split('T')[0]) : 'data desconhecida'}`
+    });
+    setIsConfirmDeleteModalOpen(true);
+  };
+
+  const closeConfirmDeleteModal = () => {
+    setIsConfirmDeleteModalOpen(false);
+    setPlanToDelete(null);
+  };
+
+  const executeDeletePlan = async () => {
+    if (!planToDelete) return;
+    
+    setIsDeleting(true);
+    const { error: deleteError } = await deleteTreatmentPlan(planToDelete.id);
+    if (deleteError) {
+      showToast("Erro ao apagar o plano de tratamento: " + deleteError.message, 'error');
+      console.error("Delete error:", deleteError);
+    } else {
+      showToast("Plano de tratamento apagado com sucesso.", 'success');
+      fetchAllPlans(); 
     }
+    setIsDeleting(false);
+    closeConfirmDeleteModal();
   };
 
   const filteredPlans = allPlans.filter(plan =>
@@ -68,7 +96,7 @@ export const AllTreatmentPlansPage: React.FC = () => {
   );
 
 
-  if (isLoading) {
+  if (isLoading && allPlans.length === 0) {
     return <div className="text-center py-10 text-gray-400">Carregando todos os planos de tratamento...</div>;
   }
 
@@ -90,7 +118,7 @@ export const AllTreatmentPlansPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <h1 className="text-3xl font-bold text-white">Todos os Planos de Tratamento</h1>
         <Link to={NavigationPath.TreatmentPlan}>
-          <Button leftIcon={<PlusIcon />} disabled={isLoading}>
+          <Button leftIcon={<PlusIcon />} disabled={isLoading || isDeleting}>
             Criar Novo Plano
           </Button>
         </Link>
@@ -101,6 +129,7 @@ export const AllTreatmentPlansPage: React.FC = () => {
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         containerClassName="mb-6"
+        disabled={isLoading || isDeleting}
       />
 
       {filteredPlans.length === 0 ? (
@@ -118,10 +147,10 @@ export const AllTreatmentPlansPage: React.FC = () => {
                     <div className="flex justify-between items-center">
                         <span>Paciente: {plan.patient_full_name} (CPF: {plan.patient_cpf})</span>
                         <div className="flex items-center space-x-2">
-                            <Button variant="ghost" size="sm" onClick={() => handleEditPlan(plan.id)} className="p-1.5" aria-label="Editar Plano">
+                            <Button variant="ghost" size="sm" onClick={() => handleEditPlan(plan.id)} className="p-1.5" aria-label="Editar Plano" disabled={isLoading || isDeleting}>
                                 <PencilIcon className="w-4 h-4 text-blue-400 hover:text-blue-300" />
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDeletePlan(plan.id)} className="p-1.5" aria-label="Apagar Plano">
+                            <Button variant="ghost" size="sm" onClick={() => requestDeletePlan(plan)} className="p-1.5" aria-label="Apagar Plano" disabled={isLoading || isDeleting}>
                                 <TrashIcon className="w-4 h-4 text-red-400 hover:text-red-300" />
                             </Button>
                         </div>
@@ -155,10 +184,21 @@ export const AllTreatmentPlansPage: React.FC = () => {
         </div>
       )}
        <div className="mt-8 pt-6 border-t border-gray-700 text-center">
-            <Button onClick={() => navigate(NavigationPath.TreatmentPlan)} leftIcon={<ArrowUturnLeftIcon />}>
+            <Button onClick={() => navigate(NavigationPath.TreatmentPlan)} leftIcon={<ArrowUturnLeftIcon />} disabled={isLoading || isDeleting}>
               Voltar para Criação de Planos
             </Button>
         </div>
+        {planToDelete && (
+            <ConfirmationModal
+            isOpen={isConfirmDeleteModalOpen}
+            onClose={closeConfirmDeleteModal}
+            onConfirm={executeDeletePlan}
+            title="Confirmar Exclusão de Plano"
+            message={`Tem certeza que deseja apagar o plano de tratamento: "${planToDelete.description}"? Esta ação não pode ser desfeita.`}
+            confirmButtonText="Apagar Plano"
+            isLoading={isDeleting}
+            />
+        )}
     </div>
   );
 };

@@ -1,10 +1,11 @@
+
 import React, { useEffect, useState } from 'react';
-import { XMarkIcon, CheckIcon } from '../icons/HeroIcons'; // Assuming CheckIcon is for success
+import { XMarkIcon, CheckIcon, ExclamationTriangleIcon } from '../icons/HeroIcons'; // Added ExclamationTriangleIcon
 
 interface ToastProps {
   id: string;
   message: string;
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'warning';
   onClose: (id: string) => void;
   duration?: number;
 }
@@ -26,6 +27,7 @@ export const Toast: React.FC<ToastProps> = ({ id, message, type, onClose, durati
   const typeStyles = {
     success: "bg-green-600",
     error: "bg-red-600",
+    warning: "bg-amber-500", // Using amber for warning
   };
   const visibilityStyles = isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10";
 
@@ -46,6 +48,7 @@ export const Toast: React.FC<ToastProps> = ({ id, message, type, onClose, durati
                 <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
         )}
+        {type === 'warning' && <ExclamationTriangleIcon className="w-6 h-6 mr-3" />}
         <span className="flex-grow text-sm md:text-base">{message}</span>
         <button 
           onClick={() => { setIsVisible(false); setTimeout(() => onClose(id), 300);}} 

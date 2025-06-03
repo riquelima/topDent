@@ -1,3 +1,4 @@
+
 // services/supabaseService.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Patient, Appointment, BloodPressureReading, AnamnesisFormUIData, SupabaseTreatmentPlanData, TreatmentPlanWithPatientInfo } from '../types'; // Added SupabaseTreatmentPlanData, TreatmentPlanWithPatientInfo
@@ -91,15 +92,27 @@ export const updatePatient = async (cpf: string, patientData: Partial<Omit<Patie
   return { data, error: supabaseError };
 };
 
-export const deletePatientByCpf = async (cpf: string): Promise<{ error: any }> => {
+export const deletePatientByCpf = async (cpf: string): Promise<{ data: any[] | null, error: any }> => {
   const client = getSupabaseClient();
-  if (!client) return { error: { message: "Supabase client not initialized." } };
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
-  const { error: supabaseError } = await client.from('patients').delete().eq('cpf', cpf);
+  console.log(`[SupabaseService] Attempting to delete patient with CPF: ${cpf}`);
+  // Add .select() to get the deleted rows back, which helps confirm the operation.
+  const { data, error: supabaseError } = await client.from('patients').delete().eq('cpf', cpf).select();
+
   if (supabaseError) {
-    console.error(`Error deleting patient CPF ${cpf}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    console.error(`[SupabaseService] Error deleting patient CPF ${cpf}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+  } else {
+    console.log(`[SupabaseService] Delete call for CPF ${cpf} successful. Supabase response data:`, data);
+    if (data && data.length > 0) {
+        console.log(`[SupabaseService] Supabase confirmed deletion of ${data.length} record(s).`);
+    } else if (data && data.length === 0) {
+        console.warn(`[SupabaseService] Supabase reported 0 records deleted for CPF ${cpf}. Patient might not have existed or RLS/constraint prevented deletion without an explicit error.`);
+    } else {
+        console.warn(`[SupabaseService] Supabase delete call for CPF ${cpf} returned no error, but data is unexpected or null:`, data);
+    }
   }
-  return { error: supabaseError };
+  return { data, error: supabaseError };
 };
 
 
@@ -214,7 +227,7 @@ export const getAnamnesisFormByPatientCpf = async (patientCpf: string): Promise<
 
   if (supabaseError) {
     console.error(`Error fetching anamnesis form for CPF ${patientCpf}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
-    return { data: null, error: supabaseError };
+    return { data: data as SupabaseAnamnesisData | null, error: supabaseError };
   }
   return { data: data as SupabaseAnamnesisData | null, error: null };
 };

@@ -6,7 +6,7 @@ interface CardProps {
   className?: string;
   title?: React.ReactNode; // Changed from string to React.ReactNode
   titleClassName?: string;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => void; // Updated type
   hoverEffect?: boolean;
 }
 

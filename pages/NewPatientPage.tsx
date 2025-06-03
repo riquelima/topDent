@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -155,7 +156,15 @@ export const NewPatientPage: React.FC = () => {
           <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4">Dados Pessoais</h3>
           <Input label="Nome Completo" name="fullName" value={formData.fullName} onChange={handleChange} required disabled={isLoading} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <DatePicker label="Data de Nascimento" name="dob" value={formData.dob} onChange={handleChange} required disabled={isLoading} />
+            <DatePicker 
+              label="Data de Nascimento" 
+              name="dob" 
+              value={formData.dob} 
+              onChange={handleChange} 
+              required 
+              disabled={isLoading}
+              description="O navegador exibirá a data no formato dia/mês/ano (ex: 31/12/2000). Use o calendário para selecionar."
+            />
             <Input label="Responsável (se menor)" name="guardian" value={formData.guardian} onChange={handleChange} disabled={isLoading} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom'; // Added import
 import { Card } from '../components/ui/Card';
@@ -7,8 +8,8 @@ import { Appointment } from '../types';
 import { getAppointments, deleteAppointment } from '../services/supabaseService'; // Added deleteAppointment
 import { isoToDdMmYyyy } from '../src/utils/formatDate';
 import { AppointmentModal } from '../components/AppointmentModal';
-import { Select } from '../components/ui/Select';
-import { useToast } from '../contexts/ToastContext'; // Import useToast
+import { ConfirmationModal } from '../components/ui/ConfirmationModal'; // Import ConfirmationModal
+import { useToast } from '../contexts/ToastContext'; 
 
 const statusColorMap: Record<Appointment['status'], string> = {
     Scheduled: 'bg-blue-500',
@@ -23,14 +24,23 @@ const statusLabelMap: Record<Appointment['status'], string> = {
     Cancelled: 'Cancelado',
 };
 
+interface AppointmentToDelete {
+  id: string;
+  details: string;
+}
 
 export const AppointmentsPage: React.FC = () => {
-  const { showToast } = useToast(); // Initialize useToast
+  const { showToast } = useToast(); 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+
+  // State for ConfirmationModal
+  const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] = useState(false);
+  const [appointmentToDelete, setAppointmentToDelete] = useState<AppointmentToDelete | null>(null);
 
   const fetchAppointments = useCallback(async () => {
     setIsLoading(true);
@@ -64,26 +74,36 @@ export const AppointmentsPage: React.FC = () => {
   const handleAppointmentSaved = (savedAppointment: Appointment) => {
     fetchAppointments(); 
     handleCloseModal();
-    // Toast for saved appointment is handled within AppointmentModal
   };
   
-  const handleDeleteAppointment = async (appointmentId: string, appointmentDetails: string) => {
-    if (window.confirm(`Tem certeza que deseja excluir o agendamento: ${appointmentDetails}?`)) {
-      setIsLoading(true); 
-      const { error: deleteError } = await deleteAppointment(appointmentId);
-      if (deleteError) {
-        showToast(`Erro ao excluir agendamento: ${deleteError.message}`, 'error');
-        console.error("Delete appointment error:", deleteError);
-      } else {
-        showToast("Agendamento excluído com sucesso!", 'success');
-        fetchAppointments(); 
-      }
-      setIsLoading(false);
+  const requestDeleteAppointment = (id: string, details: string) => {
+    setAppointmentToDelete({ id, details });
+    setIsConfirmDeleteModalOpen(true);
+  };
+
+  const closeConfirmDeleteModal = () => {
+    setIsConfirmDeleteModalOpen(false);
+    setAppointmentToDelete(null);
+  };
+
+  const executeDeleteAppointment = async () => {
+    if (!appointmentToDelete) return;
+    
+    setIsDeleting(true); 
+    const { error: deleteError } = await deleteAppointment(appointmentToDelete.id);
+    if (deleteError) {
+      showToast(`Erro ao excluir agendamento: ${deleteError.message}`, 'error');
+      console.error("Delete appointment error:", deleteError);
+    } else {
+      showToast("Agendamento excluído com sucesso!", 'success');
+      fetchAppointments(); 
     }
+    setIsDeleting(false);
+    closeConfirmDeleteModal();
   };
 
 
-  if (isLoading) {
+  if (isLoading && appointments.length === 0) {
     return <div className="text-center py-10 text-gray-400">Carregando agendamentos...</div>;
   }
 
@@ -98,6 +118,7 @@ export const AppointmentsPage: React.FC = () => {
         <Button 
           onClick={() => handleOpenModal()} 
           leftIcon={<PlusIcon className="w-5 h-5" />}
+          disabled={isLoading || isDeleting}
         >
           Novo Agendamento
         </Button>
@@ -142,15 +163,15 @@ export const AppointmentsPage: React.FC = () => {
                             onClick={() => handleOpenModal(appt)} 
                             className="text-blue-400 hover:text-blue-300 p-1"
                             title="Editar Agendamento"
-                            disabled={isLoading}
+                            disabled={isLoading || isDeleting}
                         >
                             <PencilIcon className="w-5 h-5" />
                         </button>
                         <button 
-                            onClick={() => handleDeleteAppointment(appt.id, `${appt.procedure} - ${appt.patient_name || appt.patient_cpf} em ${isoToDdMmYyyy(appt.appointment_date)}`)}
+                            onClick={() => requestDeleteAppointment(appt.id, `${appt.procedure} - ${appt.patient_name || appt.patient_cpf} em ${isoToDdMmYyyy(appt.appointment_date)}`)}
                             className="text-red-400 hover:text-red-300 p-1"
                             title="Excluir Agendamento"
-                            disabled={isLoading}
+                            disabled={isLoading || isDeleting}
                         >
                             <TrashIcon className="w-5 h-5" />
                         </button>
@@ -168,6 +189,17 @@ export const AppointmentsPage: React.FC = () => {
         onAppointmentSaved={handleAppointmentSaved}
         existingAppointment={editingAppointment}
       />
+      {appointmentToDelete && (
+        <ConfirmationModal
+          isOpen={isConfirmDeleteModalOpen}
+          onClose={closeConfirmDeleteModal}
+          onConfirm={executeDeleteAppointment}
+          title="Confirmar Exclusão de Agendamento"
+          message={`Tem certeza que deseja excluir o agendamento: ${appointmentToDelete.details}? Esta ação é irreversível.`}
+          confirmButtonText="Excluir Agendamento"
+          isLoading={isDeleting}
+        />
+      )}
     </div>
   );
 };
