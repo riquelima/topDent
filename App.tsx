@@ -1,30 +1,38 @@
 
-import React from 'react';
-import { HashRouter, Routes, Route, Outlet, Link } from 'react-router-dom'; // Added Link
+import React, { useState, useCallback } from 'react';
+import { HashRouter, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { DashboardPage } from './pages/DashboardPage';
 import { NewPatientPage } from './pages/NewPatientPage';
 import { AnamnesisFormPage } from './pages/AnamnesisFormPage';
 import { TreatmentPlanPage } from './pages/TreatmentPlanPage';
-import { PatientListPage } from './pages/PatientListPage'; 
-import { PatientDetailPage } from './pages/PatientDetailPage'; 
+import { PatientListPage } from './pages/PatientListPage';
+import { PatientDetailPage } from './pages/PatientDetailPage';
 import { AppointmentsPage } from './pages/AppointmentsPage';
 import { PatientAnamnesisPage } from './pages/PatientAnamnesisPage';
-import { PatientTreatmentPlansPage } from './pages/PatientTreatmentPlansPage'; 
-import { AllTreatmentPlansPage } from './pages/AllTreatmentPlansPage'; // Import the new page
-import { ViewRecordPage } from './pages/ViewRecordPage'; // Import ViewRecordPage
+import { PatientTreatmentPlansPage } from './pages/PatientTreatmentPlansPage';
+import { AllTreatmentPlansPage } from './pages/AllTreatmentPlansPage';
+import { ViewRecordPage } from './pages/ViewRecordPage';
+import { LoginPage } from './pages/LoginPage';
 import { NavigationPath } from './types';
 import { Button } from './components/ui/Button';
-import { ToastProvider } from './contexts/ToastContext'; // Import ToastProvider
+import { ToastProvider } from './contexts/ToastContext';
 
-const AppLayout: React.FC = () => {
+interface AppLayoutProps {
+  onLogout: () => void;
+  children: React.ReactNode;
+}
+
+const AppLayout: React.FC<AppLayoutProps> = ({ onLogout, children }) => {
   return (
-    <div className="flex flex-col min-h-screen bg-gray-900 text-white">
-      <Header />
-      <main className="flex-grow pt-28 pb-12 px-4 sm:px-6 lg:px-8"> {/* pt-20 (header height) + padding */}
+    // Use a very dark gray, slightly lighter than pure black for the main app area if #121212 is for login
+    // Using bg-gray-950 as a stand-in for a very dark gray, can be adjusted if needed.
+    <div className="flex flex-col min-h-screen bg-gray-950 text-white selection:bg-blue-500 selection:text-white">
+      <Header onLogout={onLogout} />
+      <main className="flex-grow pt-28 pb-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-           <Outlet /> {/* Child routes will render here */}
+           {children}
         </div>
       </main>
       <Footer />
@@ -32,7 +40,6 @@ const AppLayout: React.FC = () => {
   );
 };
 
-// Placeholder for pages not fully implemented but linked
 const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
   <div className="text-center py-10">
     <h1 className="text-3xl font-bold text-teal-400">{title}</h1>
@@ -43,38 +50,58 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
   </div>
 );
 
-
 const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // const navigateInstanceRef = React.useRef<ReturnType<typeof useNavigate> | null>(null); // Not currently used
+
+  const handleLoginSuccess = useCallback(() => {
+    setIsAuthenticated(true);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    setIsAuthenticated(false);
+  }, []);
+
+  const ProtectedRoute: React.FC<{children: JSX.Element}> = ({ children }) => {
+    if (!isAuthenticated) {
+      return <Navigate to="/login" replace />;
+    }
+    return children;
+  };
+
   return (
-    <ToastProvider> {/* Wrap with ToastProvider */}
+    <ToastProvider>
       <HashRouter>
         <Routes>
-          <Route path="/" element={<AppLayout />}>
-            <Route index element={<DashboardPage />} />
-            <Route path={NavigationPath.NewPatient} element={<NewPatientPage />} />
-            <Route path={NavigationPath.EditPatient} element={<NewPatientPage />} /> {/* Added route for editing patient */}
-            <Route path={NavigationPath.PatientsList} element={<PatientListPage />} /> 
-            <Route path={NavigationPath.PatientDetail} element={<PatientDetailPage />} /> 
-            <Route path={NavigationPath.PatientAnamnesis} element={<PatientAnamnesisPage />} />
-            <Route path={NavigationPath.PatientTreatmentPlans} element={<PatientTreatmentPlansPage />} />
-            <Route 
-              path={NavigationPath.Anamnesis} 
-              element={<AnamnesisFormPage />}
-            />
-            <Route path={NavigationPath.TreatmentPlan} element={<TreatmentPlanPage />} />
-            <Route path={NavigationPath.EditTreatmentPlan} element={<TreatmentPlanPage />} />
-            <Route path={NavigationPath.AllTreatmentPlans} element={<AllTreatmentPlansPage />} /> {/* Add new route */}
-            <Route 
-              path={NavigationPath.Appointments} 
-              element={<AppointmentsPage />}
-            />
-            <Route 
-              path={NavigationPath.ViewRecord} 
-              element={<ViewRecordPage />} 
-            />
-            {/* Catch-all for undefined routes under AppLayout */}
-            <Route path="*" element={<PlaceholderPage title="Página não encontrada" />} />
-          </Route>
+          <Route
+            path="/login"
+            element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage onLoginSuccess={handleLoginSuccess} />}
+          />
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <AppLayout onLogout={handleLogout}>
+                  <Routes>
+                    <Route index element={<DashboardPage />} />
+                    <Route path={NavigationPath.NewPatient.substring(1)} element={<NewPatientPage />} />
+                    <Route path={NavigationPath.EditPatient.substring(1)} element={<NewPatientPage />} />
+                    <Route path={NavigationPath.PatientsList.substring(1)} element={<PatientListPage />} />
+                    <Route path={NavigationPath.PatientDetail.substring(1)} element={<PatientDetailPage />} />
+                    <Route path={NavigationPath.PatientAnamnesis.substring(1)} element={<PatientAnamnesisPage />} />
+                    <Route path={NavigationPath.PatientTreatmentPlans.substring(1)} element={<PatientTreatmentPlansPage />} />
+                    <Route path={NavigationPath.Anamnesis.substring(1)} element={<AnamnesisFormPage />} />
+                    <Route path={NavigationPath.TreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
+                    <Route path={NavigationPath.EditTreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
+                    <Route path={NavigationPath.AllTreatmentPlans.substring(1)} element={<AllTreatmentPlansPage />} />
+                    <Route path={NavigationPath.Appointments.substring(1)} element={<AppointmentsPage />} />
+                    <Route path={NavigationPath.ViewRecord.substring(1)} element={<ViewRecordPage />} />
+                    <Route path="*" element={<PlaceholderPage title="Página não encontrada" />} />
+                  </Routes>
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </HashRouter>
     </ToastProvider>

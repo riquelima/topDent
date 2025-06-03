@@ -1,20 +1,23 @@
 
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { TopDentLogo, ArrowRightOnRectangleIcon } from '../icons/HeroIcons'; // Added ArrowRightOnRectangleIcon for Sair
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { TopDentLogo, ArrowRightOnRectangleIcon } from '../icons/HeroIcons';
 import { NavigationPath } from '../../types';
 
 interface NavLinkProps {
   to: NavigationPath | string;
   children: React.ReactNode;
-  onClick?: () => void; // Optional onClick for mobile menu item closure
-  isMobile?: boolean; // To apply different styling if needed
+  onClick?: () => void;
+  isMobile?: boolean;
 }
 
 const NavLink: React.FC<NavLinkProps> = ({ to, children, onClick, isMobile = false }) => {
   const location = useLocation();
   const baseToPath = typeof to === 'string' ? to.split('/:')[0] : to;
-  const isActive = location.pathname === to || (location.pathname.startsWith(baseToPath) && to !== NavigationPath.Home && baseToPath !== '/');
+  // Adjust isActive to handle /* in main route
+  const isActive = location.pathname === (to === NavigationPath.Home ? '/' : to) || 
+                   (location.pathname.startsWith(baseToPath) && to !== NavigationPath.Home && baseToPath !== '/');
+
 
   const mobileStyles = "block px-3 py-2 rounded-md text-base font-medium";
   const desktopStyles = "px-3 py-2 rounded-md text-sm font-medium";
@@ -31,8 +34,13 @@ const NavLink: React.FC<NavLinkProps> = ({ to, children, onClick, isMobile = fal
   );
 };
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  onLogout: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -42,8 +50,9 @@ export const Header: React.FC = () => {
     setIsMobileMenuOpen(false);
   };
 
-  const handleLogout = () => {
-    alert('Logout clicado!');
+  const handleLogoutClick = () => {
+    onLogout();
+    navigate('/login'); // Navigate to login page after calling onLogout
     closeMobileMenu();
   };
 
@@ -56,7 +65,6 @@ export const Header: React.FC = () => {
               <TopDentLogo className="h-10 md:h-12 w-auto" />
             </Link>
           </div>
-          {/* Desktop Menu */}
           <nav className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-4">
               <NavLink to={NavigationPath.Home}>Início</NavLink>
@@ -68,15 +76,13 @@ export const Header: React.FC = () => {
           </nav>
           <div className="hidden md:block">
              <button
-                onClick={handleLogout}
+                onClick={handleLogoutClick}
                 className="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-red-600 hover:text-white transition-colors duration-200 ease-in-out border border-red-500 hover:border-red-600 flex items-center"
               >
-                <ArrowRightOnRectangleIcon className="w-5 h-5 mr-2 transform scale-x-[-1]" /> {/* Icon for Sair */}
+                <ArrowRightOnRectangleIcon className="w-5 h-5 mr-2 transform scale-x-[-1]" />
                 Sair
               </button>
           </div>
-
-          {/* Mobile Menu Button */}
           <div className="md:hidden">
             <button
               onClick={toggleMobileMenu}
@@ -98,8 +104,6 @@ export const Header: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Mobile Menu, show/hide based on state */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-gray-800 shadow-lg" id="mobile-menu">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
@@ -112,7 +116,7 @@ export const Header: React.FC = () => {
           <div className="pt-3 pb-3 border-t border-gray-700">
             <div className="flex items-center px-5">
               <button
-                  onClick={handleLogout}
+                  onClick={handleLogoutClick}
                   className="w-full flex items-center justify-center px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-red-700 hover:text-white transition-colors duration-200 ease-in-out border border-red-500 hover:border-red-600"
               >
                 <ArrowRightOnRectangleIcon className="w-5 h-5 mr-2 transform scale-x-[-1]" />
