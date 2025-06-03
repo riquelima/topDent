@@ -77,6 +77,14 @@ export interface Appointment {
   updated_at?: string; // ISO timestamp string
 }
 
+export type PaymentMethod = "Dinheiro" | "Cartão de Crédito" | "Cartão de Débito" | "PIX" | "Transferência Bancária" | "Boleto" | "Outro";
+
+export interface PaymentInput {
+  id?: string; // For potential future use if payments become separate entities
+  value: string; // Store as string for form input, convert to number on save
+  payment_method: PaymentMethod | "";
+  payment_date: string; // YYYY-MM-DD
+}
 export interface SupabaseTreatmentPlanData {
     id?: string;
     created_at?: string;
@@ -84,7 +92,10 @@ export interface SupabaseTreatmentPlanData {
     description: string;
     file_names?: string | null; 
     dentist_signature?: string | null;
-    file_url?: string | null; // Added for storing the public URL of the uploaded file
+    file_url?: string | null;
+    procedures_performed?: string | null; // Comma-separated string of procedures
+    prescribed_medication?: string | null;
+    payments?: PaymentInput[] | null; // Array of payment objects
 }
 
 export interface TreatmentPlanWithPatientInfo extends SupabaseTreatmentPlanData {
