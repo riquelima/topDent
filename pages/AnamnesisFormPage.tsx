@@ -9,8 +9,13 @@ import { Select } from '../components/ui/Select';
 import { DatePicker } from '../components/ui/DatePicker';
 import { ArrowUturnLeftIcon, PlusIcon } from '../components/icons/HeroIcons';
 import { NavigationPath, BloodPressureReading, DiseaseOptions } from '../types';
-import { saveDataToSheetViaAppsScript, SHEET_ANAMNESIS_FORMS, SHEET_BLOOD_PRESSURE_READINGS } from '../services/googleSheetsService';
-import { isoToDdMmYyyy } from '../src/utils/formatDate'; // Corrected import path
+import { 
+    addAnamnesisForm, 
+    addBloodPressureReadings,
+    SupabaseAnamnesisData,
+    SupabaseBloodPressureReading
+} from '../services/supabaseService'; // Changed import
+// isoToDdMmYyyy is for display, not for saving to DB if already in YYYY-MM-DD
 
 interface YesNoDetailsProps {
   id: string;
@@ -76,7 +81,7 @@ export const AnamnesisFormPage: React.FC = () => {
   });
   const [surgeries, setSurgeries] = useState<{ value: 'Sim' | 'Não' | null, details: string }>({ value: null, details: '' });
   const [bloodPressureReadings, setBloodPressureReadings] = useState<BloodPressureReading[]>([
-    { date: '', value: '' },
+    { date: '', value: '' }, // date is YYYY-MM-DD from DatePicker
   ]);
 
   const handleDiseaseChange = <K extends keyof DiseaseOptions,>(diseaseKey: K, value: DiseaseOptions[K]) => {
@@ -115,71 +120,69 @@ export const AnamnesisFormPage: React.FC = () => {
         return;
     }
     setIsLoading(true);
-    const timestamp = new Date().toISOString();
-
-    const anamnesisDataRows = [ // Single row for anamnesis
-        [
-            timestamp,
-            patientCPF,
-            medications.value,
-            medications.details,
-            isSmoker,
-            isPregnant,
-            allergies.value,
-            allergies.details,
-            hasDisease,
-            diseases.cardiovascular,
-            diseases.respiratory,
-            diseases.vascular,
-            diseases.diabetes,
-            diseases.hypertension,
-            diseases.renal,
-            diseases.neoplasms,
-            diseases.hereditary,
-            diseases.other,
-            surgeries.value,
-            surgeries.details,
-        ]
-    ];
+    
+    const anamnesisDataToSave: SupabaseAnamnesisData = {
+        patient_cpf: patientCPF,
+        medications_taken: medications.value,
+        medications_details: medications.details || null,
+        is_smoker: isSmoker,
+        is_pregnant: isPregnant,
+        allergies_exist: allergies.value,
+        allergies_details: allergies.details || null,
+        has_disease: hasDisease,
+        disease_cardiovascular: diseases.cardiovascular,
+        disease_respiratory: diseases.respiratory,
+        disease_vascular: diseases.vascular,
+        disease_diabetes: diseases.diabetes,
+        disease_hypertension: diseases.hypertension,
+        disease_renal: diseases.renal,
+        disease_neoplasms: diseases.neoplasms,
+        disease_hereditary: diseases.hereditary,
+        disease_other_details: diseases.other || null,
+        surgeries_had: surgeries.value,
+        surgeries_details: surgeries.details || null,
+    };
     
     let allSuccess = true;
     let messages: string[] = [];
 
     try {
-        const anamnesisResponse = await saveDataToSheetViaAppsScript(SHEET_ANAMNESIS_FORMS, anamnesisDataRows);
-        if (anamnesisResponse.success) {
-            messages.push(anamnesisResponse.message || "Anamnese salva.");
-        } else {
+        const { error: anamnesisError } = await addAnamnesisForm(anamnesisDataToSave);
+        if (anamnesisError) {
             allSuccess = false;
-            messages.push("Falha ao salvar Anamnese: " + (anamnesisResponse.message || "Erro desconhecido."));
+            messages.push("Falha ao salvar Anamnese: " + anamnesisError.message);
+            console.error("Supabase Anamnesis Error:", anamnesisError);
+        } else {
+            messages.push("Anamnese salva com sucesso.");
         }
 
         const validBPReadings = bloodPressureReadings.filter(bp => bp.date && bp.value);
         if (validBPReadings.length > 0) {
-            const bpDataRows = validBPReadings.map(bp => [ // Multiple rows for BP readings
-                timestamp,
-                patientCPF,
-                isoToDdMmYyyy(bp.date), // Format date here
-                bp.value
-            ]);
-            const bpResponse = await saveDataToSheetViaAppsScript(SHEET_BLOOD_PRESSURE_READINGS, bpDataRows);
-            if (bpResponse.success) {
-                 messages.push(bpResponse.message || "Pressão Arterial salva.");
-            } else {
+            const bpDataToSave: SupabaseBloodPressureReading[] = validBPReadings.map(bp => ({
+                patient_cpf: patientCPF,
+                reading_date: bp.date, // Already YYYY-MM-DD
+                reading_value: bp.value
+            }));
+            const { error: bpError } = await addBloodPressureReadings(bpDataToSave);
+            if (bpError) {
                 allSuccess = false;
-                messages.push("Falha ao salvar Pressão Arterial: " + (bpResponse.message || "Erro desconhecido."));
+                messages.push("Falha ao salvar Pressão Arterial: " + bpError.message);
+                console.error("Supabase BP Error:", bpError);
+            } else {
+                 messages.push("Pressão Arterial salva com sucesso.");
             }
         }
         
         if (allSuccess) {
-            alert('Formulário de Anamnese salvo com sucesso! \n' + messages.join('\n'));
+            alert('Formulário de Anamnese salvo! \n' + messages.join('\n'));
             clearForm();
         } else {
             alert('Erro ao salvar o formulário: \n' + messages.join('\n'));
         }
 
-    } catch (error: any) {
+    } catch (error: any) { // Catch unexpected client-side errors
         alert('Erro crítico ao salvar formulário: ' + error.message);
+        console.error("Unexpected error:", error);
     } finally {
         setIsLoading(false);
     }
@@ -309,7 +312,7 @@ export const AnamnesisFormPage: React.FC = () => {
               <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3 p-3 border border-gray-700 rounded-md">
                 <DatePicker 
                   label={`Data da Aferição ${index + 1}`}
-                  value={reading.date}
+                  value={reading.date} // YYYY-MM-DD
                   onChange={(e) => handleBloodPressureChange(index, 'date', e.target.value)}
                   disabled={isLoading}
                 />

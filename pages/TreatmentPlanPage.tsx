@@ -7,8 +7,7 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { ArrowUturnLeftIcon, TrashIcon } from '../components/icons/HeroIcons';
 import { NavigationPath } from '../types';
-// Updated import:
-import { saveDataToSheetViaAppsScript, SHEET_TREATMENT_PLANS } from '../services/googleSheetsService';
+import { addTreatmentPlan, SupabaseTreatmentPlanData } from '../services/supabaseService'; // Changed import
 
 
 export const TreatmentPlanPage: React.FC = () => {
@@ -23,6 +22,8 @@ export const TreatmentPlanPage: React.FC = () => {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       setUploadedFiles(prevFiles => [...prevFiles, ...Array.from(event.target.files as FileList)]);
+      // Note: For actual file uploads to Supabase Storage, you'd do more here.
+      // For now, we're just storing file names.
     }
   };
 
@@ -49,30 +50,29 @@ export const TreatmentPlanPage: React.FC = () => {
         return;
     }
     setIsLoading(true);
-    const timestamp = new Date().toISOString();
-    const fileNames = uploadedFiles.map(file => file.name).join(', '); // File uploads are not handled by Apps Script directly here
+    
+    const fileNamesString = uploadedFiles.map(file => file.name).join(', ') || null;
 
-    const treatmentPlanDataRows = [ // Single row for treatment plan
-        [
-            timestamp,
-            patientCPF,
-            description,
-            fileNames, // This will just be a string of names; actual file upload needs separate handling
-            dentistSignature,
-        ]
-    ];
+    const treatmentPlanDataToSave: SupabaseTreatmentPlanData = {
+        patient_cpf: patientCPF,
+        description: description,
+        file_names: fileNamesString, 
+        dentist_signature: dentistSignature || null,
+    };
 
     try {
-        // Use the new service function
-        const response = await saveDataToSheetViaAppsScript(SHEET_TREATMENT_PLANS, treatmentPlanDataRows);
-        if (response.success) {
-            alert('Plano de Tratamento salvo com sucesso! ' + (response.message || `Registros atualizados: ${response.updates}`));
-            clearForm();
+        const { data, error } = await addTreatmentPlan(treatmentPlanDataToSave);
+        if (error) {
+            alert('Erro ao salvar Plano de Tratamento: ' + error.message);
+            console.error("Supabase error:", error);
         } else {
-            alert('Erro ao salvar Plano de Tratamento: ' + response.message);
+            alert('Plano de Tratamento salvo com sucesso no Supabase!');
+            console.log("Saved treatment plan:", data);
+            clearForm();
         }
     } catch (error: any) {
-        alert('Erro ao salvar Plano de Tratamento: ' + error.message);
+        alert('Erro inesperado ao salvar Plano de Tratamento: ' + error.message);
+        console.error("Unexpected error:", error);
     } finally {
         setIsLoading(false);
     }
@@ -119,7 +119,7 @@ export const TreatmentPlanPage: React.FC = () => {
                   </label>
                   <p className="pl-1">ou arraste e solte</p>
                 </div>
-                <p className="text-xs text-gray-500">PNG, JPG, PDF até 10MB. (Apenas nomes dos arquivos são salvos na planilha)</p>
+                <p className="text-xs text-gray-500">PNG, JPG, PDF até 10MB. (Apenas nomes dos arquivos são salvos no banco)</p>
               </div>
             </div>
             {uploadedFiles.length > 0 && (

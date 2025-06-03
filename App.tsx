@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route, Outlet, Link } from 'react-router-dom'; // Added Link
 import { Header } from './components/layout/Header';
@@ -6,8 +7,10 @@ import { DashboardPage } from './pages/DashboardPage';
 import { NewPatientPage } from './pages/NewPatientPage';
 import { AnamnesisFormPage } from './pages/AnamnesisFormPage';
 import { TreatmentPlanPage } from './pages/TreatmentPlanPage';
+import { PatientListPage } from './pages/PatientListPage'; // New import
+import { PatientDetailPage } from './pages/PatientDetailPage'; // New import
 import { NavigationPath } from './types';
-import { Button } from './components/ui/Button'; // Added Button
+import { Button } from './components/ui/Button';
 
 const AppLayout: React.FC = () => {
   return (
@@ -42,6 +45,8 @@ const App: React.FC = () => {
         <Route path="/" element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path={NavigationPath.NewPatient} element={<NewPatientPage />} />
+          <Route path={NavigationPath.PatientsList} element={<PatientListPage />} /> {/* New Route */}
+          <Route path={NavigationPath.PatientDetail} element={<PatientDetailPage />} /> {/* New Route */}
           <Route path={NavigationPath.Anamnesis} element={<AnamnesisFormPage />} />
           <Route path={NavigationPath.TreatmentPlan} element={<TreatmentPlanPage />} />
           <Route 

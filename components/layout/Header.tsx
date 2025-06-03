@@ -5,13 +5,17 @@ import { TopDentLogo } from '../icons/HeroIcons';
 import { NavigationPath } from '../../types';
 
 interface NavLinkProps {
-  to: NavigationPath;
+  to: NavigationPath | string; // Allow string for dynamic paths like PatientDetail
   children: React.ReactNode;
 }
 
 const NavLink: React.FC<NavLinkProps> = ({ to, children }) => {
   const location = useLocation();
-  const isActive = location.pathname === to;
+  // For dynamic paths like /patient/:id, we check if the path starts with the base
+  const baseToPath = typeof to === 'string' ? to.split('/:')[0] : to;
+  const isActive = location.pathname === to || (location.pathname.startsWith(baseToPath) && to !== NavigationPath.Home && baseToPath !== '/');
+
+
   return (
     <Link
       to={to}
@@ -36,7 +40,7 @@ export const Header: React.FC = () => {
           <nav className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-4">
               <NavLink to={NavigationPath.Home}>Início</NavLink>
-              <NavLink to={NavigationPath.NewPatient}>Pacientes</NavLink> {/* Simplified to link to NewPatient for now */}
+              <NavLink to={NavigationPath.PatientsList}>Pacientes</NavLink> {/* Changed from NewPatient to PatientsList */}
               <NavLink to={NavigationPath.Appointments}>Agendamentos</NavLink>
               {/* Placeholder for more nav items */}
             </div>

@@ -1,11 +1,11 @@
 
 export interface Patient {
-  id: string;
+  id: string; // Should be unique, CPF can serve this role for now
   fullName: string;
-  dob: string;
+  dob: string; // Expected in YYYY-MM-DD for input, but can be DD/MM/YYYY for display
   guardian?: string;
   rg: string;
-  cpf: string;
+  cpf: string; // Can be used as ID
   phone: string;
   addressStreet: string;
   addressNumber: string;
@@ -38,7 +38,7 @@ export interface BloodPressureReading {
 }
 
 export interface Anamnesis {
-  patientId: string;
+  patientId: string; // CPF of the patient
   medications: AnamnesisQuestion;
   isSmoker: AnamnesisQuestion;
   isPregnant: AnamnesisQuestion;
@@ -50,7 +50,7 @@ export interface Anamnesis {
 }
 
 export interface TreatmentPlan {
-  patientId: string;
+  patientId: string; // CPF of the patient
   description: string;
   files?: File[];
   dentistSignature: string; // Could be text or image data if advanced
@@ -66,8 +66,10 @@ export interface Appointment {
 export enum NavigationPath {
   Home = "/",
   NewPatient = "/new-patient",
-  Anamnesis = "/anamnesis", // Simplified for now, ideally /patient/:id/anamnesis
-  TreatmentPlan = "/treatment-plan", // Simplified for now, ideally /patient/:id/treatment-plan
-  Appointments = "/appointments", // Placeholder for future
-  ViewRecord = "/view-record", // Placeholder for future
+  PatientsList = "/patients", // New: For listing patients
+  PatientDetail = "/patient/:patientId", // New: For patient details, :patientId will be CPF
+  Anamnesis = "/anamnesis", 
+  TreatmentPlan = "/treatment-plan", 
+  Appointments = "/appointments", 
+  ViewRecord = "/view-record", 
 }

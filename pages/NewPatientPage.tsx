@@ -7,15 +7,15 @@ import { Button } from '../components/ui/Button';
 import { DatePicker } from '../components/ui/DatePicker';
 import { ArrowUturnLeftIcon } from '../components/icons/HeroIcons';
 import { NavigationPath, Patient } from '../types';
-import { saveDataToSheetViaAppsScript, SHEET_PATIENTS } from '../services/googleSheetsService';
-import { isoToDdMmYyyy } from '../src/utils/formatDate'; // Corrected import path
+import { addPatient } from '../services/supabaseService'; // Changed import
+import { isoToDdMmYyyy } from '../src/utils/formatDate'; 
 
 export const NewPatientPage: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<Omit<Patient, 'id'>>({
     fullName: '',
-    dob: '',
+    dob: '', // YYYY-MM-DD
     guardian: '',
     rg: '',
     cpf: '',
@@ -39,40 +39,27 @@ export const NewPatientPage: React.FC = () => {
     }
     setIsLoading(true);
 
-    const patientId = formData.cpf; // Using CPF as a simple Patient ID
-    const timestamp = new Date().toISOString();
+    // formData already matches Omit<Patient, 'id'> which addPatient expects
+    // DOB is already in YYYY-MM-DD format from DatePicker
+    const patientDataToSave: Omit<Patient, 'id'> = {
+        ...formData
+    };
     
-    const patientDataRow = [ // This is a single row, so it's an array within an array for the service
-      [
-        timestamp,
-        patientId,
-        formData.fullName,
-        isoToDdMmYyyy(formData.dob), // Format date here
-        formData.guardian || null,
-        formData.rg || null,
-        formData.cpf,
-        formData.phone || null,
-        formData.addressStreet || null,
-        formData.addressNumber || null,
-        formData.addressDistrict || null,
-        formData.emergencyContactName || null,
-        formData.emergencyContactPhone || null,
-      ]
-    ];
-
     try {
-      // Use the new service function
-      const response = await saveDataToSheetViaAppsScript(SHEET_PATIENTS, patientDataRow);
-      if (response.success) {
-        alert('Paciente salvo com sucesso! ' + (response.message || `Registros atualizados: ${response.updates}`));
-        // Optionally clear form or navigate
-        handleClear(); 
-        // navigate(NavigationPath.Home); 
+      const { data, error } = await addPatient(patientDataToSave);
+      if (error) {
+        console.error('Supabase error:', error);
+        alert('Erro ao salvar paciente: ' + error.message);
       } else {
-        alert('Erro ao salvar paciente: ' + response.message);
+        alert('Paciente salvo com sucesso no Supabase!');
+        console.log('Saved patient data:', data);
+        handleClear(); 
+        // navigate(NavigationPath.PatientsList); // Optionally navigate
       }
     } catch (error: any) {
-      alert('Erro ao salvar paciente: ' + error.message);
+      // This catch block might be redundant if supabaseService handles errors well
+      console.error('Unexpected error:', error);
+      alert('Erro inesperado ao salvar paciente: ' + error.message);
     } finally {
       setIsLoading(false);
     }
