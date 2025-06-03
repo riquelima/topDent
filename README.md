@@ -1,255 +1,165 @@
-🦷 Top Dent Clinic Manager - Funcionalidades Detalhadas
-🏠 Painel Principal (Dashboard)
-📊 Visão Geral
-Apresenta um resumo das atividades e informações importantes.
+# 🦷 Top Dent Clinic Manager
 
-🚀 Acesso Rápido
-➕ Novo Paciente: Atalho para cadastrar um novo paciente rapidamente.
+Sistema de gerenciamento odontológico completo com cadastro de pacientes, agendamento de consultas, prontuários, anamnese e planos de tratamento.
 
-📅 Agendar Consulta: Abre o modal de agendamento de consultas.
+---
 
-📋 Ver Prontuário: Tela de visualização de prontuários completos.
+## 📊 Painel Principal (Dashboard)
 
-📝 Adicionar Tratamento: Criação de novos planos de tratamento.
+- **Visão Geral**: Resumo das atividades e informações importantes.
+- **Acesso Rápido**:
+  - ➕ Novo Paciente
+  - 📅 Agendar Consulta
+  - 📋 Ver Prontuário
+  - 📝 Adicionar Tratamento
+  - 🚪 Sair (logout simulado)
+- **Próximos Agendamentos**:
+  - Lista dos 5 agendamentos mais próximos.
+  - Botões para "Ver Paciente" e "Ver Todos Agendamentos".
+- **Lembretes**:
+  - Exibição de alertas (ex: "Encomendar material").
 
-🚪 Sair: Simula o logout do sistema (exibe um alerta).
+---
 
-🗓️ Próximos Agendamentos
-Lista os próximos 5 agendamentos (data, hora, paciente, procedimento, status).
+## 🙋‍♂️ Gestão de Pacientes
 
-Botão "Ver Paciente" → Detalhes do paciente.
+### ➕ Cadastro de Novo Paciente
 
-Botão "Ver Todos Agendamentos" → Lista completa.
+- **Dados Pessoais**: Nome, nascimento, responsável, RG, CPF, telefone.
+- **Endereço**: Rua, número, bairro.
+- **Contato de Emergência**: Nome e telefone.
+- **Anamnese Inicial** (opcional):
+  - Medicação, Fumante, Gestante, Alergias, Doenças, Cirurgias, Pressão Arterial.
+- **Ações**:
+  - 💾 Salvar
+  - 🔄 Limpar Tudo
+  - ↩️ Voltar
 
-🔔 Lembretes
-Exibe lembretes importantes (ex: "Encomendar material").
+### ✏️ Edição de Paciente
 
-🙋‍♂️ Gestão de Pacientes
-🆕 Cadastro de Novo Paciente (/new-patient)
-👤 Dados Pessoais: Nome, nascimento, responsável, RG, CPF (ID único), telefone
-🏠 Endereço: Rua, número, bairro
-🆘 Contato de Emergência: Nome e telefone
+- Permite editar dados pessoais, endereço e contato.
+- A anamnese é editada separadamente.
+- 💾 Atualizar
 
-📄 Anamnese Inicial (opcional)
-💊 Medicação: Usa? Quais?
+### 👥 Lista de Pacientes
 
-🚬 Fumante: Sim/Não
+- Busca por nome ou CPF.
+- Modos de visualização: Cards ou Tabela.
+- Ações:
+  - 📋 Detalhes
+  - ✏️ Editar
+  - 🗑️ Excluir (com verificação de vínculos)
 
-🤰 Gestante: Sim/Não
+---
 
-🤧 Alergias: Sim, Não, Não Sei
+## 🩺 Gestão de Anamnese
 
-🩺 Doenças: Cardíaca, Respiratória, etc. + Campo “Outras”
+### 📄 Tela do Paciente
 
-🔪 Cirurgias: Já fez? Quais?
+- Modo visualização e modo formulário.
+- Campos: medicação, fumante, gestante, alergias, doenças, cirurgias, PA.
+- ✍️ Editar / Salvar / Cancelar
 
-🩸 Pressão Arterial: Vários registros (data e valor)
+### 📝 Formulário Independente
 
-Ações:
+- CPF obrigatório para vincular.
+- Usado fora do perfil do paciente.
 
-💾 Salvar
+---
 
-🔄 Limpar Tudo
+## 📝 Planos de Tratamento
 
-↩️ Voltar
+### ➕ Novo Plano
 
-✏️ Edição de Paciente (/patient/edit/:patientId)
-Carrega dados via CPF
+- CPF do paciente
+- Descrição, upload de arquivos, assinatura do dentista
+- 💾 Salvar / 🔄 Limpar / ↩️ Voltar
 
-Edita dados pessoais, endereço, emergência
+### ✏️ Editar Plano
 
-⚠️ Anamnese não é editada aqui
+- Altera descrição, arquivo e assinatura
+- CPF não editável
 
-💾 Atualizar
+### 📄 Tratamentos por Paciente
 
-👥 Lista de Pacientes (/patients)
-📑 Lista completa
+- Lista com data, descrição, arquivo, assinatura
+- Ações: ✏️ Editar / 🗑️ Apagar / ➕ Novo Plano / ↩️ Voltar
 
-🔍 Busca por nome/CPF
+### 📑 Todos os Planos
 
-Modos de Visualização:
+- Filtro por paciente
+- Ações: ✏️ Editar / 🗑️ Apagar / ➕ Criar Novo Plano
 
-🃏 Cards: Resumo + ações
+---
 
-📜 Lista: Tabela com colunas
+## 🗓️ Gestão de Agendamentos
 
-Ações:
+### ➕ Criar / ✏️ Editar Agendamento
 
-📋 Detalhes
-
-✏️ Editar
-
-🗑️ Excluir (com modal de confirmação)
-⚠️ Exclusão pode ser impedida se houver dados vinculados
-
-ℹ️ Detalhes do Paciente (/patient/:patientId)
-Exibe Dados Pessoais, Endereço, Emergência
-
-🔗 Links:
-
-🩺 Ver/Preencher Anamnese
-
-📝 Ver/Preencher Tratamentos
-
-↩️ Voltar
-
-🩺 Gestão de Anamnese
-📄 Tela de Anamnese (/patient/:patientId/anamnesis)
-Modo Visualização:
-
-Exibe dados existentes
-
-Modo Formulário (novo ou edição):
-
-Preenche ou atualiza
-
-➕ Adiciona/remover registros de P.A.
-
-Ações:
-
-💾 Salvar Anamnese
-
-🚫 Cancelar
-
-↩️ Voltar
-
-📝 Formulário Standalone (/anamnesis)
-Digita CPF para vincular
-
-Similar à tela vinculada ao paciente
-
-📝 Gestão de Planos de Tratamento
-➕ Novo Plano (/treatment-plan)
-CPF obrigatório
-
-📜 Descrição
-
-☁️ Upload (PDF, PNG, JPG)
-
-🖋️ Assinatura do dentista
-
-Ações:
-
-💾 Salvar
-
-🔄 Limpar
-
-↩️ Voltar
-
-✏️ Editar Plano (/treatment-plan/edit/:planId)
-Altera descrição, assinatura, arquivo
-
-CPF não é editável
-
-💾 Atualizar
-
-↩️ Voltar
-
-📄 Tratamentos por Paciente (/patient/:patientId/treatment-plans)
-📅 Data, descrição, arquivo, assinatura
-
-🖼️ Miniatura (se imagem)
-
-🔗 PDF com link de download
-
-Ações:
-
-✏️ Editar
-
-🗑️ Apagar
-
-➕ Novo Plano
-
-↩️ Voltar
-
-📑 Todos os Tratamentos (/all-treatment-plans)
-Lista geral com filtro por paciente
-
-👤 Nome + CPF com link
-
-📄 Arquivo anexado
-
-✏️ Editar
-
-🗑️ Apagar
-
-➕ Criar Novo Plano
-
-🗓️ Gestão de Agendamentos
-➕ Novo / ✏️ Editar Agendamento (Modal)
-👤 Busca paciente por CPF/nome
-
-📅 Data, ⏰ Hora
-
-🦷 Procedimentos (checklist + "Outro(s)")
-
-🗒️ Observações
-
-🏷️ Status (dropdown)
-
-Ações:
-
-💾 Salvar/Atualizar
-
-🚫 Cancelar
-
-📅 Todos os Agendamentos (/appointments)
-📊 Tabela ordenada por data/hora
-
-Colunas: Data, Hora, Paciente, Procedimento, Status, Ações
-
-✏️ Editar
-
-🗑️ Excluir
-
-➕ Novo Agendamento
-
-📂 Visualizar Prontuário (/view-record)
-🔍 Busca de Paciente
-Busca por nome ou CPF
-
-Dropdown com sugestões
-
-Botão “Buscar”
-
-📄 Exibição do Prontuário
-👤 Dados pessoais
-
-🩺 Anamnese (última) + link para edição
-
-❤️ Histórico de P.A.
-
-📝 Planos de Tratamento
-
-🗓️ Histórico de Agendamentos
-
-🔄 Limpar Busca / Voltar
-
-✨ Componentes e Funcionalidades Gerais
-🧭 Navegação
-🔗 Header: Links e logo
-
-📱 Menu responsivo
-
-🚪 Logout (alerta)
-
-🦶 Rodapé
-Copyright / Info de desenvolvimento
-
-🖼️ Modal de Imagem
-Ampliação de anexos
-
-⚠️ Modal de Confirmação
-Exclui dados após confirmação
-
-🍞 Toasts
-Notificações de sucesso, erro ou alerta
-
-🎨 Interface
-Tema escuro
-
-Ícones e UI padronizados
-
-Responsivo
-
-Scroll personalizado
+- CPF ou nome do paciente
+- Data, hora, procedimentos, status
+- 💾 Salvar / 🚫 Cancelar
+
+### 📅 Lista de Agendamentos
+
+- Ordenação por data/hora
+- Colunas: Data, Hora, Paciente, Procedimento, Status, Ações
+- Ações: ✏️ Editar / 🗑️ Excluir
+
+---
+
+## 📂 Prontuário Completo
+
+### 🔍 Busca
+
+- Por nome ou CPF
+- Autocompletar + botão "Buscar"
+
+### 📄 Seções do Prontuário
+
+- Dados Pessoais
+- Anamnese Resumida
+- Histórico de PA
+- Planos de Tratamento
+- Histórico de Agendamentos
+- 🔄 Limpar / Voltar
+
+---
+
+## ✨ Componentes Globais
+
+- 🧭 Navegação: Header com links principais
+- 📱 Menu responsivo para mobile
+- 🚪 Logout (alerta)
+- 🦶 Rodapé com informações
+- 🖼️ Modal de imagem
+- ⚠️ Modal de confirmação
+- 🍞 Toasts (notificações)
+- 🎨 UI:
+  - Tema escuro
+  - Ícones, cards, tabelas, inputs padronizados
+  - Layout responsivo
+
+---
+
+## 📸 Template de Impressão - Registro Clínico
+
+```text
+PROCEDIMENTOS REALIZADOS
+________________________________________________________
+________________________________________________________
+________________________________________________________
+________________________________________________________
+________________________________________________________
+
+MEDICAÇÃO PRESCRITA
+________________________________________________________
+________________________________________________________
+________________________________________________________
+________________________________________________________
+
+PAGAMENTOS REALIZADOS
+VALOR: ___________     FORMA DE PAGT: _____________     DATA: ___ / ___ / ______
+VALOR: ___________     FORMA DE PAGT: _____________     DATA: ___ / ___ / ______
+VALOR: ___________     FORMA DE PAGT: _____________     DATA: ___ / ___ / ______
+VALOR: ___________     FORMA DE PAGT: _____________     DATA: ___ / ___ / ______
