@@ -39,6 +39,9 @@ export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
   const { cpf, fullName, dob, guardian, rg, phone, addressStreet, addressNumber, addressDistrict, emergencyContactName, emergencyContactPhone } = patientData;
   
   const dataToInsert = {
+    // id is likely auto-generated UUID by Supabase, so we don't include it here.
+    // The error details show a UUID in the first column.
+    created_at: new Date().toISOString(), // Add current timestamp
     cpf,
     full_name: fullName,
     dob, // Expected in YYYY-MM-DD format
@@ -75,6 +78,7 @@ export const updatePatient = async (cpf: string, patientData: Partial<Omit<Patie
   if (patientData.addressDistrict !== undefined) dataToUpdate.address_district = patientData.addressDistrict || null;
   if (patientData.emergencyContactName !== undefined) dataToUpdate.emergency_contact_name = patientData.emergencyContactName || null;
   if (patientData.emergencyContactPhone !== undefined) dataToUpdate.emergency_contact_phone = patientData.emergencyContactPhone || null;
+  // 'updated_at' could also be set here if needed: dataToUpdate.updated_at = new Date().toISOString();
 
   if (Object.keys(dataToUpdate).length === 0) {
     return { data: null, error: { message: "No data provided for update." } };
