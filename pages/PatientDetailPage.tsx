@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'; // Adicionado useLocation
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ArrowUturnLeftIcon } from '../components/icons/HeroIcons';
@@ -13,7 +14,7 @@ interface DetailItemProps {
   value?: string | null;
 }
 const DetailItem: React.FC<DetailItemProps> = ({ label, value }) => {
-  if (!value && typeof value !== 'string') return null; // Allow empty string but not null/undefined
+  if (!value && typeof value !== 'string') return null; 
   return (
     <div>
       <dt className="text-sm font-medium text-gray-400">{label}</dt>
@@ -24,8 +25,9 @@ const DetailItem: React.FC<DetailItemProps> = ({ label, value }) => {
 
 
 export const PatientDetailPage: React.FC = () => {
-  const { patientId } = useParams<{ patientId: string }>(); // patientId is CPF from the route
+  const { patientId } = useParams<{ patientId: string }>(); 
   const navigate = useNavigate();
+  const location = useLocation(); // Hook para acessar o estado da navegação
   const [patient, setPatient] = useState<Patient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,12 @@ export const PatientDetailPage: React.FC = () => {
     fetchPatientDetails();
   }, [patientId]);
 
+  // Determina o caminho e o texto do botão "Voltar" com base no estado da navegação
+  const cameFromDentistDashboard = location.state?.from === NavigationPath.Home;
+  const backButtonPath = cameFromDentistDashboard ? NavigationPath.Home : NavigationPath.PatientsList;
+  const backButtonText = cameFromDentistDashboard ? "Voltar ao Início" : "Voltar para Lista de Pacientes";
+
+
   if (isLoading) {
     return <div className="text-center py-10 text-gray-400">Carregando detalhes do paciente...</div>;
   }
@@ -66,8 +74,8 @@ export const PatientDetailPage: React.FC = () => {
       <Card title="Erro">
         <p className="text-center text-red-400 py-8">{error || 'Paciente não encontrado.'}</p>
         <div className="mt-6 text-center">
-          <Button onClick={() => navigate(NavigationPath.PatientsList)} leftIcon={<ArrowUturnLeftIcon />}>
-            Voltar para Lista de Pacientes
+          <Button onClick={() => navigate(backButtonPath)} leftIcon={<ArrowUturnLeftIcon />}>
+            {backButtonText}
           </Button>
         </div>
       </Card>
@@ -120,8 +128,8 @@ export const PatientDetailPage: React.FC = () => {
           </div>
 
           <div className="mt-8 pt-6 border-t border-gray-700 text-center">
-            <Button onClick={() => navigate(NavigationPath.PatientsList)} leftIcon={<ArrowUturnLeftIcon />}>
-              Voltar para Lista de Pacientes
+            <Button onClick={() => navigate(backButtonPath)} leftIcon={<ArrowUturnLeftIcon />}>
+              {backButtonText}
             </Button>
           </div>
         </div>

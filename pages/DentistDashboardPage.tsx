@@ -8,12 +8,12 @@ import {
     MagnifyingGlassIcon, 
     DocumentPlusIcon, 
     ArrowRightOnRectangleIcon,
-    XMarkIcon, // Adicionado
-    CheckIcon  // Adicionado
+    XMarkIcon, 
+    CheckIcon  
 } from '../components/icons/HeroIcons';
 import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
 import { NavigationPath, Appointment } from '../types';
-import { getAppointmentsByDate, updateAppointmentStatus } from '../services/supabaseService'; // Adicionado updateAppointmentStatus
+import { getAppointmentsByDate, updateAppointmentStatus } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
 import { formatToHHMM } from '../src/utils/formatDate';
 
@@ -83,7 +83,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ user
   const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(true);
   const [appointmentsError, setAppointmentsError] = useState<string | null>(null);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false); // Estado para controlar o carregamento da atualização de status
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false); 
 
   const todayDateString = new Date().toISOString().split('T')[0]; 
 
@@ -119,7 +119,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ user
         console.error("Error updating appointment status:", error);
     } else {
         showToast(`Agendamento marcado como ${statusLabelMap[newStatus].toLowerCase()}!`, 'success');
-        fetchTodayAppointments(); // Refresh the list
+        fetchTodayAppointments(); 
     }
     setIsUpdatingStatus(false);
   };
@@ -172,7 +172,11 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ user
                             {!appt.dentist_name && <div className="mb-4"></div>} 
                         </div>
                         <div className="mt-4 flex justify-between items-center">
-                            <Link to={`/patient/${appt.patient_cpf}`} className="flex-grow mr-2">
+                            <Link 
+                                to={`/patient/${appt.patient_cpf}`} 
+                                state={{ from: NavigationPath.Home }} // Passa o estado aqui
+                                className="flex-grow mr-2"
+                            >
                                  <Button variant="ghost" size="sm" fullWidth className="border-teal-500 text-teal-400 hover:bg-teal-500 hover:text-white">
                                     Ver Prontuário
                                 </Button>
