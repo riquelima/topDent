@@ -21,7 +21,7 @@ import {
     SupabaseTreatmentPlanData, 
     Appointment
 } from '../types';
-import { isoToDdMmYyyy } from '../src/utils/formatDate';
+import { isoToDdMmYyyy, formatToHHMM } from '../src/utils/formatDate'; // Import formatToHHMM
 import { 
     getPatients, 
     getPatientByCpf,
@@ -445,7 +445,7 @@ export const ViewRecordPage: React.FC = () => {
               <ul className="space-y-3">
                 {appointments.map(appt => (
                   <li key={appt.id} className="p-3 bg-gray-700 rounded-md text-sm">
-                    <p className="font-semibold text-gray-100">{isoToDdMmYyyy(appt.appointment_date)} às {appt.appointment_time}</p>
+                    <p className="font-semibold text-gray-100">{isoToDdMmYyyy(appt.appointment_date)} às {formatToHHMM(appt.appointment_time)}</p>
                     <p className="text-gray-300">Procedimento: {appt.procedure}</p>
                     <p className="text-gray-400">Status: {statusLabelMap[appt.status] || appt.status}</p>
                     {appt.notes && <p className="text-xs text-gray-400 mt-1">Obs: {appt.notes}</p>}

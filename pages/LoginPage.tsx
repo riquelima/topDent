@@ -113,9 +113,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         showToast('Login de Admin realizado com sucesso!', 'success', 3000);
         onLoginSuccess('admin', 'Admin');
         navigate(NavigationPath.Home);
-      } else if (username === 'gilson' && pass === '1234') {
+      } else if (username === 'junior' && pass === '1234') {
         showToast('Login de Dentista realizado com sucesso!', 'success', 3000);
-        onLoginSuccess('dentist', 'Dr. Gilson');
+        onLoginSuccess('dentist', 'Dr. Junior');
+        navigate(NavigationPath.Home);
+      } else if (username === 'henrique' && pass === '1234') {
+        showToast('Login de Dentista realizado com sucesso!', 'success', 3000);
+        onLoginSuccess('dentist', 'Dr. Henrique');
         navigate(NavigationPath.Home);
       } else {
         setErrorMessage('Usuário ou senha inválidos.');

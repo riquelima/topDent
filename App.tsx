@@ -79,9 +79,9 @@ const App: React.FC = () => {
       return <DashboardPage />;
     }
     if (userRole === 'dentist') {
-      return <DentistDashboardPage userName={userName || 'Dentista'} />;
+      return <DentistDashboardPage userName={userName || 'Dentista'} onLogout={handleLogout} />;
     }
-    return <Navigate to="/login" replace />; // Fallback, should not happen if ProtectedRoute works
+    return <Navigate to="/login" replace />; 
   };
 
   return (
@@ -99,19 +99,27 @@ const App: React.FC = () => {
                 <AppLayout onLogout={handleLogout} userRole={userRole} userName={userName}>
                   <Routes>
                     <Route index element={renderDashboard()} />
-                    {/* Admin-specific routes can be further protected if needed */}
+                    
+                    {/* Admin-ONLY routes */}
                     {userRole === 'admin' && (
                       <>
                         <Route path={NavigationPath.NewPatient.substring(1)} element={<NewPatientPage />} />
                         <Route path={NavigationPath.EditPatient.substring(1)} element={<NewPatientPage />} />
                         <Route path={NavigationPath.PatientsList.substring(1)} element={<PatientListPage />} />
                         <Route path={NavigationPath.Anamnesis.substring(1)} element={<AnamnesisFormPage />} />
-                        <Route path={NavigationPath.TreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
-                        <Route path={NavigationPath.EditTreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
                         <Route path={NavigationPath.AllTreatmentPlans.substring(1)} element={<AllTreatmentPlansPage />} />
                       </>
                     )}
-                    {/* Routes accessible by both admin and potentially dentist (if dashboard links to them) */}
+
+                    {/* Routes accessible by ADMIN and DENTIST */}
+                    {(userRole === 'admin' || userRole === 'dentist') && (
+                      <>
+                        <Route path={NavigationPath.TreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
+                        <Route path={NavigationPath.EditTreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
+                      </>
+                    )}
+                    
+                    {/* Routes accessible by ANY logged-in user (adjust role checks if needed) */}
                     <Route path={NavigationPath.PatientDetail.substring(1)} element={<PatientDetailPage />} />
                     <Route path={NavigationPath.PatientAnamnesis.substring(1)} element={<PatientAnamnesisPage />} />
                     <Route path={NavigationPath.PatientTreatmentPlans.substring(1)} element={<PatientTreatmentPlansPage />} />

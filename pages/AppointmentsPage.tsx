@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom'; // Added import
+import { Link } from 'react-router-dom'; 
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { PlusIcon, PencilIcon, TrashIcon } from '../components/icons/HeroIcons'; // Added PencilIcon, TrashIcon
+import { PlusIcon, PencilIcon, TrashIcon } from '../components/icons/HeroIcons'; 
 import { Appointment } from '../types';
-import { getAppointments, deleteAppointment } from '../services/supabaseService'; // Added deleteAppointment
-import { isoToDdMmYyyy } from '../src/utils/formatDate';
+import { getAppointments, deleteAppointment } from '../services/supabaseService'; 
+import { isoToDdMmYyyy, formatToHHMM } from '../src/utils/formatDate'; // Import formatToHHMM
 import { AppointmentModal } from '../components/AppointmentModal';
-import { ConfirmationModal } from '../components/ui/ConfirmationModal'; // Import ConfirmationModal
+import { ConfirmationModal } from '../components/ui/ConfirmationModal'; 
 import { useToast } from '../contexts/ToastContext'; 
 
 const statusColorMap: Record<Appointment['status'], string> = {
@@ -38,7 +38,6 @@ export const AppointmentsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
-  // State for ConfirmationModal
   const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<AppointmentToDelete | null>(null);
 
@@ -53,7 +52,7 @@ export const AppointmentsPage: React.FC = () => {
       setAppointments([]);
     } else {
       const fetchedAppointments = data || [];
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const today = new Date().toISOString().split('T')[0]; 
 
       const upcomingOrTodayAppointments = fetchedAppointments.filter(
         (appt) => appt.appointment_date >= today
@@ -62,19 +61,15 @@ export const AppointmentsPage: React.FC = () => {
         (appt) => appt.appointment_date < today
       );
 
-      // Sort upcoming appointments: ascending by date, then by time
       upcomingOrTodayAppointments.sort((a, b) => {
         if (a.appointment_date < b.appointment_date) return -1;
         if (a.appointment_date > b.appointment_date) return 1;
-        // Dates are equal, sort by time
         if (a.appointment_time < b.appointment_time) return -1;
         if (a.appointment_time > b.appointment_time) return 1;
         return 0;
       });
-
-      // Past appointments are already sorted by date (DESC) and time (DESC)
-      // by the getAppointments function, so no explicit sort needed here for pastAppointments.
-
+      
+      // Past appointments are already sorted by Supabase (date DESC, time DESC)
       setAppointments([...upcomingOrTodayAppointments, ...pastAppointments]);
     }
     setIsLoading(false);
@@ -160,6 +155,7 @@ export const AppointmentsPage: React.FC = () => {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Hora</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Paciente</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Procedimento</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Dentista</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Ações</th>
               </tr>
@@ -168,13 +164,14 @@ export const AppointmentsPage: React.FC = () => {
               {appointments.map(appt => (
                 <tr key={appt.id} className="hover:bg-gray-700 transition-colors duration-150">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">{isoToDdMmYyyy(appt.appointment_date)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">{appt.appointment_time}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">{formatToHHMM(appt.appointment_time)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">
                     <Link to={`/patient/${appt.patient_cpf}`} className="hover:text-teal-400 transition-colors">
                         {appt.patient_name || appt.patient_cpf}
                     </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">{appt.procedure}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">{appt.dentist_name || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColorMap[appt.status]} text-white`}>
                       {statusLabelMap[appt.status]}

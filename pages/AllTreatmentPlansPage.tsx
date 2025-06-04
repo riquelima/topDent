@@ -66,7 +66,7 @@ export const AllTreatmentPlansPage: React.FC = () => {
 
     } catch (err: any) {
       console.error("Error fetching data for AllTreatmentPlansPage:", err);
-      setError("Falha ao carregar dados: " + err.message);
+      setError("Falha ao carregar dados: " + (err.message || JSON.stringify(err))); // Improved error display
       setAllPlans([]);
       setAllPatientsList([]);
     } finally {
@@ -285,6 +285,29 @@ export const AllTreatmentPlansPage: React.FC = () => {
                   <h4 className="text-sm font-medium text-gray-400">Descrição:</h4>
                   <p className="text-gray-200 whitespace-pre-wrap">{plan.description}</p>
                 </div>
+                {plan.prescribed_medication && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-400">Medicação Prescrita:</h4>
+                    <p className="text-gray-200 text-sm whitespace-pre-wrap">{plan.prescribed_medication}</p>
+                  </div>
+                )}
+                {plan.payments && plan.payments.length > 0 ? (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-400">Pagamentos Registrados:</h4>
+                    <ul className="list-disc list-inside ml-4 text-xs text-gray-300">
+                      {plan.payments.map((payment, idx) => (
+                        <li key={idx}>
+                          {payment.payment_method}: R$ {payment.value} em {isoToDdMmYyyy(payment.payment_date)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-400">Pagamentos:</h4>
+                    <p className="text-xs text-gray-400">Nenhum pagamento registrado.</p>
+                  </div>
+                )}
                 {plan.file_names && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-400">Arquivos Anexados (Nomes):</h4>

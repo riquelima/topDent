@@ -38,3 +38,22 @@ export const ddMmYyyyToIso = (ddMmYyyyDateString: string): string => {
   // Fallback if split is not as expected
   return ddMmYyyyDateString;
 };
+
+/**
+ * Formats a time string (e.g., "HH:MM:SS" or "HH:MM") to "HH:MM".
+ * @param timeString The time string to format.
+ * @returns Time string in HH:MM format, or an empty string if input is invalid/empty.
+ */
+export const formatToHHMM = (timeString: string | null | undefined): string => {
+  if (!timeString) {
+    return '';
+  }
+  const parts = timeString.split(':');
+  if (parts.length >= 2) {
+    const hour = parts[0].padStart(2, '0');
+    const minute = parts[1].padStart(2, '0');
+    return `${hour}:${minute}`;
+  }
+  // Fallback for unexpected format, though less likely if source is consistent
+  return timeString; 
+};

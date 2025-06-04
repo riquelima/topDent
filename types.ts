@@ -73,6 +73,8 @@ export interface Appointment {
   procedure: string;
   notes?: string | null;
   status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+  dentist_id?: string | null; // Novo campo
+  dentist_name?: string | null; // Novo campo
   created_at?: string; // ISO timestamp string
   updated_at?: string; // ISO timestamp string
 }
@@ -93,7 +95,6 @@ export interface SupabaseTreatmentPlanData {
     file_names?: string | null; 
     dentist_signature?: string | null;
     file_url?: string | null;
-    procedures_performed?: string | null; // Comma-separated string of procedures
     prescribed_medication?: string | null;
     payments?: PaymentInput[] | null; // Array of payment objects
 }
@@ -151,4 +152,10 @@ export enum NavigationPath {
   AllTreatmentPlans = "/all-treatment-plans", 
   Appointments = "/appointments", 
   ViewRecord = "/view-record", 
+}
+
+// Definição para um usuário Dentista (para dropdowns)
+export interface DentistUser {
+  id: string; // username do dentista (ex: 'gilson')
+  name: string; // nome de exibição (ex: 'Dr. Gilson')
 }

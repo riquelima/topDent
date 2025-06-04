@@ -7,8 +7,8 @@ import { UserPlusIcon, CalendarDaysIcon, ClipboardDocumentListIcon, DocumentPlus
 import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
 import { NavigationPath, Appointment } from '../types';
 import { AppointmentModal } from '../components/AppointmentModal'; 
-import { getUpcomingAppointments } from '../services/supabaseService'; // Changed import
-import { isoToDdMmYyyy } from '../src/utils/formatDate';
+import { getUpcomingAppointments } from '../services/supabaseService'; 
+import { isoToDdMmYyyy, formatToHHMM } from '../src/utils/formatDate'; // Import formatToHHMM
 
 interface QuickAccessCardProps {
   title: string;
@@ -83,9 +83,8 @@ export const DashboardPage: React.FC = () => {
   }, [fetchUpcomingAppointments]);
 
   const handleAppointmentSaved = (appointment: Appointment) => {
-    // Refresh the list of upcoming appointments if a new one is added
     fetchUpcomingAppointments(); 
-    setIsAppointmentModalOpen(false); // Close modal
+    setIsAppointmentModalOpen(false); 
   };
 
 
@@ -115,10 +114,11 @@ export const DashboardPage: React.FC = () => {
                   <li key={appt.id} className="p-4 bg-gray-700 rounded-md shadow flex justify-between items-center">
                     <div>
                       <p className="font-semibold text-teal-400">
-                        {isoToDdMmYyyy(appt.appointment_date)} às {appt.appointment_time}
+                        {isoToDdMmYyyy(appt.appointment_date)} às {formatToHHMM(appt.appointment_time)}
                       </p>
                       <p className="text-sm text-gray-200">{appt.patient_name || appt.patient_cpf}</p>
                       <p className="text-sm text-gray-300">{appt.procedure}</p>
+                      {appt.dentist_name && <p className="text-xs text-gray-400">Dentista: {appt.dentist_name}</p>}
                        <p className="text-xs text-gray-400">Status: {appt.status}</p>
                     </div>
                      <Link to={`/patient/${appt.patient_cpf}`}>

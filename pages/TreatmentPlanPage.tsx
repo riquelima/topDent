@@ -20,13 +20,7 @@ import { useToast } from '../contexts/ToastContext';
 
 const STORAGE_BUCKET_NAME = 'treatmentfiles'; 
 
-const predefinedProceduresList = [
-  "Consulta", "Canal", "Extração", "Prótese", "Clareamento", 
-  "Aparelho Ortodôntico", "Restauração", "Implantes Dentários", 
-  "Periodontia", "Harmonização Facial"
-];
-const OTHER_PROCEDURE_KEY = "Outro(s)";
-const OTHER_PROCEDURE_PREFIX = "Outro(s): ";
+// Removed predefinedProceduresList, OTHER_PROCEDURE_KEY, OTHER_PROCEDURE_PREFIX as they are no longer used here.
 
 const paymentMethodOptions: { value: PaymentMethod; label: string }[] = [
   { value: "Dinheiro", label: "Dinheiro" },
@@ -65,38 +59,11 @@ export const TreatmentPlanPage: React.FC = () => {
   const patientDropdownRef = useRef<HTMLDivElement>(null);
 
   // New state for additional fields
-  const [selectedProcedures, setSelectedProcedures] = useState<Record<string, boolean>>({});
-  const [otherProcedureText, setOtherProcedureText] = useState('');
-  const [isOtherSelected, setIsOtherSelected] = useState(false);
+  // Removed: selectedProcedures, otherProcedureText, isOtherSelected
   const [prescribedMedication, setPrescribedMedication] = useState('');
   const [payments, setPayments] = useState<PaymentInput[]>([{ value: '', payment_method: '', payment_date: '' }]);
 
-  const parseProceduresStringToState = (procString: string | null | undefined) => {
-    const initialSelected: Record<string, boolean> = {};
-    predefinedProceduresList.forEach(p => initialSelected[p] = false);
-    let otherText = '';
-    let otherSelected = false;
-
-    if (procString) {
-      const parts = procString.split(',').map(p => p.trim());
-      parts.forEach(part => {
-        if (predefinedProceduresList.includes(part)) {
-          initialSelected[part] = true;
-        } else if (part.startsWith(OTHER_PROCEDURE_PREFIX)) {
-          otherText = part.substring(OTHER_PROCEDURE_PREFIX.length);
-          otherSelected = true;
-        } else if (part) { // For any other non-empty part, assume it's part of "Outro(s)"
-          if(otherText) otherText += `, ${part}`;
-          else otherText = part;
-          otherSelected = true;
-        }
-      });
-    }
-    setSelectedProcedures(initialSelected);
-    setOtherProcedureText(otherText);
-    setIsOtherSelected(otherSelected);
-  };
-
+  // Removed: parseProceduresStringToState function
 
   const fetchPatientsForDropdown = useCallback(async () => {
     if (isEditMode) return; 
@@ -134,7 +101,7 @@ export const TreatmentPlanPage: React.FC = () => {
             setCurrentFileUrl(data.file_url || null);
             setSelectedFile(null); 
             
-            parseProceduresStringToState(data.procedures_performed);
+            // Removed: parseProceduresStringToState(data.procedures_performed);
             setPrescribedMedication(data.prescribed_medication || '');
             setPayments(data.payments || [{ value: '', payment_method: '', payment_date: '' }]);
 
@@ -189,11 +156,7 @@ export const TreatmentPlanPage: React.FC = () => {
     setIsPatientDropdownOpen(false);
 
     // Clear new fields
-    const initialSelectedProcs: Record<string, boolean> = {};
-    predefinedProceduresList.forEach(p => initialSelectedProcs[p] = false);
-    setSelectedProcedures(initialSelectedProcs);
-    setOtherProcedureText('');
-    setIsOtherSelected(false);
+    // Removed clearing for: selectedProcedures, otherProcedureText, isOtherSelected
     setPrescribedMedication('');
     setPayments([{ value: '', payment_method: '', payment_date: '' }]);
   };
@@ -204,14 +167,7 @@ export const TreatmentPlanPage: React.FC = () => {
     setIsPatientDropdownOpen(false);
   };
 
-  const handleProcedureCheckboxChange = (procedureName: string, checked: boolean) => {
-    setSelectedProcedures(prev => ({ ...prev, [procedureName]: checked }));
-  };
-
-  const handleOtherProcedureCheckboxChange = (checked: boolean) => {
-    setIsOtherSelected(checked);
-    if (!checked) setOtherProcedureText('');
-  };
+  // Removed: handleProcedureCheckboxChange, handleOtherProcedureCheckboxChange
 
   const handlePaymentChange = (index: number, field: keyof PaymentInput, value: string | PaymentMethod) => {
     const newPayments = [...payments];
@@ -282,25 +238,14 @@ export const TreatmentPlanPage: React.FC = () => {
         finalFileNames = null;
     }
 
-    const finalProceduresPerformed: string[] = [];
-    for (const proc of predefinedProceduresList) {
-        if (selectedProcedures[proc]) finalProceduresPerformed.push(proc);
-    }
-    if (isOtherSelected && otherProcedureText.trim()) {
-        finalProceduresPerformed.push(`${OTHER_PROCEDURE_PREFIX}${otherProcedureText.trim()}`);
-    }
-    const proceduresPerformedString = finalProceduresPerformed.join(', ');
+    // Removed: proceduresPerformedString logic
 
     const validPayments = payments
       .filter(p => p.value.trim() !== '' && p.payment_method !== '' && p.payment_date.trim() !== '')
       .map(p => {
-        // Ensure value is a string, formatted with a period for consistency.
-        // The PaymentInput type defines 'value' as string.
         const stringValue = p.value.trim().replace(',', '.');
         return {...p, value: stringValue };
       })
-      // Further filter to ensure the string value is a valid representation of a number
-      // and not an empty string after processing.
       .filter(p => p.value && !isNaN(parseFloat(p.value)));
 
     const planDataPayload: Partial<SupabaseTreatmentPlanData> = {
@@ -309,7 +254,7 @@ export const TreatmentPlanPage: React.FC = () => {
         file_names: finalFileNames ? finalFileNames.trim() : null,
         file_url: uploadedFileUrl,
         dentist_signature: dentistSignature.trim() || null,
-        procedures_performed: proceduresPerformedString || null,
+        // Removed: procedures_performed
         prescribed_medication: prescribedMedication.trim() || null,
         payments: validPayments.length > 0 ? validPayments : null,
     };
@@ -370,23 +315,7 @@ export const TreatmentPlanPage: React.FC = () => {
 
           <Textarea label="Descrição Detalhada do Plano de Tratamento e Observações" value={description} onChange={(e) => setDescription(e.target.value)} rows={6} placeholder="Descreva o tratamento proposto, observações, etc." required disabled={isLoading} />
 
-          {/* Procedimentos Realizados */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Procedimentos Realizados</label>
-            <div className="space-y-2 p-3 border border-gray-700 rounded-md bg-gray-850 max-h-48 overflow-y-auto">
-              {predefinedProceduresList.map(proc => (
-                <label key={proc} className="flex items-center space-x-2 text-gray-200 cursor-pointer hover:bg-gray-700 p-1 rounded">
-                  <input type="checkbox" className="form-checkbox h-4 w-4 text-teal-500 bg-gray-700 border-gray-600 rounded focus:ring-teal-400" checked={!!selectedProcedures[proc]} onChange={(e) => handleProcedureCheckboxChange(proc, e.target.checked)} disabled={isLoading} />
-                  <span>{proc}</span>
-                </label>
-              ))}
-              <label key={OTHER_PROCEDURE_KEY} className="flex items-center space-x-2 text-gray-200 cursor-pointer hover:bg-gray-700 p-1 rounded">
-                <input type="checkbox" className="form-checkbox h-4 w-4 text-teal-500 bg-gray-700 border-gray-600 rounded focus:ring-teal-400" checked={isOtherSelected} onChange={(e) => handleOtherProcedureCheckboxChange(e.target.checked)} disabled={isLoading} />
-                <span>{OTHER_PROCEDURE_KEY}</span>
-              </label>
-            </div>
-            {isOtherSelected && <Input label="Especifique Outro(s) Procedimento(s)" value={otherProcedureText} onChange={(e) => setOtherProcedureText(e.target.value)} placeholder="Digite o(s) procedimento(s) customizado(s)" disabled={isLoading} containerClassName="mt-3" />}
-          </div>
+          {/* Removed "Procedimentos Realizados" section */}
           
           <Textarea label="Medicação Prescrita" value={prescribedMedication} onChange={(e) => setPrescribedMedication(e.target.value)} rows={3} placeholder="Liste as medicações prescritas, dosagens e instruções." disabled={isLoading} />
 
