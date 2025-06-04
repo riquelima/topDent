@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback } from 'react';
-import { HashRouter, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { DashboardPage } from './pages/DashboardPage';
@@ -15,21 +15,24 @@ import { PatientTreatmentPlansPage } from './pages/PatientTreatmentPlansPage';
 import { AllTreatmentPlansPage } from './pages/AllTreatmentPlansPage';
 import { ViewRecordPage } from './pages/ViewRecordPage';
 import { LoginPage } from './pages/LoginPage';
+import { DentistDashboardPage } from './pages/DentistDashboardPage'; // Import Dentist Dashboard
 import { NavigationPath } from './types';
 import { Button } from './components/ui/Button';
 import { ToastProvider } from './contexts/ToastContext';
 
+export type UserRole = 'admin' | 'dentist' | null;
+
 interface AppLayoutProps {
   onLogout: () => void;
+  userRole: UserRole;
+  userName: string | null;
   children: React.ReactNode;
 }
 
-const AppLayout: React.FC<AppLayoutProps> = ({ onLogout, children }) => {
+const AppLayout: React.FC<AppLayoutProps> = ({ onLogout, userRole, userName, children }) => {
   return (
-    // Use a very dark gray, slightly lighter than pure black for the main app area if #121212 is for login
-    // Using bg-gray-950 as a stand-in for a very dark gray, can be adjusted if needed.
     <div className="flex flex-col min-h-screen bg-gray-950 text-white selection:bg-blue-500 selection:text-white">
-      <Header onLogout={onLogout} />
+      <Header onLogout={onLogout} userRole={userRole} userName={userName} />
       <main className="flex-grow pt-28 pb-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
            {children}
@@ -51,22 +54,34 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
 );
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  // const navigateInstanceRef = React.useRef<ReturnType<typeof useNavigate> | null>(null); // Not currently used
+  const [userRole, setUserRole] = useState<UserRole>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
-  const handleLoginSuccess = useCallback(() => {
-    setIsAuthenticated(true);
+  const handleLoginSuccess = useCallback((role: UserRole, name: string | null) => {
+    setUserRole(role);
+    setUserName(name);
   }, []);
 
   const handleLogout = useCallback(() => {
-    setIsAuthenticated(false);
+    setUserRole(null);
+    setUserName(null);
   }, []);
 
   const ProtectedRoute: React.FC<{children: JSX.Element}> = ({ children }) => {
-    if (!isAuthenticated) {
+    if (!userRole) {
       return <Navigate to="/login" replace />;
     }
     return children;
+  };
+
+  const renderDashboard = () => {
+    if (userRole === 'admin') {
+      return <DashboardPage />;
+    }
+    if (userRole === 'dentist') {
+      return <DentistDashboardPage userName={userName || 'Dentista'} />;
+    }
+    return <Navigate to="/login" replace />; // Fallback, should not happen if ProtectedRoute works
   };
 
   return (
@@ -75,27 +90,34 @@ const App: React.FC = () => {
         <Routes>
           <Route
             path="/login"
-            element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage onLoginSuccess={handleLoginSuccess} />}
+            element={userRole ? <Navigate to="/" replace /> : <LoginPage onLoginSuccess={handleLoginSuccess} />}
           />
           <Route
             path="/*"
             element={
               <ProtectedRoute>
-                <AppLayout onLogout={handleLogout}>
+                <AppLayout onLogout={handleLogout} userRole={userRole} userName={userName}>
                   <Routes>
-                    <Route index element={<DashboardPage />} />
-                    <Route path={NavigationPath.NewPatient.substring(1)} element={<NewPatientPage />} />
-                    <Route path={NavigationPath.EditPatient.substring(1)} element={<NewPatientPage />} />
-                    <Route path={NavigationPath.PatientsList.substring(1)} element={<PatientListPage />} />
+                    <Route index element={renderDashboard()} />
+                    {/* Admin-specific routes can be further protected if needed */}
+                    {userRole === 'admin' && (
+                      <>
+                        <Route path={NavigationPath.NewPatient.substring(1)} element={<NewPatientPage />} />
+                        <Route path={NavigationPath.EditPatient.substring(1)} element={<NewPatientPage />} />
+                        <Route path={NavigationPath.PatientsList.substring(1)} element={<PatientListPage />} />
+                        <Route path={NavigationPath.Anamnesis.substring(1)} element={<AnamnesisFormPage />} />
+                        <Route path={NavigationPath.TreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
+                        <Route path={NavigationPath.EditTreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
+                        <Route path={NavigationPath.AllTreatmentPlans.substring(1)} element={<AllTreatmentPlansPage />} />
+                      </>
+                    )}
+                    {/* Routes accessible by both admin and potentially dentist (if dashboard links to them) */}
                     <Route path={NavigationPath.PatientDetail.substring(1)} element={<PatientDetailPage />} />
                     <Route path={NavigationPath.PatientAnamnesis.substring(1)} element={<PatientAnamnesisPage />} />
                     <Route path={NavigationPath.PatientTreatmentPlans.substring(1)} element={<PatientTreatmentPlansPage />} />
-                    <Route path={NavigationPath.Anamnesis.substring(1)} element={<AnamnesisFormPage />} />
-                    <Route path={NavigationPath.TreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
-                    <Route path={NavigationPath.EditTreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
-                    <Route path={NavigationPath.AllTreatmentPlans.substring(1)} element={<AllTreatmentPlansPage />} />
                     <Route path={NavigationPath.Appointments.substring(1)} element={<AppointmentsPage />} />
                     <Route path={NavigationPath.ViewRecord.substring(1)} element={<ViewRecordPage />} />
+                    
                     <Route path="*" element={<PlaceholderPage title="Página não encontrada" />} />
                   </Routes>
                 </AppLayout>

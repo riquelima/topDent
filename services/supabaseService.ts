@@ -1,4 +1,3 @@
-
 // services/supabaseService.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { 
@@ -39,8 +38,6 @@ export const getSupabaseClient = (): SupabaseClient | null => {
   }
   return supabase;
 };
-
-const DB_SCHEMA_WARNING = "DATABASE SCHEMA MISMATCH: The 'treatment_plans' table is missing one or more columns (procedures_performed, prescribed_medication, payments). Features related to these fields will not work. Please update your Supabase database schema using the SQL provided.";
 
 // --- PATIENT FUNCTIONS ---
 export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
@@ -167,9 +164,10 @@ export const getPatientByCpf = async (cpf: string): Promise<{ data: Patient | nu
   const { data, error: supabaseError } = await client.from('patients').select('*').eq('cpf', cpf).single();
 
   if (supabaseError) {
-    if (supabaseError.code === 'PGRST204' || supabaseError.message.includes('query returned no rows')) {
-        console.log(`Patient with CPF ${cpf} not found.`);
-        return { data: null, error: null }; 
+    // For .single(), "PGRST116" indicates no rows found, which is a valid scenario (patient not found)
+    if (supabaseError.code === 'PGRST116' || supabaseError.message.includes('JSON object requested, multiple (or no) rows returned')) {
+        console.log(`Patient with CPF ${cpf} not found or multiple results where single expected.`);
+        return { data: null, error: null }; // Treat as not found, not an error for the caller
     }
     console.error(`Error fetching patient by CPF ${cpf} from Supabase:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
     return { data: null, error: supabaseError };
@@ -284,25 +282,18 @@ export const addTreatmentPlan = async (planData: Omit<SupabaseTreatmentPlanData,
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
   
-  const dataToInsert: { [key: string]: any } = {
+  const dataToInsert = {
       patient_cpf: planData.patient_cpf,
       description: planData.description,
       file_names: planData.file_names ? planData.file_names.trim() : null,
       file_url: planData.file_url,
       dentist_signature: planData.dentist_signature ? planData.dentist_signature.trim() : null,
       created_at: new Date().toISOString(),
-      // Exclude potentially missing columns to prevent DB error
-      // procedures_performed: planData.procedures_performed || null, 
-      // prescribed_medication: planData.prescribed_medication ? planData.prescribed_medication.trim() : null,
-      // payments: planData.payments && planData.payments.length > 0 ? planData.payments : null,
+      updated_at: new Date().toISOString(), // Ensure updated_at is set on creation
+      procedures_performed: planData.procedures_performed || null,
+      prescribed_medication: planData.prescribed_medication ? planData.prescribed_medication.trim() : null,
+      payments: planData.payments && planData.payments.length > 0 ? planData.payments : null,
   };
-  
-  let schemaWarningLogged = false;
-  if (planData.procedures_performed || planData.prescribed_medication || planData.payments) {
-      console.warn(DB_SCHEMA_WARNING);
-      console.warn("INFO: 'procedures_performed', 'prescribed_medication', and 'payments' fields are being excluded from the current save operation due to the schema mismatch. These fields will not be saved.");
-      schemaWarningLogged = true;
-  }
   
   const { data, error: supabaseError } = await client
     .from('treatment_plans')
@@ -312,9 +303,6 @@ export const addTreatmentPlan = async (planData: Omit<SupabaseTreatmentPlanData,
 
   if (supabaseError) {
     console.error('Error adding treatment plan to Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
-    if (supabaseError.message.includes("column") && supabaseError.message.includes("does not exist")) {
-        if(!schemaWarningLogged) console.error(DB_SCHEMA_WARNING);
-    }
   }
   return { data, error: supabaseError };
 };
@@ -323,19 +311,14 @@ export const getTreatmentPlanById = async (planId: string): Promise<{ data: Supa
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
   
-  console.warn(DB_SCHEMA_WARNING + " Fetching basic plan data only.");
   const { data, error: supabaseError } = await client
     .from('treatment_plans')
-    // Select only core fields, excluding potentially missing ones
-    .select('id, created_at, patient_cpf, description, file_names, file_url, dentist_signature') 
+    .select('id, created_at, patient_cpf, description, file_names, file_url, dentist_signature, procedures_performed, prescribed_medication, payments') 
     .eq('id', planId)
     .single();
 
   if (supabaseError) {
     console.error(`Error fetching treatment plan by ID ${planId}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
-     if (supabaseError.message.includes("column") && supabaseError.message.includes("does not exist")) {
-        console.error(DB_SCHEMA_WARNING);
-    }
     return { data: null, error: supabaseError };
   }
   return { data: data as SupabaseTreatmentPlanData | null, error: null };
@@ -354,17 +337,10 @@ export const updateTreatmentPlan = async (planId: string, planData: Partial<Omit
   if (planData.file_url !== undefined) updatePayload.file_url = planData.file_url;
   if (planData.dentist_signature !== undefined) updatePayload.dentist_signature = planData.dentist_signature ? planData.dentist_signature.trim() : null;
   
-  // Exclude potentially missing columns
-  // if (planData.procedures_performed !== undefined) updatePayload.procedures_performed = planData.procedures_performed || null;
-  // if (planData.prescribed_medication !== undefined) updatePayload.prescribed_medication = planData.prescribed_medication ? planData.prescribed_medication.trim() : null;
-  // if (planData.payments !== undefined) updatePayload.payments = planData.payments && planData.payments.length > 0 ? planData.payments : null;
+  if (planData.procedures_performed !== undefined) updatePayload.procedures_performed = planData.procedures_performed || null;
+  if (planData.prescribed_medication !== undefined) updatePayload.prescribed_medication = planData.prescribed_medication ? planData.prescribed_medication.trim() : null;
+  if (planData.payments !== undefined) updatePayload.payments = planData.payments && planData.payments.length > 0 ? planData.payments : null;
 
-  let schemaWarningLogged = false;
-  if (planData.procedures_performed || planData.prescribed_medication || planData.payments) {
-      console.warn(DB_SCHEMA_WARNING);
-      console.warn("INFO: 'procedures_performed', 'prescribed_medication', and 'payments' fields are being excluded from the current update operation due to the schema mismatch. These fields will not be updated.");
-      schemaWarningLogged = true;
-  }
 
   const { data, error: supabaseError } = await client
     .from('treatment_plans')
@@ -375,9 +351,6 @@ export const updateTreatmentPlan = async (planId: string, planData: Partial<Omit
 
   if (supabaseError) {
     console.error(`Error updating treatment plan ID ${planId}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
-     if (supabaseError.message.includes("column") && supabaseError.message.includes("does not exist")) {
-        if(!schemaWarningLogged) console.error(DB_SCHEMA_WARNING);
-    }
   }
   return { data, error: supabaseError };
 };
@@ -402,19 +375,14 @@ export const getTreatmentPlansByPatientCpf = async (patientCpf: string): Promise
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
-  console.warn(DB_SCHEMA_WARNING + " Fetching basic plan data only for patient CPF: " + patientCpf);
   const { data, error: supabaseError } = await client
     .from('treatment_plans')
-    // Select only core fields, excluding potentially missing ones
-    .select('id, created_at, patient_cpf, description, file_names, file_url, dentist_signature') 
+    .select('id, created_at, patient_cpf, description, file_names, file_url, dentist_signature, procedures_performed, prescribed_medication, payments') 
     .eq('patient_cpf', patientCpf)
     .order('created_at', { ascending: false });
 
   if (supabaseError) {
     console.error(`Error fetching treatment plans for CPF ${patientCpf} from Supabase:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
-     if (supabaseError.message.includes("column") && supabaseError.message.includes("does not exist")) {
-        console.error(DB_SCHEMA_WARNING);
-    }
     return { data: null, error: supabaseError };
   }
   return { data: data as SupabaseTreatmentPlanData[] | null, error: null };
@@ -424,11 +392,10 @@ export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithP
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
-  console.warn(DB_SCHEMA_WARNING + " Fetching basic plan data only for all plans.");
   const { data, error: supabaseError } = await client
     .from('treatment_plans')
     .select(`
-      id, created_at, patient_cpf, description, file_names, file_url, dentist_signature,
+      id, created_at, patient_cpf, description, file_names, file_url, dentist_signature, procedures_performed, prescribed_medication, payments,
       patients (
         full_name,
         cpf
@@ -438,21 +405,21 @@ export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithP
 
   if (supabaseError) {
     console.error('Error fetching all treatment plans from Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
-    if (supabaseError.message.includes("column") && supabaseError.message.includes("does not exist")) {
-        console.error(DB_SCHEMA_WARNING);
-    }
     return { data: null, error: supabaseError };
   }
 
   const transformedData: TreatmentPlanWithPatientInfo[] = data ? data.map(item => {
-    const patientsArray = item.patients as Array<{ full_name: string; cpf: string; }> | null | undefined;
+    const patientsArray = item.patients as Array<{ full_name: string; cpf: string; }> | { full_name: string; cpf: string; } | null | undefined;
     let patientFullName: string | null = null;
 
-    if (patientsArray && patientsArray.length > 0) {
+    if (Array.isArray(patientsArray) && patientsArray.length > 0) {
       const patientRecord = patientsArray[0]; 
       if (patientRecord && typeof patientRecord.full_name === 'string') {
         patientFullName = patientRecord.full_name;
       }
+    } else if (patientsArray && !Array.isArray(patientsArray) && typeof (patientsArray as { full_name: string }).full_name === 'string') {
+      // Handle cases where Supabase might return a single object instead of an array for a to-one relation
+      patientFullName = (patientsArray as { full_name: string }).full_name;
     }
     
     const { patients, ...planFields } = item;
@@ -460,10 +427,6 @@ export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithP
     return {
       ...planFields, 
       patient_full_name: patientFullName || 'Paciente Desconhecido',
-      // Explicitly set potentially missing fields to null or undefined as per SupabaseTreatmentPlanData type
-      procedures_performed: null,
-      prescribed_medication: null,
-      payments: null,
     } as TreatmentPlanWithPatientInfo; 
   }) : [];
   
@@ -487,6 +450,7 @@ export const addAppointment = async (appointmentData: SupabaseAppointmentData) =
     notes: appointmentData.notes,
     status: appointmentData.status,
     created_at: new Date().toISOString(), 
+    updated_at: new Date().toISOString(),
   };
 
   const { data, error: supabaseError } = await client.from('appointments').insert([dataToInsert]).select().single();
@@ -622,4 +586,3 @@ export const updateAppointmentStatus = async (appointmentId: string, status: App
   }
   return { data: data as Appointment | null, error: supabaseError };
 };
-    

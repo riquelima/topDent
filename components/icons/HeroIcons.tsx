@@ -160,6 +160,25 @@ export const EyeSlashIcon: React.FC<IconProps> = ({ className = "w-5 h-5" }) => 
   </svg>
 );
 
+export const ClockIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+export const MagnifyingGlassIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+  </svg>
+);
+
+export const PencilSquareIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 19.5H4.5v-6.082L16.862 4.487zM16.862 4.487L19.5 7.125M12 21H4.5a2.25 2.25 0 01-2.25-2.25V9A2.25 2.25 0 014.5 6.75h4.708" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12V19.5a2.25 2.25 0 01-2.25 2.25H9" />
+  </svg>
+);
+
 
 // Export IconProps for use in other components like DashboardPage
 export type { IconProps };

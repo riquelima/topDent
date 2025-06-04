@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { TopDentLogo, ArrowRightOnRectangleIcon } from '../icons/HeroIcons';
 import { NavigationPath } from '../../types';
+import type { UserRole } from '../../App'; // Import UserRole
 
 interface NavLinkProps {
   to: NavigationPath | string;
@@ -14,10 +15,8 @@ interface NavLinkProps {
 const NavLink: React.FC<NavLinkProps> = ({ to, children, onClick, isMobile = false }) => {
   const location = useLocation();
   const baseToPath = typeof to === 'string' ? to.split('/:')[0] : to;
-  // Adjust isActive to handle /* in main route
   const isActive = location.pathname === (to === NavigationPath.Home ? '/' : to) || 
                    (location.pathname.startsWith(baseToPath) && to !== NavigationPath.Home && baseToPath !== '/');
-
 
   const mobileStyles = "block px-3 py-2 rounded-md text-base font-medium";
   const desktopStyles = "px-3 py-2 rounded-md text-sm font-medium";
@@ -36,9 +35,11 @@ const NavLink: React.FC<NavLinkProps> = ({ to, children, onClick, isMobile = fal
 
 interface HeaderProps {
   onLogout: () => void;
+  userRole: UserRole;
+  userName: string | null;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
+export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -52,9 +53,12 @@ export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
 
   const handleLogoutClick = () => {
     onLogout();
-    navigate('/login'); // Navigate to login page after calling onLogout
+    navigate('/login');
     closeMobileMenu();
   };
+
+  const isAdmin = userRole === 'admin';
+  const isDentist = userRole === 'dentist';
 
   return (
     <header className="bg-gray-900 shadow-md fixed w-full top-0 z-50">
@@ -64,16 +68,25 @@ export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
             <Link to={NavigationPath.Home} className="flex-shrink-0" onClick={closeMobileMenu}>
               <TopDentLogo className="h-10 md:h-12 w-auto" />
             </Link>
+            {isDentist && userName && (
+              <span className="ml-4 text-md font-semibold text-gray-200 hidden md:block">
+                Olá, {userName}
+              </span>
+            )}
           </div>
-          <nav className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-4">
-              <NavLink to={NavigationPath.Home}>Início</NavLink>
-              <NavLink to={NavigationPath.PatientsList}>Pacientes</NavLink>
-              <NavLink to={NavigationPath.Appointments}>Agendamentos</NavLink>
-              <NavLink to={NavigationPath.ViewRecord}>Prontuários</NavLink>
-              <NavLink to={NavigationPath.AllTreatmentPlans}>Tratamentos</NavLink>
-            </div>
-          </nav>
+          
+          {isAdmin && (
+            <nav className="hidden md:block">
+              <div className="ml-10 flex items-baseline space-x-4">
+                <NavLink to={NavigationPath.Home}>Início</NavLink>
+                <NavLink to={NavigationPath.PatientsList}>Pacientes</NavLink>
+                <NavLink to={NavigationPath.Appointments}>Agendamentos</NavLink>
+                <NavLink to={NavigationPath.ViewRecord}>Prontuários</NavLink>
+                <NavLink to={NavigationPath.AllTreatmentPlans}>Tratamentos</NavLink>
+              </div>
+            </nav>
+          )}
+          
           <div className="hidden md:block">
              <button
                 onClick={handleLogoutClick}
@@ -83,6 +96,8 @@ export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
                 Sair
               </button>
           </div>
+          
+          {/* Mobile Menu Button - Show for both admin and dentist */}
           <div className="md:hidden">
             <button
               onClick={toggleMobileMenu}
@@ -104,14 +119,25 @@ export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
           </div>
         </div>
       </div>
+
+      {/* Mobile Menu Content */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-gray-800 shadow-lg" id="mobile-menu">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             <NavLink to={NavigationPath.Home} onClick={closeMobileMenu} isMobile>Início</NavLink>
-            <NavLink to={NavigationPath.PatientsList} onClick={closeMobileMenu} isMobile>Pacientes</NavLink>
-            <NavLink to={NavigationPath.Appointments} onClick={closeMobileMenu} isMobile>Agendamentos</NavLink>
-            <NavLink to={NavigationPath.ViewRecord} onClick={closeMobileMenu} isMobile>Prontuários</NavLink>
-            <NavLink to={NavigationPath.AllTreatmentPlans} onClick={closeMobileMenu} isMobile>Tratamentos</NavLink>
+            {isAdmin && (
+              <>
+                <NavLink to={NavigationPath.PatientsList} onClick={closeMobileMenu} isMobile>Pacientes</NavLink>
+                <NavLink to={NavigationPath.Appointments} onClick={closeMobileMenu} isMobile>Agendamentos</NavLink>
+                <NavLink to={NavigationPath.ViewRecord} onClick={closeMobileMenu} isMobile>Prontuários</NavLink>
+                <NavLink to={NavigationPath.AllTreatmentPlans} onClick={closeMobileMenu} isMobile>Tratamentos</NavLink>
+              </>
+            )}
+             {isDentist && userName && (
+              <div className="px-3 py-2 text-base font-medium text-teal-400">
+                Olá, {userName}
+              </div>
+            )}
           </div>
           <div className="pt-3 pb-3 border-t border-gray-700">
             <div className="flex items-center px-5">

@@ -1,3 +1,4 @@
+
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TopDentLogo, UserIcon, LockClosedIcon, EyeIcon, EyeSlashIcon } from '../components/icons/HeroIcons';
@@ -6,9 +7,10 @@ import { Button } from '../components/ui/Button';
 import { useToast } from '../contexts/ToastContext';
 import { NavigationPath } from '../types';
 import { AuthLayout } from '../components/layout/AuthLayout';
+import type { UserRole } from '../App'; // Import UserRole
 
 interface LoginPageProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (role: UserRole, userName: string | null) => void;
 }
 
 const LoginForm: React.FC<{
@@ -29,11 +31,11 @@ const LoginForm: React.FC<{
   return (
     <form onSubmit={handleSubmit} className="space-y-6 w-full">
       <Input
-        id="username" // Changed from cpf
+        id="username"
         type="text"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
-        placeholder="Usuário" // Changed from CPF
+        placeholder="Usuário"
         required
         disabled={isLoading}
         autoFocus
@@ -100,23 +102,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  const handleLoginAttempt = (username: string, pass: string) => {
+  const handleLoginAttempt = (usernameInput: string, pass: string) => {
     setIsLoading(true);
     setErrorMessage(null);
+    const username = usernameInput.toLowerCase(); // Case-insensitive username check
 
     // Simulate API call
     setTimeout(() => {
-      // We use username 'admin' and password '1234'
       if (username === 'admin' && pass === '1234') {
-        showToast('Login realizado com sucesso!', 'success', 3000);
-        onLoginSuccess();
+        showToast('Login de Admin realizado com sucesso!', 'success', 3000);
+        onLoginSuccess('admin', 'Admin');
+        navigate(NavigationPath.Home);
+      } else if (username === 'gilson' && pass === '1234') {
+        showToast('Login de Dentista realizado com sucesso!', 'success', 3000);
+        onLoginSuccess('dentist', 'Dr. Gilson');
         navigate(NavigationPath.Home);
       } else {
-        setErrorMessage('Usuário ou senha inválidos.'); // Updated error message
-        showToast('Usuário ou senha inválidos.', 'error', 4000); // Updated toast message
-        setIsLoading(false);
+        setErrorMessage('Usuário ou senha inválidos.');
+        showToast('Usuário ou senha inválidos.', 'error', 4000);
       }
-      // setIsLoading(false) // Handled in specific branches
+      setIsLoading(false);
     }, 500);
   };
 
