@@ -7,10 +7,11 @@ import { Button } from '../components/ui/Button';
 import { useToast } from '../contexts/ToastContext';
 import { NavigationPath } from '../types';
 import { AuthLayout } from '../components/layout/AuthLayout';
-import type { UserRole } from '../App'; // Import UserRole
+import type { UserRole } from '../App'; 
+import { getDentistByUsername } from '../services/supabaseService'; // Import Supabase service
 
 interface LoginPageProps {
-  onLoginSuccess: (role: UserRole, userName: string | null) => void;
+  onLoginSuccess: (role: UserRole, idForApi: string | null, displayFullName: string | null) => void;
 }
 
 const LoginForm: React.FC<{
@@ -72,19 +73,20 @@ const LoginForm: React.FC<{
             type="checkbox"
             checked={rememberMe}
             onChange={(e) => setRememberMe(e.target.checked)}
-            className="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-offset-gray-800"
+            className="h-4 w-4 text-teal-600 bg-gray-700 border-gray-600 rounded focus:ring-teal-500 focus:ring-offset-gray-800"
             disabled={isLoading}
           />
           <span className="ml-2">Lembrar-me</span>
         </label>
-        <a href="#" className="font-medium text-blue-500 hover:text-blue-400 transition-colors duration-200">
+        <a href="#" className="font-medium text-teal-500 hover:text-teal-400 transition-colors duration-200">
           Esqueci minha senha
         </a>
       </div>
       <Button
         type="submit"
         fullWidth
-        className="bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 text-white py-3 text-base"
+        variant="primary" 
+        className="py-3 text-base"
         disabled={isLoading}
       >
         {isLoading ? 'Entrando...' : 'Entrar'}
@@ -102,31 +104,35 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  const handleLoginAttempt = (usernameInput: string, pass: string) => {
+  const handleLoginAttempt = async (usernameInput: string, pass: string) => {
     setIsLoading(true);
     setErrorMessage(null);
-    const username = usernameInput.toLowerCase(); // Case-insensitive username check
+    const username = usernameInput.toLowerCase(); 
 
-    // Simulate API call
-    setTimeout(() => {
-      if (username === 'admin' && pass === '1234') {
-        showToast('Login de Admin realizado com sucesso!', 'success', 3000);
-        onLoginSuccess('admin', 'Admin');
-        navigate(NavigationPath.Home);
-      } else if (username === 'junior' && pass === '1234') {
-        showToast('Login de Dentista realizado com sucesso!', 'success', 3000);
-        onLoginSuccess('dentist', 'Dr. Junior');
-        navigate(NavigationPath.Home);
-      } else if (username === 'henrique' && pass === '1234') {
-        showToast('Login de Dentista realizado com sucesso!', 'success', 3000);
-        onLoginSuccess('dentist', 'Dr. Henrique');
-        navigate(NavigationPath.Home);
-      } else {
-        setErrorMessage('Usuário ou senha inválidos.');
-        showToast('Usuário ou senha inválidos.', 'error', 4000);
-      }
+    if (username === 'admin' && pass === '1234') {
+      showToast('Login de Admin realizado com sucesso!', 'success', 3000);
+      onLoginSuccess('admin', 'admin', 'Admin'); // role, idForApi, displayFullName
+      navigate(NavigationPath.Home);
       setIsLoading(false);
-    }, 500);
+      return;
+    }
+    
+    // Authenticate against Supabase 'dentists' table
+    const { data: dentist, error: dbError } = await getDentistByUsername(username);
+
+    if (dbError) {
+      console.error("Login error (fetching dentist):", dbError);
+      setErrorMessage('Erro ao tentar fazer login. Tente novamente.');
+      showToast('Erro ao tentar fazer login.', 'error', 4000);
+    } else if (dentist && dentist.password === pass) { // SECURITY: Plain text password check
+      showToast(`Login de ${dentist.full_name} realizado com sucesso!`, 'success', 3000);
+      onLoginSuccess('dentist', dentist.username, dentist.full_name); // role, idForApi (username), displayFullName
+      navigate(NavigationPath.Home);
+    } else {
+      setErrorMessage('Usuário ou senha inválidos.');
+      showToast('Usuário ou senha inválidos.', 'error', 4000);
+    }
+    setIsLoading(false);
   };
 
   return (

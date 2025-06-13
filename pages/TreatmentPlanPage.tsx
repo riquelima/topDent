@@ -1,13 +1,15 @@
 
+
+
 import React, { useState, useEffect, useRef, useCallback, ChangeEvent } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Textarea } from '../components/ui/Textarea';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { DatePicker } from '../components/ui/DatePicker';
-import { ArrowUturnLeftIcon, TrashIcon, ChevronUpDownIcon, PlusIcon } from '../components/icons/HeroIcons';
+import { ArrowUturnLeftIcon, TrashIcon, ChevronUpDownIcon, PlusIcon, MagnifyingGlassIcon } from '../components/icons/HeroIcons';
 import { NavigationPath, SupabaseTreatmentPlanData, Patient, PaymentInput, PaymentMethod } from '../types'; 
 import { 
     addTreatmentPlan, 
@@ -19,8 +21,6 @@ import {
 import { useToast } from '../contexts/ToastContext';
 
 const STORAGE_BUCKET_NAME = 'treatmentfiles'; 
-
-// Removed predefinedProceduresList, OTHER_PROCEDURE_KEY, OTHER_PROCEDURE_PREFIX as they are no longer used here.
 
 const paymentMethodOptions: { value: PaymentMethod; label: string }[] = [
   { value: "Dinheiro", label: "Dinheiro" },
@@ -34,6 +34,7 @@ const paymentMethodOptions: { value: PaymentMethod; label: string }[] = [
 
 export const TreatmentPlanPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { planId } = useParams<{ planId?: string }>(); 
   const isEditMode = !!planId;
   const { showToast } = useToast();
@@ -58,12 +59,10 @@ export const TreatmentPlanPage: React.FC = () => {
   const [patientSearchTermDropdown, setPatientSearchTermDropdown] = useState('');
   const patientDropdownRef = useRef<HTMLDivElement>(null);
 
-  // New state for additional fields
-  // Removed: selectedProcedures, otherProcedureText, isOtherSelected
   const [prescribedMedication, setPrescribedMedication] = useState('');
   const [payments, setPayments] = useState<PaymentInput[]>([{ value: '', payment_method: '', payment_date: '' }]);
 
-  // Removed: parseProceduresStringToState function
+  const cameFromDentistDashboard = location.state?.fromDentistDashboard;
 
   const fetchPatientsForDropdown = useCallback(async () => {
     if (isEditMode) return; 
@@ -100,11 +99,8 @@ export const TreatmentPlanPage: React.FC = () => {
             setFileNamesDisplay(data.file_names || '');
             setCurrentFileUrl(data.file_url || null);
             setSelectedFile(null); 
-            
-            // Removed: parseProceduresStringToState(data.procedures_performed);
             setPrescribedMedication(data.prescribed_medication || '');
             setPayments(data.payments || [{ value: '', payment_method: '', payment_date: '' }]);
-
           } else {
             setPageError("Plano de tratamento não encontrado.");
             showToast("Plano de tratamento não encontrado.", "error");
@@ -123,9 +119,7 @@ export const TreatmentPlanPage: React.FC = () => {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,9 +148,6 @@ export const TreatmentPlanPage: React.FC = () => {
     if(fileInputRef.current) fileInputRef.current.value = "";
     setPatientSearchTermDropdown('');
     setIsPatientDropdownOpen(false);
-
-    // Clear new fields
-    // Removed clearing for: selectedProcedures, otherProcedureText, isOtherSelected
     setPrescribedMedication('');
     setPayments([{ value: '', payment_method: '', payment_date: '' }]);
   };
@@ -166,8 +157,6 @@ export const TreatmentPlanPage: React.FC = () => {
     setPatientSearchTermDropdown(''); 
     setIsPatientDropdownOpen(false);
   };
-
-  // Removed: handleProcedureCheckboxChange, handleOtherProcedureCheckboxChange
 
   const handlePaymentChange = (index: number, field: keyof PaymentInput, value: string | PaymentMethod) => {
     const newPayments = [...payments];
@@ -187,17 +176,22 @@ export const TreatmentPlanPage: React.FC = () => {
     if (payments.length > 1) {
       const newPayments = payments.filter((_, i) => i !== index);
       setPayments(newPayments);
-    } else { // If only one, clear its fields instead of removing the row
+    } else { 
       setPayments([{ value: '', payment_method: '', payment_date: '' }]);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientCPF.trim() || !description.trim()) {
-        showToast("CPF do Paciente e Descrição são obrigatórios.", "error");
+    if (!patientCPF.trim() && !cameFromDentistDashboard) { // If from dentist dash, patientCPF might be empty initially for a new plan
+        showToast("CPF do Paciente é obrigatório se não estiver criando um plano geral a partir do dashboard do dentista.", "error");
         return;
     }
+    if(!description.trim()){
+        showToast("Descrição é obrigatória.", "error");
+        return;
+    }
+
     setIsLoading(true);
     
     let uploadedFileUrl: string | null = isEditMode ? currentFileUrl : null;
@@ -210,9 +204,12 @@ export const TreatmentPlanPage: React.FC = () => {
         return;
     }
 
+    // Determine the CPF to use for file path: use patientCPF if available, otherwise use a generic dentist ID or placeholder if from dentist dash and no patient yet
+    const cpfForFilePath = patientCPF || (cameFromDentistDashboard ? location.state?.dentistUsernameContext || 'geral' : 'unknown_patient');
+
     if (selectedFile) {
         const sanitizedFileName = selectedFile.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
-        const filePath = `public/${patientCPF}/${Date.now()}-${sanitizedFileName}`;
+        const filePath = `public/${cpfForFilePath}/${Date.now()}-${sanitizedFileName}`;
         
         const { error: uploadError } = await supabase.storage
             .from(STORAGE_BUCKET_NAME)
@@ -238,7 +235,6 @@ export const TreatmentPlanPage: React.FC = () => {
         finalFileNames = null;
     }
 
-    // Removed: proceduresPerformedString logic
 
     const validPayments = payments
       .filter(p => p.value.trim() !== '' && p.payment_method !== '' && p.payment_date.trim() !== '')
@@ -249,12 +245,11 @@ export const TreatmentPlanPage: React.FC = () => {
       .filter(p => p.value && !isNaN(parseFloat(p.value)));
 
     const planDataPayload: Partial<SupabaseTreatmentPlanData> = {
-        patient_cpf: patientCPF, 
+        patient_cpf: patientCPF, // Can be empty if cameFromDentistDashboard and no patient selected yet
         description: description,
         file_names: finalFileNames ? finalFileNames.trim() : null,
         file_url: uploadedFileUrl,
         dentist_signature: dentistSignature.trim() || null,
-        // Removed: procedures_performed
         prescribed_medication: prescribedMedication.trim() || null,
         payments: validPayments.length > 0 ? validPayments : null,
     };
@@ -265,12 +260,29 @@ export const TreatmentPlanPage: React.FC = () => {
         const { error } = await updateTreatmentPlan(planId, updatePayload);
         if (error) throw error;
         showToast('Plano de Tratamento atualizado com sucesso!', 'success');
-        navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', originalPatientCpf || patientCPF));
+        if (cameFromDentistDashboard) {
+          navigate(NavigationPath.Home);
+        } else {
+          navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', originalPatientCpf || patientCPF));
+        }
       } else {
+        // For new plans, ensure patient_cpf is set, or handle generic plans if allowed
+        if (!planDataPayload.patient_cpf && !cameFromDentistDashboard) {
+            showToast('CPF do Paciente é obrigatório para novo plano.', 'error');
+            setIsLoading(false);
+            return;
+        }
         const { error } = await addTreatmentPlan(planDataPayload as Omit<SupabaseTreatmentPlanData, 'id' | 'created_at'>);
         if (error) throw error;
         showToast('Plano de Tratamento salvo com sucesso!', 'success');
         clearForm();
+        if (cameFromDentistDashboard) {
+          navigate(NavigationPath.Home);
+        } else if (patientCPF) {
+          navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', patientCPF));
+        } else {
+          navigate(NavigationPath.AllTreatmentPlans); 
+        }
       }
     } catch (error: any) {
         showToast('Erro ao salvar Plano de Tratamento: ' + error.message, 'error');
@@ -280,14 +292,40 @@ export const TreatmentPlanPage: React.FC = () => {
     }
   };
 
+  const handleBackNavigation = () => {
+    if (cameFromDentistDashboard) {
+        navigate(NavigationPath.Home); // Dentist dashboard is at '/' for dentist role
+        return;
+    }
+    if (isEditMode && originalPatientCpf) {
+      navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', originalPatientCpf));
+    } else if (!isEditMode && patientCPF) {
+      navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', patientCPF));
+    } else {
+      navigate(NavigationPath.AllTreatmentPlans);
+    }
+  };
+  
+  let backButtonText = "Voltar";
+  if (cameFromDentistDashboard) {
+      backButtonText = "Voltar para Dashboard";
+  } else if (isEditMode && originalPatientCpf) {
+      backButtonText = "Voltar para Planos do Paciente";
+  } else if (!isEditMode && patientCPF) {
+      backButtonText = "Voltar para Planos do Paciente";
+  } else {
+      backButtonText = "Voltar para Lista de Planos";
+  }
+
+
   if (isLoading && isEditMode && !description && !currentFileUrl) { 
-    return <div className="text-center py-10 text-gray-400">Carregando plano para edição...</div>;
+    return <div className="text-center py-10 text-[#b0b0b0]">Carregando plano para edição...</div>;
   }
   if (pageError) {
     return (
-        <div className="max-w-4xl mx-auto"><Card title="Erro">
+        <div className="max-w-6xl mx-auto"><Card title="Erro" className="bg-[#1a1a1a]" titleClassName="text-white">
             <p className="text-red-500 text-center py-4">{pageError}</p>
-            <div className="text-center mt-4"><Button onClick={() => navigate(-1)} leftIcon={<ArrowUturnLeftIcon />}>Voltar</Button></div>
+            <div className="text-center mt-4"><Button onClick={() => navigate(-1)} leftIcon={<ArrowUturnLeftIcon />} variant="secondary">Voltar</Button></div>
         </Card></div>
     );
   }
@@ -299,34 +337,46 @@ export const TreatmentPlanPage: React.FC = () => {
   const pageTitle = isEditMode ? "Editar Plano de Tratamento" : "Novo Plano de Tratamento";
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <Card title={ <div className="flex justify-between items-center w-full"> <span className="text-xl font-semibold text-white">{pageTitle}</span> <Link to={NavigationPath.AllTreatmentPlans}><Button variant="ghost" size="sm">Ver Todos os Planos</Button></Link> </div> }>
+    <div className="max-w-6xl mx-auto">
+      <Card title={ <div className="flex justify-between items-center w-full"> <span className="text-xl font-semibold text-white">{pageTitle}</span> <Link to={NavigationPath.AllTreatmentPlans}><Button variant="ghost" size="sm">Ver Todos os Planos</Button></Link> </div> } className="bg-[#1a1a1a]">
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Patient CPF and Selection */}
+          
           <div className="relative" ref={patientDropdownRef}>
-            <label htmlFor="patientCPF" className="block text-sm font-medium text-gray-300 mb-1">CPF do Paciente</label>
-            <div className="flex"><Input id="patientCPF" name="patientCPF" value={patientCPF} onChange={(e) => setPatientCPF(e.target.value)} placeholder="Digite o CPF do paciente" required disabled={isLoading || isEditMode} containerClassName="mb-0 flex-grow" className="rounded-r-none h-[46px]" />
-              <Button type="button" onClick={() => setIsPatientDropdownOpen(!isPatientDropdownOpen)} className="px-3 bg-gray-700 hover:bg-gray-600 border border-l-0 border-gray-700 rounded-l-none rounded-r-md h-[46px]" aria-expanded={isPatientDropdownOpen} aria-haspopup="listbox" title="Selecionar Paciente" disabled={isLoading || isEditMode || isLoadingPatients}><ChevronUpDownIcon className="w-5 h-5 text-gray-400" /></Button>
+            <label htmlFor="patientCPF" className="block text-sm font-medium text-[#b0b0b0] mb-1">CPF do Paciente {!cameFromDentistDashboard && '*'}</label>
+            <div className="flex">
+                <Input 
+                    id="patientCPF" name="patientCPF" 
+                    value={patientSearchTermDropdown || patientCPF} 
+                    onChange={(e) => {
+                        setPatientSearchTermDropdown(e.target.value);
+                        setPatientCPF(e.target.value); 
+                        if(e.target.value.trim() !== '') setIsPatientDropdownOpen(true); else setIsPatientDropdownOpen(false);
+                    }}
+                    placeholder="Buscar por Nome ou CPF" 
+                    required={!cameFromDentistDashboard} // Required only if not from dentist dash (where it can be a general plan)
+                    disabled={isLoading || isEditMode || cameFromDentistDashboard && isEditMode} // Disable CPF edit if editing or from dentist dash & editing
+                    containerClassName="mb-0 flex-grow" 
+                    className="rounded-r-none h-[46px]" 
+                    prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400"/>}
+                />
+              <Button type="button" onClick={() => setIsPatientDropdownOpen(!isPatientDropdownOpen)} className="px-3 bg-[#1f1f1f] hover:bg-gray-700 border border-l-0 border-gray-700 rounded-l-none rounded-r-md h-[46px]" aria-expanded={isPatientDropdownOpen} aria-haspopup="listbox" title="Selecionar Paciente" disabled={isLoading || isEditMode || isLoadingPatients || (cameFromDentistDashboard && isEditMode)}><ChevronUpDownIcon className="w-5 h-5 text-gray-400" /></Button>
             </div>
-            {isPatientDropdownOpen && !isEditMode && (<div className="absolute top-full left-0 right-0 mt-1 w-full bg-gray-700 border border-gray-600 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto"><div className="p-2"><Input type="text" placeholder="Buscar paciente por nome ou CPF..." value={patientSearchTermDropdown} onChange={(e: ChangeEvent<HTMLInputElement>) => setPatientSearchTermDropdown(e.target.value)} className="w-full text-sm" containerClassName="mb-2"/></div>
-                {isLoadingPatients ? <p className="text-sm text-gray-400 text-center py-2">Carregando pacientes...</p> : filteredDropdownPatients.length > 0 ? <ul>{filteredDropdownPatients.map(p => (<li key={p.id} onClick={() => handlePatientSelect(p)} className="px-3 py-2 text-sm text-gray-200 hover:bg-teal-600 hover:text-white cursor-pointer" role="option" aria-selected={patientCPF === p.cpf}>{p.fullName} <span className="text-xs text-gray-400">({p.cpf})</span></li>))}</ul> : <p className="text-sm text-gray-400 text-center py-2">Nenhum paciente encontrado.</p>}
+            {isPatientDropdownOpen && !(isEditMode || (cameFromDentistDashboard && isEditMode)) && (<div className="absolute top-full left-0 right-0 mt-1 w-full bg-[#1f1f1f] border border-gray-700 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                {isLoadingPatients ? <p className="text-sm text-gray-400 text-center py-2">Carregando pacientes...</p> : filteredDropdownPatients.length > 0 ? <ul>{filteredDropdownPatients.map(p => (<li key={p.id} onClick={() => handlePatientSelect(p)} className="px-3 py-2 text-sm text-white hover:bg-[#00bcd4] hover:text-black cursor-pointer" role="option" aria-selected={patientCPF === p.cpf}>{p.fullName} <span className="text-xs text-gray-400">({p.cpf})</span></li>))}</ul> : <p className="text-sm text-gray-400 text-center py-2">Nenhum paciente encontrado.</p>}
             </div>)}
           </div>
 
-          <Textarea label="Descrição Detalhada do Plano de Tratamento e Observações" value={description} onChange={(e) => setDescription(e.target.value)} rows={6} placeholder="Descreva o tratamento proposto, observações, etc." required disabled={isLoading} />
-
-          {/* Removed "Procedimentos Realizados" section */}
+          <Textarea label="Descrição Detalhada do Plano de Tratamento e Observações *" value={description} onChange={(e) => setDescription(e.target.value)} rows={6} placeholder="Descreva o tratamento proposto, observações, etc." required disabled={isLoading} />
           
           <Textarea label="Medicação Prescrita" value={prescribedMedication} onChange={(e) => setPrescribedMedication(e.target.value)} rows={3} placeholder="Liste as medicações prescritas, dosagens e instruções." disabled={isLoading} />
 
-          {/* Pagamentos Realizados */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2">Pagamentos Realizados</h3>
+            <h3 className="text-lg font-medium text-[#00bcd4] border-b border-gray-700 pb-2">Pagamentos Realizados</h3>
             {payments.map((payment, index) => (
-              <div key={index} className="p-4 border border-gray-700 rounded-md bg-gray-850 space-y-3">
+              <div key={index} className="p-4 border border-gray-700 rounded-lg bg-[#1f1f1f] space-y-3">
                 <div className="flex justify-between items-center">
-                  <p className="text-md font-semibold text-gray-200">Pagamento {index + 1}</p>
-                  {payments.length > 1 && <Button type="button" variant="ghost" size="sm" onClick={() => removePaymentRow(index)} className="p-1 text-red-400 hover:text-red-300" disabled={isLoading}><TrashIcon className="w-4 h-4" /></Button>}
+                  <p className="text-md font-semibold text-white">Pagamento {index + 1}</p>
+                  {payments.length > 1 && <Button type="button" variant="ghost" size="sm" onClick={() => removePaymentRow(index)} className="p-1 text-[#f44336] hover:text-red-400" disabled={isLoading}><TrashIcon className="w-4 h-4" /></Button>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Input label="Valor (R$)" type="text" placeholder="Ex: 150,00" value={payment.value} onChange={(e) => handlePaymentChange(index, 'value', e.target.value)} disabled={isLoading} containerClassName="mb-0" />
@@ -338,26 +388,33 @@ export const TreatmentPlanPage: React.FC = () => {
             {payments.length < 4 && <Button type="button" variant="ghost" size="sm" onClick={addPaymentRow} leftIcon={<PlusIcon />} disabled={isLoading}>Adicionar Pagamento</Button>}
           </div>
 
-          {/* File Upload */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Upload de Arquivo (Exames, Radiografias - PDF, PNG, JPG)</label>
-            <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-600 border-dashed rounded-md bg-gray-800 ${isLoading ? 'opacity-70' : ''}`}>
+            <label className="block text-sm font-medium text-[#b0b0b0] mb-1">Upload de Arquivo (Exames, Radiografias - PDF, PNG, JPG)</label>
+            <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-700 border-dashed rounded-lg bg-[#1f1f1f] ${isLoading ? 'opacity-70' : ''}`}>
               <div className="space-y-1 text-center">
                 <svg className="mx-auto h-12 w-12 text-gray-500" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 <div className="flex text-sm text-gray-400">
-                  <label htmlFor="file-upload" className={`relative bg-gray-700 rounded-md font-medium text-teal-400 hover:text-teal-300 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-gray-800 focus-within:ring-teal-500 px-2 py-1 ${isLoading ? 'cursor-not-allowed' : 'cursor-pointer'}`}><span>Carregar arquivo</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} ref={fileInputRef} accept=".png,.jpg,.jpeg,.pdf" disabled={isLoading} /></label>
+                  <label htmlFor="file-upload" className={`relative bg-gray-700 rounded-md font-medium text-[#00bcd4] hover:text-[#00a5b8] focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-[#1f1f1f] focus-within:ring-[#00bcd4] px-2 py-1 ${isLoading ? 'cursor-not-allowed' : 'cursor-pointer'}`}><span>Carregar arquivo</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} ref={fileInputRef} accept=".png,.jpg,.jpeg,.pdf" disabled={isLoading} /></label>
                   <p className="pl-1">ou arraste e solte</p>
                 </div><p className="text-xs text-gray-500">PNG, JPG, PDF. Um arquivo por vez.</p>
               </div>
             </div>
-            {fileNamesDisplay && (<div className="mt-3 p-3 border border-gray-700 rounded-md bg-gray-750"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-300">{selectedFile ? "Arquivo selecionado:" : (isEditMode && currentFileUrl ? "Arquivo atual:" : "Nome do arquivo:")}</p><p className="text-sm text-teal-300 truncate" title={fileNamesDisplay}>{fileNamesDisplay}</p>{isEditMode && currentFileUrl && !selectedFile && (<a href={currentFileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">Visualizar atual</a>)}</div><Button type="button" variant="ghost" size="sm" onClick={removeSelectedFile} className="p-1" disabled={isLoading} aria-label="Remover arquivo selecionado"><TrashIcon className="w-4 h-4 text-red-400 hover:text-red-300" /></Button></div></div>)}
+            {fileNamesDisplay && (<div className="mt-3 p-3 border border-gray-700 rounded-lg bg-[#1f1f1f]"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-[#b0b0b0]">{selectedFile ? "Arquivo selecionado:" : (isEditMode && currentFileUrl ? "Arquivo atual:" : "Nome do arquivo:")}</p><p className="text-sm text-[#00bcd4] truncate" title={fileNamesDisplay}>{fileNamesDisplay}</p>{isEditMode && currentFileUrl && !selectedFile && (<a href={currentFileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">Visualizar atual</a>)}</div><Button type="button" variant="ghost" size="sm" onClick={removeSelectedFile} className="p-1" disabled={isLoading} aria-label="Remover arquivo selecionado"><TrashIcon className="w-4 h-4 text-[#f44336] hover:text-red-400" /></Button></div></div>)}
             {isEditMode && (<Input label="Nome do Arquivo (se desejar remover o arquivo existente e não adicionar novo, apague o nome abaixo e salve)" type="text" value={fileNamesDisplay} onChange={(e) => setFileNamesDisplay(e.target.value)} placeholder="Nome do arquivo anexo" disabled={isLoading} containerClassName='mt-3 mb-0' />)}
           </div>
           
           <Input label="Assinatura do Dentista (Nome Digitado)" value={dentistSignature} onChange={(e) => setDentistSignature(e.target.value)} placeholder="Digite o nome completo do dentista responsável" disabled={isLoading} />
 
           <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-6">
-            <Button type="button" variant="ghost" onClick={() => navigate(isEditMode && originalPatientCpf ? NavigationPath.PatientTreatmentPlans.replace(':patientId', originalPatientCpf) : NavigationPath.Home)} leftIcon={<ArrowUturnLeftIcon />} disabled={isLoading}>{isEditMode ? 'Voltar aos Planos do Paciente' : 'Voltar ao Início'}</Button>
+            <Button 
+              type="button" 
+              variant="ghost" 
+              onClick={handleBackNavigation} 
+              leftIcon={<ArrowUturnLeftIcon />} 
+              disabled={isLoading}
+            >
+              {backButtonText}
+            </Button>
             {!isEditMode && (<Button type="button" variant="danger" onClick={() => clearForm(true)} disabled={isLoading}>Limpar Plano</Button>)}
             <Button type="submit" variant="primary" disabled={isLoading}>{isLoading ? 'Salvando...' : (isEditMode ? 'Atualizar Plano' : 'Salvar Plano de Tratamento')}</Button>
           </div>

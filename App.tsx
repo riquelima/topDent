@@ -15,7 +15,9 @@ import { PatientTreatmentPlansPage } from './pages/PatientTreatmentPlansPage';
 import { AllTreatmentPlansPage } from './pages/AllTreatmentPlansPage';
 import { ViewRecordPage } from './pages/ViewRecordPage';
 import { LoginPage } from './pages/LoginPage';
-import { DentistDashboardPage } from './pages/DentistDashboardPage'; // Import Dentist Dashboard
+import { DentistDashboardPage } from './pages/DentistDashboardPage'; 
+import { ConfigurationsPage } from './pages/ConfigurationsPage';
+import { ManageAppointmentPage } from './pages/ManageAppointmentPage'; // Added
 import { NavigationPath } from './types';
 import { Button } from './components/ui/Button';
 import { ToastProvider } from './contexts/ToastContext';
@@ -25,16 +27,16 @@ export type UserRole = 'admin' | 'dentist' | null;
 interface AppLayoutProps {
   onLogout: () => void;
   userRole: UserRole;
-  userName: string | null;
+  userName: string | null; // This will now be the display name (full name)
   children: React.ReactNode;
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ onLogout, userRole, userName, children }) => {
   return (
-    <div className="flex flex-col min-h-screen bg-gray-950 text-white selection:bg-blue-500 selection:text-white">
+    <div className="flex flex-col min-h-screen bg-[#0e0e0e] text-white selection:bg-[#00bcd4] selection:text-black">
       <Header onLogout={onLogout} userRole={userRole} userName={userName} />
       <main className="flex-grow pt-28 pb-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-screen-2xl mx-auto"> 
            {children}
         </div>
       </main>
@@ -45,8 +47,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ onLogout, userRole, userName, chi
 
 const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
   <div className="text-center py-10">
-    <h1 className="text-3xl font-bold text-teal-400">{title}</h1>
-    <p className="text-gray-300 mt-4">Esta página está em construção.</p>
+    <h1 className="text-3xl font-bold text-[#00bcd4]">{title}</h1>
+    <p className="text-[#b0b0b0] mt-4">Esta página está em construção.</p>
     <Link to={NavigationPath.Home} className="mt-6 inline-block">
         <Button variant="primary">Voltar ao Início</Button>
     </Link>
@@ -55,21 +57,27 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
 
 const App: React.FC = () => {
   const [userRole, setUserRole] = useState<UserRole>(null);
-  const [userName, setUserName] = useState<string | null>(null);
+  const [userDisplayFullName, setUserDisplayFullName] = useState<string | null>(null); 
+  const [userIdForApi, setUserIdForApi] = useState<string | null>(null); 
 
-  const handleLoginSuccess = useCallback((role: UserRole, name: string | null) => {
+  const handleLoginSuccess = useCallback((role: UserRole, idForApi: string | null, displayFullName: string | null) => {
     setUserRole(role);
-    setUserName(name);
+    setUserIdForApi(idForApi); 
+    setUserDisplayFullName(displayFullName); 
   }, []);
 
   const handleLogout = useCallback(() => {
     setUserRole(null);
-    setUserName(null);
+    setUserIdForApi(null);
+    setUserDisplayFullName(null);
   }, []);
 
-  const ProtectedRoute: React.FC<{children: JSX.Element}> = ({ children }) => {
+  const ProtectedRoute: React.FC<{children: JSX.Element; adminOnly?: boolean}> = ({ children, adminOnly = false }) => {
     if (!userRole) {
       return <Navigate to="/login" replace />;
+    }
+    if (adminOnly && userRole !== 'admin') {
+      return <Navigate to="/" replace />; 
     }
     return children;
   };
@@ -78,8 +86,8 @@ const App: React.FC = () => {
     if (userRole === 'admin') {
       return <DashboardPage />;
     }
-    if (userRole === 'dentist') {
-      return <DentistDashboardPage userName={userName || 'Dentista'} onLogout={handleLogout} />;
+    if (userRole === 'dentist' && userIdForApi && userDisplayFullName) {
+      return <DentistDashboardPage dentistUsername={userIdForApi} dentistDisplayFullName={userDisplayFullName} onLogout={handleLogout} />;
     }
     return <Navigate to="/login" replace />; 
   };
@@ -96,34 +104,58 @@ const App: React.FC = () => {
             path="/*"
             element={
               <ProtectedRoute>
-                <AppLayout onLogout={handleLogout} userRole={userRole} userName={userName}>
+                <AppLayout onLogout={handleLogout} userRole={userRole} userName={userDisplayFullName}>
                   <Routes>
                     <Route index element={renderDashboard()} />
                     
-                    {/* Admin-ONLY routes */}
-                    {userRole === 'admin' && (
-                      <>
-                        <Route path={NavigationPath.NewPatient.substring(1)} element={<NewPatientPage />} />
-                        <Route path={NavigationPath.EditPatient.substring(1)} element={<NewPatientPage />} />
-                        <Route path={NavigationPath.PatientsList.substring(1)} element={<PatientListPage />} />
-                        <Route path={NavigationPath.Anamnesis.substring(1)} element={<AnamnesisFormPage />} />
-                        <Route path={NavigationPath.AllTreatmentPlans.substring(1)} element={<AllTreatmentPlansPage />} />
-                      </>
-                    )}
+                    {/* Admin Specific Routes */}
+                    <Route 
+                      path={NavigationPath.NewPatient.substring(1)} 
+                      element={<ProtectedRoute adminOnly>{<NewPatientPage />}</ProtectedRoute>} 
+                    />
+                    <Route 
+                      path={NavigationPath.EditPatient.substring(1)} 
+                      element={<ProtectedRoute adminOnly>{<NewPatientPage />}</ProtectedRoute>} 
+                    />
+                    <Route 
+                      path={NavigationPath.PatientsList.substring(1)} 
+                      element={<ProtectedRoute adminOnly>{<PatientListPage />}</ProtectedRoute>} 
+                    />
+                    <Route 
+                      path={NavigationPath.Anamnesis.substring(1)} 
+                      element={<ProtectedRoute adminOnly>{<AnamnesisFormPage />}</ProtectedRoute>} 
+                    />
+                    <Route 
+                      path={NavigationPath.AllTreatmentPlans.substring(1)} 
+                      element={<ProtectedRoute adminOnly>{<AllTreatmentPlansPage />}</ProtectedRoute>} 
+                    />
+                    <Route 
+                      path={NavigationPath.Configurations.substring(1)} 
+                      element={<ProtectedRoute adminOnly>{<ConfigurationsPage />}</ProtectedRoute>} 
+                    />
+                     <Route 
+                      path={NavigationPath.Appointments.substring(1)} 
+                      element={<ProtectedRoute adminOnly><AppointmentsPage /></ProtectedRoute>} 
+                    />
+                     <Route 
+                      path={NavigationPath.NewAppointment.substring(1)} 
+                      element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} 
+                    />
+                    <Route 
+                      path={NavigationPath.EditAppointment.substring(1)} 
+                      element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} 
+                    />
 
-                    {/* Routes accessible by ADMIN and DENTIST */}
-                    {(userRole === 'admin' || userRole === 'dentist') && (
-                      <>
-                        <Route path={NavigationPath.TreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
-                        <Route path={NavigationPath.EditTreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
-                      </>
-                    )}
+
+                    {/* Routes for Admin and Dentist */}
+                    <Route path={NavigationPath.TreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
+                    <Route path={NavigationPath.EditTreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
                     
-                    {/* Routes accessible by ANY logged-in user (adjust role checks if needed) */}
+                    {/* Common Routes or routes accessible by logged-in users based on other logic */}
                     <Route path={NavigationPath.PatientDetail.substring(1)} element={<PatientDetailPage />} />
                     <Route path={NavigationPath.PatientAnamnesis.substring(1)} element={<PatientAnamnesisPage />} />
                     <Route path={NavigationPath.PatientTreatmentPlans.substring(1)} element={<PatientTreatmentPlansPage />} />
-                    <Route path={NavigationPath.Appointments.substring(1)} element={<AppointmentsPage />} />
+                   
                     <Route path={NavigationPath.ViewRecord.substring(1)} element={<ViewRecordPage />} />
                     
                     <Route path="*" element={<PlaceholderPage title="Página não encontrada" />} />

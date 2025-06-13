@@ -4,15 +4,15 @@ import React from 'react';
 interface CardProps {
   children: React.ReactNode;
   className?: string;
-  title?: React.ReactNode; // Changed from string to React.ReactNode
+  title?: React.ReactNode; 
   titleClassName?: string;
-  onClick?: (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => void; // Updated type
+  onClick?: (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
   hoverEffect?: boolean;
 }
 
 export const Card: React.FC<CardProps> = ({ children, className = '', title, titleClassName = '', onClick, hoverEffect = false }) => {
-  const baseStyles = "bg-gray-800 shadow-xl rounded-lg overflow-hidden";
-  const hoverStyles = hoverEffect ? "transition-all duration-300 ease-in-out hover:shadow-2xl hover:scale-[1.02] hover:bg-gray-700" : "";
+  const baseStyles = "bg-[#1a1a1a] shadow-lg rounded-lg overflow-hidden border border-gray-700/50"; // Darker card with subtle border
+  const hoverStyles = hoverEffect ? "transition-all duration-150 ease-in-out hover:shadow-xl hover:border-gray-600/70" : ""; // Subtle hover
   const clickableStyles = onClick ? "cursor-pointer" : "";
 
   return (
@@ -21,7 +21,7 @@ export const Card: React.FC<CardProps> = ({ children, className = '', title, tit
       onClick={onClick}
     >
       {title && (
-        <div className={`px-6 py-4 border-b border-gray-700 ${titleClassName}`}>
+        <div className={`px-6 py-4 border-b border-gray-700/50 ${titleClassName}`}>
           {typeof title === 'string' ? (
             <h3 className="text-xl font-semibold text-white">{title}</h3>
           ) : (

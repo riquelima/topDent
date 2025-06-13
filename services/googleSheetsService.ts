@@ -1,3 +1,4 @@
+
 // services/googleSheetsService.ts
 
 // Directly use the user-provided Google Apps Script Web App URL.

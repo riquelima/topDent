@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -203,7 +205,7 @@ export const AnamnesisFormPage: React.FC = () => {
 
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto"> {/* Changed from max-w-4xl */}
       <Card title="Formulário de Anamnese (Histórico Médico)">
         <form onSubmit={handleSubmit} className="space-y-8">
           

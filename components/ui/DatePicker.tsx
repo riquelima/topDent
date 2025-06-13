@@ -7,9 +7,10 @@ interface DatePickerProps extends Omit<React.InputHTMLAttributes<HTMLInputElemen
   error?: string;
   containerClassName?: string;
   description?: string; // Added description prop
+  prefixIcon?: React.ReactNode; // Added prefixIcon prop
 }
 
-export const DatePicker: React.FC<DatePickerProps> = ({ label, id, error, className, containerClassName, description, ...props }) => {
+export const DatePicker: React.FC<DatePickerProps> = ({ label, id, error, className, containerClassName, description, prefixIcon, ...props }) => {
   return (
     <Input
       type="date"
@@ -17,6 +18,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({ label, id, error, classN
       id={id}
       error={error}
       description={description} // Pass description to Input
+      prefixIcon={prefixIcon} // Pass prefixIcon to Input
       // Add specific styling for date input appearance if needed, though Tailwind's default styling for inputs might be sufficient
       // For dark theme, ensure the calendar icon is visible. This is browser-dependent.
       // Tailwind custom styles for date picker icon color:

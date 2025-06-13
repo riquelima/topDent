@@ -78,18 +78,19 @@ export const PencilIcon: React.FC<IconProps> = ({ className = "w-5 h-5" }) => (
 );
 
 export const TopDentLogo: React.FC<IconProps> = ({ className = "h-10 w-auto" }) => (
-  <svg className={className} viewBox="0 0 200 40" fill="none" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
+  <svg 
+    className={className} 
+    viewBox="0 0 205 47" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
     <image 
-      href="https://raw.githubusercontent.com/riquelima/topDent/refs/heads/main/394406bd-c5d3-4baa-8a2f-27dd9d9837b8.png" 
-      x="5" 
-      y="3" 
-      height="34" 
-      width="34" 
+      href="https://raw.githubusercontent.com/riquelima/topDentTest/refs/heads/main/logoSite.png" 
+      x="0" 
+      y="0" 
+      height="47" 
+      width="205" 
     />
-    {/* Texto: Top Dent - Ajustado x para dar espaço à imagem */}
-    <text x="48" y="28" fontFamily="Arial, Helvetica, sans-serif" fontSize="24" fontWeight="bold" fill="white" style={{ whiteSpace: "pre" }}>
-      Top <tspan fill="#00BCD4">Dent</tspan>
-    </text>
   </svg>
 );
 

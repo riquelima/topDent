@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'; // Adicionado useLocation
 import { Card } from '../components/ui/Card';
@@ -27,7 +29,7 @@ const DetailItem: React.FC<DetailItemProps> = ({ label, value }) => {
 export const PatientDetailPage: React.FC = () => {
   const { patientId } = useParams<{ patientId: string }>(); 
   const navigate = useNavigate();
-  const location = useLocation(); // Hook para acessar o estado da navegação
+  const location = useLocation(); 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,10 +61,10 @@ export const PatientDetailPage: React.FC = () => {
     fetchPatientDetails();
   }, [patientId]);
 
-  // Determina o caminho e o texto do botão "Voltar" com base no estado da navegação
-  const cameFromDentistDashboard = location.state?.from === NavigationPath.Home;
+  // Determine back navigation based on location state or default
+  const cameFromDentistDashboard = location.state?.from === NavigationPath.Home && location.state?.dentistUsernameContext;
   const backButtonPath = cameFromDentistDashboard ? NavigationPath.Home : NavigationPath.PatientsList;
-  const backButtonText = cameFromDentistDashboard ? "Voltar ao Início" : "Voltar para Lista de Pacientes";
+  const backButtonText = cameFromDentistDashboard ? "Voltar ao Dashboard Dentista" : "Voltar para Lista de Pacientes";
 
 
   if (isLoading) {
@@ -83,7 +85,7 @@ export const PatientDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-5xl mx-auto"> {/* Changed from max-w-3xl */}
       <Card title={`Detalhes de: ${patient.fullName}`}>
         <div className="space-y-6">
           <div>
@@ -118,17 +120,17 @@ export const PatientDetailPage: React.FC = () => {
           <div className="pt-4">
             <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4">Histórico do Paciente</h3>
              <div className="flex flex-wrap gap-4">
-                 <Link to={NavigationPath.PatientAnamnesis.replace(':patientId', patient.cpf)}>
+                 <Link to={NavigationPath.PatientAnamnesis.replace(':patientId', patient.cpf)} state={location.state}>
                     <Button variant="ghost">Ver/Preencher Anamnese</Button>
                  </Link>
-                 <Link to={NavigationPath.PatientTreatmentPlans.replace(':patientId', patient.cpf)}>
+                 <Link to={NavigationPath.PatientTreatmentPlans.replace(':patientId', patient.cpf)} state={location.state}>
                     <Button variant="ghost">Ver/Preencher Planos de Tratamento</Button>
                  </Link>
              </div>
           </div>
 
           <div className="mt-8 pt-6 border-t border-gray-700 text-center">
-            <Button onClick={() => navigate(backButtonPath)} leftIcon={<ArrowUturnLeftIcon />}>
+            <Button onClick={() => navigate(backButtonPath, { state: location.state })} leftIcon={<ArrowUturnLeftIcon />}>
               {backButtonText}
             </Button>
           </div>

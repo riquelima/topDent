@@ -73,8 +73,8 @@ export interface Appointment {
   procedure: string;
   notes?: string | null;
   status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
-  dentist_id?: string | null; // Novo campo
-  dentist_name?: string | null; // Novo campo
+  dentist_id?: string | null; 
+  dentist_name?: string | null; 
   created_at?: string; // ISO timestamp string
   updated_at?: string; // ISO timestamp string
 }
@@ -82,8 +82,8 @@ export interface Appointment {
 export type PaymentMethod = "Dinheiro" | "Cartão de Crédito" | "Cartão de Débito" | "PIX" | "Transferência Bancária" | "Boleto" | "Outro";
 
 export interface PaymentInput {
-  id?: string; // For potential future use if payments become separate entities
-  value: string; // Store as string for form input, convert to number on save
+  id?: string; 
+  value: string; 
   payment_method: PaymentMethod | "";
   payment_date: string; // YYYY-MM-DD
 }
@@ -96,14 +96,13 @@ export interface SupabaseTreatmentPlanData {
     dentist_signature?: string | null;
     file_url?: string | null;
     prescribed_medication?: string | null;
-    payments?: PaymentInput[] | null; // Array of payment objects
+    payments?: PaymentInput[] | null; 
 }
 
 export interface TreatmentPlanWithPatientInfo extends SupabaseTreatmentPlanData {
   patient_full_name?: string | null;
 }
 
-// Type definition for Supabase Anamnesis data structure
 export interface SupabaseAnamnesisData {
   id?: string; 
   created_at?: string; 
@@ -128,7 +127,6 @@ export interface SupabaseAnamnesisData {
   surgeries_details?: string | null;
 }
 
-// Type definition for Supabase Blood Pressure Reading data structure
 export interface SupabaseBloodPressureReading {
   id?: string; 
   created_at?: string; 
@@ -137,11 +135,20 @@ export interface SupabaseBloodPressureReading {
   reading_value: string;
 }
 
+// New Dentist interface for CRUD operations
+export interface Dentist {
+  id?: string; // UUID from Supabase, optional for creation
+  full_name: string;
+  username: string;
+  password?: string; // Optional for reads/updates if not changing
+  created_at?: string;
+  updated_at?: string;
+}
 
 export enum NavigationPath {
   Home = "/",
   NewPatient = "/new-patient",
-  EditPatient = "/patient/edit/:patientId", // Added for editing patient
+  EditPatient = "/patient/edit/:patientId", 
   PatientsList = "/patients", 
   PatientDetail = "/patient/:patientId", 
   PatientAnamnesis = "/patient/:patientId/anamnesis",
@@ -151,11 +158,14 @@ export enum NavigationPath {
   EditTreatmentPlan = "/treatment-plan/edit/:planId",
   AllTreatmentPlans = "/all-treatment-plans", 
   Appointments = "/appointments", 
-  ViewRecord = "/view-record", 
+  NewAppointment = "/new-appointment", // New path for creating appointments
+  EditAppointment = "/edit-appointment/:appointmentId", // New path for editing appointments
+  ViewRecord = "/view-record",
+  Configurations = "/configurations", 
 }
 
-// Definição para um usuário Dentista (para dropdowns)
+// Updated DentistUser for dropdowns, aligns with 'dentists' table structure
 export interface DentistUser {
-  id: string; // username do dentista (ex: 'gilson')
-  name: string; // nome de exibição (ex: 'Dr. Gilson')
+  id: string; // Corresponds to dentist's username (which is unique and used as ID in dentist_id column)
+  full_name: string; // Display name, e.g., 'Dr. Fulano'
 }

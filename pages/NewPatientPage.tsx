@@ -12,9 +12,9 @@ import {
     NavigationPath, 
     Patient, 
     BloodPressureReading, 
-    DiseaseOptions as AnamnesisDiseaseOptions,
-    SupabaseAnamnesisData, // Imported from types.ts
-    SupabaseBloodPressureReading // Imported from types.ts
+    AnamnesisFormUIData, 
+    SupabaseAnamnesisData, 
+    SupabaseBloodPressureReading 
 } from '../types';
 import { 
     addPatient, 
@@ -22,12 +22,9 @@ import {
     updatePatient,
     addAnamnesisForm,
     addBloodPressureReadings,
-    // SupabaseAnamnesisData, // No longer from here
-    // SupabaseBloodPressureReading // No longer from here
 } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
 
-// Local helper for Yes/No/Details fields specific to this page
 interface YesNoDetailsProps {
   id: string;
   label: string;
@@ -49,7 +46,7 @@ const YesNoDetailsField: React.FC<YesNoDetailsProps> = ({ id, label, value, deta
   ];
 
   return (
-    <div className="space-y-2 p-3 border border-gray-700 rounded-md bg-gray-800">
+    <div className="space-y-2 p-3 border border-gray-700 rounded-lg bg-[#1f1f1f]"> {/* Updated background */}
       <Select
         id={id}
         label={label}
@@ -76,10 +73,10 @@ const YesNoDetailsField: React.FC<YesNoDetailsProps> = ({ id, label, value, deta
 };
 
 const diseaseOptionsList = [
-    { id: 'cardiovascular', label: 'Cardíaca' }, { id: 'respiratory', label: 'Respiratória' },
-    { id: 'vascular', label: 'Vascular' }, { id: 'diabetes', label: 'Diabetes' },
-    { id: 'hypertension', label: 'Hipertensão' }, { id: 'renal', label: 'Renal' },
-    { id: 'neoplasms', label: 'Neoplasias' }, { id: 'hereditary', label: 'Doenças Hereditárias' },
+    { id: 'disease_cardiovascular', label: 'Cardíaca' }, { id: 'disease_respiratory', label: 'Respiratória' },
+    { id: 'disease_vascular', label: 'Vascular' }, { id: 'disease_diabetes', label: 'Diabetes' },
+    { id: 'disease_hypertension', label: 'Hipertensão' }, { id: 'disease_renal', label: 'Renal' },
+    { id: 'disease_neoplasms', label: 'Neoplasias' }, { id: 'disease_hereditary', label: 'Doenças Hereditárias' },
 ] as const;
 
 
@@ -92,26 +89,36 @@ export const NewPatientPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   
-  // Patient Form Data
   const [formData, setFormData] = useState<Omit<Patient, 'id'>>({
     fullName: '', dob: '', guardian: '', rg: '', cpf: '', phone: '',
     addressStreet: '', addressNumber: '', addressDistrict: '',
     emergencyContactName: '', emergencyContactPhone: '',
   });
 
-  // Anamnesis Form Data (only for new patient mode)
   const [medications, setMedications] = useState<{ value: 'Sim' | 'Não' | null, details: string }>({ value: null, details: '' });
   const [isSmoker, setIsSmoker] = useState<'Sim' | 'Não' | null>(null);
   const [isPregnant, setIsPregnant] = useState<'Sim' | 'Não' | null>(null);
   const [allergies, setAllergies] = useState<{ value: 'Sim' | 'Não' | 'Não sei' | null, details: string }>({ value: null, details: '' });
   const [hasDisease, setHasDisease] = useState<'Sim' | 'Não' | null>(null);
-  const [diseases, setDiseases] = useState<AnamnesisDiseaseOptions>({
-    cardiovascular: false, respiratory: false, vascular: false, diabetes: false,
-    hypertension: false, renal: false, neoplasms: false, hereditary: false, other: ''
+  const [diseases, setDiseases] = useState<AnamnesisFormUIData>({
+    medications_taken: null, medications_details: '',
+    is_smoker: null, is_pregnant: null,
+    allergies_exist: null, allergies_details: '',
+    has_disease: null,
+    disease_cardiovascular: false, 
+    disease_respiratory: false, 
+    disease_vascular: false, 
+    disease_diabetes: false,
+    disease_hypertension: false, 
+    disease_renal: false, 
+    disease_neoplasms: false, 
+    disease_hereditary: false, 
+    disease_other_details: '',
+    surgeries_had: null, surgeries_details: '',
   });
   const [surgeries, setSurgeries] = useState<{ value: 'Sim' | 'Não' | null, details: string }>({ value: null, details: '' });
   const [bloodPressureReadings, setBloodPressureReadings] = useState<BloodPressureReading[]>([{ date: '', value: '' }]);
-  const [anamnesisFilled, setAnamnesisFilled] = useState(false); // Track if anamnesis was touched
+  const [anamnesisFilled, setAnamnesisFilled] = useState(false); 
 
   useEffect(() => {
     if (isEditMode && patientId) {
@@ -139,7 +146,6 @@ export const NewPatientPage: React.FC = () => {
         })
         .finally(() => setIsLoading(false));
     } else {
-        // Reset anamnesis fields if not in edit mode (e.g., navigating back from edit to new)
         handleClearAnamnesisFields();
     }
   }, [patientId, isEditMode, showToast]);
@@ -152,14 +158,13 @@ export const NewPatientPage: React.FC = () => {
     if (!anamnesisFilled) setAnamnesisFilled(true);
   };
 
-  const handleDiseaseChange = <K extends keyof AnamnesisDiseaseOptions,>(diseaseKey: K, value: AnamnesisDiseaseOptions[K]) => {
+  const handleDiseaseChange = (diseaseKey: keyof AnamnesisFormUIData, value: any) => {
     setDiseases(prev => ({ ...prev, [diseaseKey]: value }));
     handleAnamnesisInputChange();
   };
-
+  
   const handleBloodPressureChange = (index: number, field: keyof Omit<BloodPressureReading, 'id' | 'created_at'>, value: string) => {
     const updatedReadings = [...bloodPressureReadings];
-    // Ensure we're updating a plain object structure compatible with state
     const currentReading = { ...updatedReadings[index] };
     (currentReading as any)[field] = value;
     updatedReadings[index] = currentReading;
@@ -176,7 +181,7 @@ export const NewPatientPage: React.FC = () => {
     if (bloodPressureReadings.length > 1) {
       setBloodPressureReadings(bloodPressureReadings.filter((_, i) => i !== index));
     } else {
-      setBloodPressureReadings([{ date: '', value: '' }]); // Clear if only one
+      setBloodPressureReadings([{ date: '', value: '' }]); 
     }
     handleAnamnesisInputChange();
   };
@@ -196,8 +201,20 @@ export const NewPatientPage: React.FC = () => {
     setAllergies({ value: null, details: '' });
     setHasDisease(null);
     setDiseases({
-        cardiovascular: false, respiratory: false, vascular: false, diabetes: false,
-        hypertension: false, renal: false, neoplasms: false, hereditary: false, other: ''
+        medications_taken: null, medications_details: '', 
+        is_smoker: null, is_pregnant: null,
+        allergies_exist: null, allergies_details: '',
+        has_disease: null,
+        disease_cardiovascular: false, 
+        disease_respiratory: false, 
+        disease_vascular: false, 
+        disease_diabetes: false,
+        disease_hypertension: false, 
+        disease_renal: false, 
+        disease_neoplasms: false, 
+        disease_hereditary: false, 
+        disease_other_details: '',
+        surgeries_had: null, surgeries_details: '',
     });
     setSurgeries({ value: null, details: '' });
     setBloodPressureReadings([{ date: '', value: '' }]);
@@ -232,10 +249,10 @@ export const NewPatientPage: React.FC = () => {
         } else {
           showToast('Paciente atualizado com sucesso!', 'success');
           patientSavedSuccessfully = true;
-          savedPatientCpf = patientId; // Use the ID from params for navigation
+          savedPatientCpf = patientId; 
         }
-      } else { // Creating new patient
-        const { data: newPatientData, error: addPatientError } = await addPatient(patientDataPayload);
+      } else { 
+        const { error: addPatientError } = await addPatient(patientDataPayload);
         if (addPatientError) {
           console.error('Supabase add patient error:', addPatientError);
           if (addPatientError && typeof addPatientError === 'object' && 'code' in addPatientError && (addPatientError as { code: string }).code === '23505') {
@@ -246,9 +263,7 @@ export const NewPatientPage: React.FC = () => {
         } else {
           showToast('Paciente salvo com sucesso!', 'success');
           patientSavedSuccessfully = true;
-          // savedPatientCpf is already formData.cpf
           
-          // Now, if anamnesis was filled, save it
           if (anamnesisFilled) {
             const anamnesisDataToSave: Omit<SupabaseAnamnesisData, 'id' | 'created_at'> = {
                 patient_cpf: savedPatientCpf,
@@ -259,15 +274,15 @@ export const NewPatientPage: React.FC = () => {
                 allergies_exist: allergies.value,
                 allergies_details: allergies.details || null,
                 has_disease: hasDisease,
-                disease_cardiovascular: diseases.cardiovascular,
-                disease_respiratory: diseases.respiratory,
-                disease_vascular: diseases.vascular,
-                disease_diabetes: diseases.diabetes,
-                disease_hypertension: diseases.hypertension,
-                disease_renal: diseases.renal,
-                disease_neoplasms: diseases.neoplasms,
-                disease_hereditary: diseases.hereditary,
-                disease_other_details: diseases.other || null,
+                disease_cardiovascular: diseases.disease_cardiovascular,
+                disease_respiratory: diseases.disease_respiratory,
+                disease_vascular: diseases.disease_vascular,
+                disease_diabetes: diseases.disease_diabetes,
+                disease_hypertension: diseases.disease_hypertension,
+                disease_renal: diseases.disease_renal,
+                disease_neoplasms: diseases.disease_neoplasms,
+                disease_hereditary: diseases.disease_hereditary,
+                disease_other_details: diseases.disease_other_details || null,
                 surgeries_had: surgeries.value,
                 surgeries_details: surgeries.details || null,
             };
@@ -298,6 +313,8 @@ export const NewPatientPage: React.FC = () => {
       }
       if (patientSavedSuccessfully && isEditMode && savedPatientCpf) {
         navigate(NavigationPath.PatientDetail.replace(':patientId', savedPatientCpf));
+      } else if (patientSavedSuccessfully && !isEditMode) {
+        navigate(NavigationPath.PatientsList); // Redirect to patient list after new patient creation
       }
     } catch (error: any) {
       console.error('Unexpected error in handleSubmit:', error);
@@ -311,16 +328,16 @@ export const NewPatientPage: React.FC = () => {
   const submitButtonText = isEditMode ? (isLoading ? 'Atualizando...' : 'Atualizar Paciente') : (isLoading ? 'Salvando...' : 'Salvar Paciente');
 
   if (isLoading && isEditMode && !formData.fullName) { 
-    return <div className="text-center py-10">Carregando dados do paciente...</div>;
+    return <div className="text-center py-10 text-[#b0b0b0]">Carregando dados do paciente...</div>;
   }
 
   if (pageError) {
      return (
-        <div className="max-w-4xl mx-auto">
-            <Card title="Erro">
+        <div className="max-w-6xl mx-auto"> {/* Changed from max-w-4xl */}
+            <Card title="Erro" className="bg-[#1a1a1a]" titleClassName="text-white">
                 <p className="text-red-500 text-center py-4">{pageError}</p>
                 <div className="text-center mt-4">
-                    <Button onClick={() => navigate(NavigationPath.PatientsList)} leftIcon={<ArrowUturnLeftIcon />}>Voltar para Lista</Button>
+                    <Button onClick={() => navigate(NavigationPath.PatientsList)} leftIcon={<ArrowUturnLeftIcon />} variant="secondary">Voltar para Lista</Button>
                 </div>
             </Card>
         </div>
@@ -328,11 +345,10 @@ export const NewPatientPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <Card title={pageTitle}>
+    <div className="max-w-6xl mx-auto"> {/* Changed from max-w-4xl */}
+      <Card title={<span className="text-white">{pageTitle}</span>} className="bg-[#1a1a1a]">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Patient Data Section */}
-          <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4">Dados Pessoais</h3>
+          <h3 className="text-lg font-medium text-[#00bcd4] border-b border-gray-700 pb-2 mb-4">Dados Pessoais</h3>
           <Input label="Nome Completo" name="fullName" value={formData.fullName} onChange={handleChange} required disabled={isLoading} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <DatePicker 
@@ -350,23 +366,22 @@ export const NewPatientPage: React.FC = () => {
             <Input label="Telefone" name="phone" type="tel" value={formData.phone} onChange={handleChange} disabled={isLoading} />
           </div>
           
-          <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4 pt-4">Endereço</h3>
+          <h3 className="text-lg font-medium text-[#00bcd4] border-b border-gray-700 pb-2 mb-4 pt-4">Endereço</h3>
           <Input label="Rua/Avenida" name="addressStreet" value={formData.addressStreet} onChange={handleChange} disabled={isLoading} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input label="Número" name="addressNumber" value={formData.addressNumber} onChange={handleChange} disabled={isLoading} />
             <Input label="Bairro" name="addressDistrict" value={formData.addressDistrict} onChange={handleChange} disabled={isLoading} />
           </div>
 
-          <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4 pt-4">Contato de Emergência</h3>
+          <h3 className="text-lg font-medium text-[#00bcd4] border-b border-gray-700 pb-2 mb-4 pt-4">Contato de Emergência</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input label="Nome (Contato Emergência)" name="emergencyContactName" value={formData.emergencyContactName} onChange={handleChange} disabled={isLoading} />
             <Input label="Telefone (Contato Emergência)" name="emergencyContactPhone" type="tel" value={formData.emergencyContactPhone} onChange={handleChange} disabled={isLoading} />
           </div>
 
-          {/* Anamnesis Section - Only for New Patient */}
           {!isEditMode && (
             <>
-              <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4 pt-6">Anamnese (Opcional)</h3>
+              <h3 className="text-lg font-medium text-[#00bcd4] border-b border-gray-700 pb-2 mb-4 pt-6">Anamnese (Opcional)</h3>
               <div className="space-y-4">
                 <YesNoDetailsField 
                     id="medications" label="Uso de medicação?"
@@ -405,22 +420,22 @@ export const NewPatientPage: React.FC = () => {
                         placeholder="Selecione..." disabled={isLoading}
                     />
                     {hasDisease === 'Sim' && (
-                    <div className="mt-4 p-4 bg-gray-800 rounded-md space-y-3">
-                        <p className="text-gray-300 mb-2">Selecione as opções abaixo:</p>
+                    <div className="mt-4 p-4 bg-[#1f1f1f] rounded-lg space-y-3 border border-gray-700">
+                        <p className="text-[#b0b0b0] mb-2">Selecione as opções abaixo:</p>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {diseaseOptionsList.map(opt => (
-                            <label key={opt.id} className={`flex items-center space-x-2 text-gray-200 p-2 hover:bg-gray-700 rounded ${isLoading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
-                            <input type="checkbox" className="form-checkbox h-5 w-5 text-teal-500 bg-gray-700 border-gray-600 rounded focus:ring-teal-400"
-                                checked={diseases[opt.id]}
-                                onChange={(e) => handleDiseaseChange(opt.id, e.target.checked)}
+                            <label key={opt.id} className={`flex items-center space-x-2 text-white p-2 hover:bg-gray-700 rounded ${isLoading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
+                            <input type="checkbox" className="form-checkbox h-5 w-5 text-[#00bcd4] bg-gray-700 border-gray-600 rounded focus:ring-[#00bcd4]"
+                                checked={!!diseases[opt.id as keyof AnamnesisFormUIData]}
+                                onChange={(e) => handleDiseaseChange(opt.id as keyof AnamnesisFormUIData, e.target.checked)}
                                 disabled={isLoading}
                             />
                             <span>{opt.label}</span>
                             </label>
                         ))}
                         </div>
-                        <Textarea label="Outras doenças (especificar)" value={diseases.other}
-                            onChange={(e) => handleDiseaseChange('other', e.target.value)}
+                        <Textarea label="Outras doenças (especificar)" value={diseases.disease_other_details}
+                            onChange={(e) => handleDiseaseChange('disease_other_details', e.target.value)}
                             containerClassName="mt-3 mb-0" disabled={isLoading}
                         />
                     </div>
@@ -437,10 +452,10 @@ export const NewPatientPage: React.FC = () => {
                 />
               </div>
 
-              <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4 pt-6">Pressão Arterial (Opcional)</h3>
+              <h3 className="text-lg font-medium text-[#00bcd4] border-b border-gray-700 pb-2 mb-4 pt-6">Pressão Arterial (Opcional)</h3>
               <div className="space-y-4">
                 {bloodPressureReadings.map((reading, index) => (
-                  <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-4 p-3 border border-gray-700 rounded-md items-end bg-gray-800">
+                  <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-4 p-3 border border-gray-700 rounded-lg items-end bg-[#1f1f1f]">
                     <DatePicker label={`Data da Aferição ${index + 1}`} value={reading.date}
                       onChange={(e) => handleBloodPressureChange(index, 'date', e.target.value)} disabled={isLoading}
                     />
