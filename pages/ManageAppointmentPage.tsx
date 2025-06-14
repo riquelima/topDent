@@ -8,8 +8,8 @@ import { DatePicker } from '../components/ui/DatePicker';
 import { Textarea } from '../components/ui/Textarea';
 import { Select } from '../components/ui/Select';
 import { ChevronUpDownIcon, MagnifyingGlassIcon, CalendarDaysIcon, ClockIcon, ArrowUturnLeftIcon } from '../components/icons/HeroIcons';
-import { Appointment, Patient, DentistUser, NavigationPath } from '../types';
-import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getAppointmentById } from '../services/supabaseService';
+import { Appointment, Patient, DentistUser, NavigationPath, Procedure } from '../types';
+import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getAppointmentById, getProcedures } from '../services/supabaseService';
 import type { SupabaseAppointmentData } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import { getKnownDentists } from '../src/utils/users';
@@ -21,7 +21,7 @@ const statusOptions: { value: Appointment['status']; label: string }[] = [
   { value: 'Cancelled', label: 'Cancelado' },
 ];
 
-const predefinedProcedures = [
+const PREDEFINED_PROCEDURES = [
   "Consulta", "Canal", "Extração", "Prótese", "Clareamento",
   "Aparelho Ortodôntico", "Restauração", "Implantes Dentários",
   "Periodontia", "Harmonização Facial"
@@ -40,17 +40,19 @@ export const ManageAppointmentPage: React.FC = () => {
   const [patientName, setPatientName] = useState('');
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
+  
+  const [allSelectableProcedures, setAllSelectableProcedures] = useState<string[]>([]);
   const [selectedProcedures, setSelectedProcedures] = useState<Record<string, boolean>>({});
   const [otherProcedureText, setOtherProcedureText] = useState('');
   const [isOtherSelected, setIsOtherSelected] = useState(false);
 
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<Appointment['status']>('Scheduled');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // For form submission
   const [cpfError, setCpfError] = useState('');
 
   const [allPatients, setAllPatients] = useState<Patient[]>([]);
-  const [isLoadingPageData, setIsLoadingPageData] = useState(true); // Combined loading state
+  const [isLoadingPageData, setIsLoadingPageData] = useState(true); 
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
   const patientDropdownRef = useRef<HTMLDivElement>(null);
@@ -62,89 +64,107 @@ export const ManageAppointmentPage: React.FC = () => {
   const dentistDropdownRef = useRef<HTMLDivElement>(null);
   const [pageError, setPageError] = useState<string | null>(null);
 
-  const resetProcedureState = () => {
-    const initialSelectedProcedures: Record<string, boolean> = {};
-    predefinedProcedures.forEach(p => initialSelectedProcedures[p] = false);
-    setSelectedProcedures(initialSelectedProcedures);
-    setIsOtherSelected(false);
-    setOtherProcedureText('');
-  };
+  const [loadedAppointmentData, setLoadedAppointmentData] = useState<Appointment | null>(null);
 
-  const parseProcedureString = (procedureStr: string | undefined | null) => {
-    resetProcedureState();
-    if (!procedureStr) return;
-
-    const newSelectedProcedures: Record<string, boolean> = {};
+  const parseProcedureString = useCallback((procedureStr: string | undefined | null) => {
+    const newSelected: Record<string, boolean> = {};
+    allSelectableProcedures.forEach(p => newSelected[p] = false);
     let newOtherText = '';
     let newIsOtherSelected = false;
 
-    const parts = procedureStr.split(',').map(p => p.trim());
-    parts.forEach(part => {
-      if (predefinedProcedures.includes(part)) {
-        newSelectedProcedures[part] = true;
-      } else if (part.startsWith(OTHER_PROCEDURE_PREFIX)) {
-        newOtherText = part.substring(OTHER_PROCEDURE_PREFIX.length);
-        newIsOtherSelected = true;
-      } else if (part && !predefinedProcedures.includes(part)) { // Handle "other" not starting with prefix
-        if (newOtherText) newOtherText += `, ${part}`;
-        else newOtherText = part;
-        newIsOtherSelected = true;
-      }
-    });
-    setSelectedProcedures(current => ({...current, ...newSelectedProcedures}));
+    if (procedureStr) {
+      const parts = procedureStr.split(',').map(p => p.trim());
+      parts.forEach(part => {
+        if (allSelectableProcedures.includes(part)) {
+          newSelected[part] = true;
+        } else if (part.startsWith(OTHER_PROCEDURE_PREFIX)) {
+          newOtherText = part.substring(OTHER_PROCEDURE_PREFIX.length);
+          newIsOtherSelected = true;
+        } else if (part && !allSelectableProcedures.includes(part)) { 
+          if (newOtherText) newOtherText += `, ${part}`;
+          else newOtherText = part;
+          newIsOtherSelected = true;
+        }
+      });
+    }
+    
+    setSelectedProcedures(newSelected);
     setOtherProcedureText(newOtherText);
     setIsOtherSelected(newIsOtherSelected);
-  };
+  }, [allSelectableProcedures]);
 
 
+  // Effect 1: Fetch initial page data (patients, dentists, customProcs, and existingAppt if editing)
   useEffect(() => {
-    const fetchPageData = async () => {
+    const fetchInitialData = async () => {
       setIsLoadingPageData(true);
       setPageError(null);
+      setLoadedAppointmentData(null); 
       try {
-        const [patientsRes, dentistsRes] = await Promise.all([
+        const [patientsRes, dentistsRes, customProceduresRes] = await Promise.all([
           getPatients(),
-          getKnownDentists()
+          getKnownDentists(),
+          getProcedures() 
         ]);
 
         if (patientsRes.error) showToast('Erro ao carregar pacientes.', 'error');
         setAllPatients(patientsRes.data || []);
-        
         setAvailableDentists(dentistsRes);
 
+        const customProcedureNames = (customProceduresRes.data || []).map(p => p.name);
+        const uniqueCombinedProcedures = Array.from(new Set([...PREDEFINED_PROCEDURES, ...customProcedureNames])).sort();
+        setAllSelectableProcedures(uniqueCombinedProcedures);
+        
         if (isEditMode && appointmentId) {
           const { data: existingAppt, error: apptError } = await getAppointmentById(appointmentId);
           if (apptError || !existingAppt) {
             setPageError("Agendamento não encontrado ou erro ao carregar.");
-            showToast(pageError || "Erro ao carregar agendamento.", "error");
-            setIsLoadingPageData(false);
-            return;
+            showToast("Erro ao carregar agendamento.", "error");
+          } else {
+            setLoadedAppointmentData(existingAppt); 
+            setPatientCpf(existingAppt.patient_cpf);
+            setPatientName(existingAppt.patient_name || '');
+            setPatientSearchTerm(existingAppt.patient_name || existingAppt.patient_cpf);
+            setAppointmentDate(existingAppt.appointment_date);
+            setAppointmentTime(existingAppt.appointment_time);
+            setNotes(existingAppt.notes || '');
+            setStatus(existingAppt.status);
+            setSelectedDentistId(existingAppt.dentist_id || null);
+            const currentDentist = dentistsRes.find(d => d.id === existingAppt.dentist_id);
+            setDentistSearchTerm(currentDentist ? currentDentist.full_name : '');
           }
-          setPatientCpf(existingAppt.patient_cpf);
-          setPatientName(existingAppt.patient_name || '');
-          setPatientSearchTerm(existingAppt.patient_name || existingAppt.patient_cpf);
-          setAppointmentDate(existingAppt.appointment_date);
-          setAppointmentTime(existingAppt.appointment_time);
-          parseProcedureString(existingAppt.procedure);
-          setNotes(existingAppt.notes || '');
-          setStatus(existingAppt.status);
-          setSelectedDentistId(existingAppt.dentist_id || null);
-          const currentDentist = dentistsRes.find(d => d.id === existingAppt.dentist_id);
-          setDentistSearchTerm(currentDentist ? currentDentist.full_name : '');
         } else {
           const today = new Date().toISOString().split('T')[0];
           setAppointmentDate(today);
-          resetProcedureState();
+          setPatientCpf('');
+          setPatientName('');
+          setPatientSearchTerm('');
+          setAppointmentTime('');
+          setNotes('');
+          setStatus('Scheduled');
+          setSelectedDentistId(null);
+          setDentistSearchTerm('');
         }
-      } catch (err) {
-        setPageError("Erro ao carregar dados da página.");
+      } catch (err: any) {
+        setPageError("Erro ao carregar dados da página: " + (err.message || 'Erro desconhecido'));
         showToast("Erro crítico ao carregar dados.", "error");
       } finally {
         setIsLoadingPageData(false);
       }
     };
-    fetchPageData();
+    fetchInitialData();
   }, [appointmentId, isEditMode, showToast]);
+
+  // Effect 2: Parse procedures when loadedAppointmentData or allSelectableProcedures changes, or when switching to new mode
+  useEffect(() => {
+    if (allSelectableProcedures.length > 0) { // Ensure procedures list is ready
+        if (isEditMode && loadedAppointmentData) {
+            parseProcedureString(loadedAppointmentData.procedure);
+        } else if (!isEditMode) {
+            parseProcedureString(null); 
+        }
+    }
+  }, [isEditMode, loadedAppointmentData, allSelectableProcedures, parseProcedureString]);
 
 
   const handleCpfBlur = async () => {
@@ -162,12 +182,12 @@ export const ManageAppointmentPage: React.FC = () => {
             setPatientCpf(foundPatient.cpf);
             setPatientName(foundPatient.fullName);
         } else {
-            cpfToSearch = patientSearchTerm;
+            cpfToSearch = patientSearchTerm; 
         }
     }
 
     if (!cpfToSearch) {
-      setCpfError("CPF não fornecido para busca.");
+      setCpfError("CPF ou Nome não fornecido para busca detalhada.");
       return;
     }
 
@@ -175,11 +195,11 @@ export const ManageAppointmentPage: React.FC = () => {
     if (error) {
       console.error("Error fetching patient by CPF:", error);
       setCpfError("Erro ao buscar CPF.");
-      setPatientName('');
+      setPatientName(''); 
     } else if (patient) {
       setPatientName(patient.fullName);
-      setPatientCpf(patient.cpf);
-      setPatientSearchTerm(patient.fullName); // Update search term to full name for display
+      setPatientCpf(patient.cpf); 
+      setPatientSearchTerm(patient.fullName); 
     } else {
       setCpfError("Paciente não encontrado com este CPF/Nome.");
       setPatientName('');
@@ -304,7 +324,18 @@ export const ManageAppointmentPage: React.FC = () => {
     return <div className="text-center py-10 text-gray-300">Carregando dados do agendamento...</div>;
   }
   if (pageError) {
-    return <div className="text-center py-10 text-red-500">{pageError}</div>;
+    return (
+        <div className="max-w-4xl mx-auto p-4">
+            <Card title="Erro ao Carregar Agendamento" className="bg-[#1a1a1a]">
+                 <p className="text-red-500 text-center py-4">{pageError}</p>
+                 <div className="text-center mt-4">
+                    <Button onClick={() => navigate(NavigationPath.Appointments)} leftIcon={<ArrowUturnLeftIcon />} variant="secondary">
+                        Voltar para Agendamentos
+                    </Button>
+                </div>
+            </Card>
+        </div>
+    );
   }
 
   return (
@@ -322,7 +353,7 @@ export const ManageAppointmentPage: React.FC = () => {
                   onBlurCapture={handleCpfBlur} placeholder="Buscar Paciente por Nome ou CPF" required
                   disabled={isLoading || isEditMode} error={cpfError && !isPatientDropdownOpen ? cpfError : ''}
                   containerClassName="flex-grow mb-0" className="rounded-r-none"
-                  prefixIcon={<MagnifyingGlassIcon className="w-4 h-4 text-gray-400" />}
+                  prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />}
                 />
                 <Button type="button" onClick={() => setIsPatientDropdownOpen(!isPatientDropdownOpen)}
                   className="px-3 bg-gray-700 hover:bg-gray-600 border border-l-0 border-gray-600 rounded-l-none rounded-r-md h-[46px]"
@@ -349,7 +380,7 @@ export const ManageAppointmentPage: React.FC = () => {
                   onFocus={() => {if (availableDentists.length > 0) setIsDentistDropdownOpen(true);}}
                   placeholder="Buscar Dentista" required disabled={isLoading}
                   containerClassName="flex-grow mb-0" className="rounded-r-none"
-                  prefixIcon={<MagnifyingGlassIcon className="w-4 h-4 text-gray-400" />}
+                  prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />}
                 />
                  <Button type="button" onClick={() => setIsDentistDropdownOpen(!isDentistDropdownOpen)}
                   className="px-3 bg-gray-700 hover:bg-gray-600 border border-l-0 border-gray-600 rounded-l-none rounded-r-md h-[46px]"
@@ -377,7 +408,7 @@ export const ManageAppointmentPage: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Procedimentos *</label>
             <div className="p-4 bg-gray-700/50 rounded-md max-h-48 overflow-y-auto space-y-2 border border-gray-600">
-              {predefinedProcedures.map(proc => (
+              {allSelectableProcedures.map(proc => (
                 <label key={proc} className="flex items-center text-gray-200 cursor-pointer p-1 hover:bg-gray-600/50 rounded">
                   <input type="checkbox" className="form-checkbox h-4 w-4 text-teal-500 bg-gray-600 border-gray-500 rounded focus:ring-teal-400"
                     checked={!!selectedProcedures[proc]} onChange={(e) => handleProcedureChange(proc, e.target.checked)} disabled={isLoading} />
@@ -417,4 +448,3 @@ export const ManageAppointmentPage: React.FC = () => {
     </div>
   );
 };
-

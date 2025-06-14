@@ -86,6 +86,7 @@ export interface PaymentInput {
   value: string; 
   payment_method: PaymentMethod | "";
   payment_date: string; // YYYY-MM-DD
+  description?: string; // Optional description for the payment
 }
 export interface SupabaseTreatmentPlanData {
     id?: string;
@@ -145,6 +146,30 @@ export interface Dentist {
   updated_at?: string;
 }
 
+export interface Reminder {
+  id: string;
+  created_at: string;
+  title: string;
+  content: string;
+  is_active: boolean;
+}
+
+export interface ConsultationHistoryEntry {
+  id: string; // UUID from Supabase
+  appointment_id: string | null; // UUID of the original appointment
+  patient_cpf: string;
+  patient_name?: string; // Denormalized
+  dentist_id?: string | null; // Username of the dentist
+  dentist_name?: string | null; // Denormalized
+  procedure_details: string; // The procedure string from appointment
+  consultation_date: string; // YYYY-MM-DD from appointment
+  completion_timestamp: string; // ISO timestamp string for when it was marked complete/cancelled
+  status: Appointment['status']; // Changed from 'Completed' to support various final statuses
+  notes?: string | null; // Notes from the original appointment
+  created_at?: string; // ISO timestamp string
+}
+
+
 export enum NavigationPath {
   Home = "/",
   NewPatient = "/new-patient",
@@ -158,9 +183,10 @@ export enum NavigationPath {
   EditTreatmentPlan = "/treatment-plan/edit/:planId",
   AllTreatmentPlans = "/all-treatment-plans", 
   Appointments = "/appointments", 
-  NewAppointment = "/new-appointment", // New path for creating appointments
-  EditAppointment = "/edit-appointment/:appointmentId", // New path for editing appointments
+  NewAppointment = "/new-appointment", 
+  EditAppointment = "/edit-appointment/:appointmentId", 
   ViewRecord = "/view-record",
+  ConsultationHistory = "/consultation-history", // New path
   Configurations = "/configurations", 
 }
 
@@ -168,4 +194,13 @@ export enum NavigationPath {
 export interface DentistUser {
   id: string; // Corresponds to dentist's username (which is unique and used as ID in dentist_id column)
   full_name: string; // Display name, e.g., 'Dr. Fulano'
+}
+
+// Interface for custom procedures
+export interface Procedure {
+  id: string; // UUID from Supabase
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }

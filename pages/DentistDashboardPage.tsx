@@ -11,15 +11,17 @@ import {
     XMarkIcon, 
     CheckIcon,
     CalendarDaysIcon, 
-    EyeIcon
+    EyeIcon,
+    ListBulletIcon // Added for history shortcut
 } from '../components/icons/HeroIcons';
 import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
-import { NavigationPath, Appointment } from '../types';
+import { NavigationPath, Appointment, ConsultationHistoryEntry } from '../types';
 import { 
     getAppointmentsByDate, 
     updateAppointmentStatus,
     getAppointmentsByDateRangeForDentist,
-    getAllAppointmentsForDentist
+    getAllAppointmentsForDentist,
+    addConsultationHistoryEntry
 } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
 import { formatToHHMM, isoToDdMmYyyy } from '../src/utils/formatDate';
@@ -52,16 +54,16 @@ const statusLabelMap: Record<Appointment['status'], string> = {
 };
 
 const statusColors: Record<Appointment['status'], string> = {
-  Scheduled: 'border-blue-500 bg-blue-500/10 text-blue-300',
+  Scheduled: 'border-yellow-500 bg-yellow-500/10 text-yellow-700', 
   Confirmed: 'border-teal-500 bg-teal-500/10 text-teal-300',
-  Completed: 'border-green-500 bg-green-500/10 text-green-300',
-  Cancelled: 'border-red-500 bg-red-500/10 text-red-300',
+  Completed: 'border-green-500 bg-green-500/10 text-green-300', 
+  Cancelled: 'border-red-500 bg-red-500/10 text-red-300',   
 };
 
 
 interface AppointmentActionSubcardProps {
   appointment: Appointment;
-  onUpdateStatus: (appointmentId: string, newStatus: Appointment['status']) => void;
+  onUpdateStatus: (appointment: Appointment, newStatus: Appointment['status']) => void;
   isUpdatingStatus: boolean;
   dentistUsername: string;
 }
@@ -96,7 +98,7 @@ const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ app
             </Button>
         </Link>
         <Button
-          onClick={() => onUpdateStatus(appointment.id, 'Cancelled')}
+          onClick={() => onUpdateStatus(appointment, 'Cancelled')}
           disabled={isUpdatingStatus || isCancelled || isCompleted}
           size="sm"
           variant="danger"
@@ -106,7 +108,7 @@ const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ app
           <XMarkIcon className="w-4 h-4" />
         </Button>
         <Button
-          onClick={() => onUpdateStatus(appointment.id, 'Completed')}
+          onClick={() => onUpdateStatus(appointment, 'Completed')}
           disabled={isUpdatingStatus || isCompleted || isCancelled}
           size="sm"
           variant="primary" 
@@ -127,7 +129,7 @@ interface VerticalAgendaCardProps {
   appointments: Appointment[];
   isLoading: boolean;
   error: string | null;
-  onUpdateStatus: (appointmentId: string, newStatus: Appointment['status']) => void;
+  onUpdateStatus: (appointment: Appointment, newStatus: Appointment['status']) => void; 
   isUpdatingStatus: boolean;
   dentistUsername: string;
 }
@@ -225,25 +227,60 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     setErrorWeek(null);
     setErrorAll(null);
 
-    getAppointmentsByDate(todayDateString, dentistUsername).then(({data, error}) => {
-        if (error) { setErrorToday("Falha ao carregar agenda de hoje."); console.error(error); }
-        setTodayAppointments(data || []);
-        setIsLoadingToday(false);
-    });
+    let fetchedTodayAppointments: Appointment[] = [];
 
-    getAppointmentsByDateRangeForDentist(weekDateRange.start, weekDateRange.end, dentistUsername).then(({data, error}) => {
-        if (error) { setErrorWeek("Falha ao carregar agenda da semana."); console.error(error); }
-        setWeekAppointments(data || []);
+    // Fetch Today's Appointments
+    try {
+        const { data: todayData, error: todayError } = await getAppointmentsByDate(todayDateString, dentistUsername);
+        if (todayError) { 
+            setErrorToday("Falha ao carregar agenda de hoje."); 
+            console.error(todayError); 
+        } else {
+            fetchedTodayAppointments = (todayData || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
+            setTodayAppointments(fetchedTodayAppointments);
+        }
+    } catch (e) {
+        setErrorToday("Erro crítico ao carregar agenda de hoje."); console.error(e);
+    } finally {
+        setIsLoadingToday(false);
+    }
+
+    // Fetch Week's Appointments
+    try {
+        const { data: weekData, error: weekError } = await getAppointmentsByDateRangeForDentist(weekDateRange.start, weekDateRange.end, dentistUsername);
+        if (weekError) { 
+            setErrorWeek("Falha ao carregar agenda da semana."); 
+            console.error(weekError); 
+        } else {
+            const weekAppointmentsIntermediate = (weekData || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
+            const finalWeekAppointments = weekAppointmentsIntermediate.filter(
+                weekAppt => !fetchedTodayAppointments.find(todayAppt => todayAppt.id === weekAppt.id)
+            );
+            setWeekAppointments(finalWeekAppointments);
+        }
+    } catch (e) {
+        setErrorWeek("Erro crítico ao carregar agenda da semana."); console.error(e);
+    } finally {
         setIsLoadingWeek(false);
-    });
+    }
     
-    getAllAppointmentsForDentist(dentistUsername, 20).then(({data, error}) => { 
-        if (error) { setErrorAll("Falha ao carregar agenda completa."); console.error(error); }
-        const upcoming = (data || []).filter(a => a.appointment_date >= todayDateString).sort((a,b) => new Date(a.appointment_date + 'T' + a.appointment_time).getTime() - new Date(b.appointment_date + 'T' + b.appointment_time).getTime());
-        const past = (data || []).filter(a => a.appointment_date < todayDateString).sort((a,b) => new Date(b.appointment_date + 'T' + b.appointment_time).getTime() - new Date(a.appointment_date + 'T' + a.appointment_time).getTime());
-        setAllAppointmentsData([...upcoming, ...past]);
+    // Fetch All Appointments (for "Agenda Completa")
+    try {
+        const {data: allData, error: allError} = await getAllAppointmentsForDentist(dentistUsername, 50);
+        if (allError) { 
+            setErrorAll("Falha ao carregar agenda completa."); 
+            console.error(allError); 
+        } else {
+            const filteredAppointments = (allData || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
+            const upcoming = filteredAppointments.filter(a => a.appointment_date >= todayDateString).sort((a,b) => new Date(a.appointment_date + 'T' + a.appointment_time).getTime() - new Date(b.appointment_date + 'T' + b.appointment_time).getTime());
+            const past = filteredAppointments.filter(a => a.appointment_date < todayDateString).sort((a,b) => new Date(b.appointment_date + 'T' + b.appointment_time).getTime() - new Date(a.appointment_date + 'T' + a.appointment_time).getTime());
+            setAllAppointmentsData([...upcoming, ...past]);
+        }
+    } catch (e) {
+        setErrorAll("Erro crítico ao carregar agenda completa."); console.error(e);
+    } finally {
         setIsLoadingAll(false);
-    });
+    }
 
   }, [todayDateString, dentistUsername, weekDateRange.start, weekDateRange.end]);
 
@@ -258,14 +295,42 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     navigate('/login');
   };
 
-  const handleUpdateStatus = async (appointmentId: string, newStatus: Appointment['status']) => {
+  const handleUpdateStatus = async (appointment: Appointment, newStatus: Appointment['status']) => {
     setIsUpdatingStatus(true);
-    const { error } = await updateAppointmentStatus(appointmentId, newStatus);
+    const { data: updatedAppointmentData, error } = await updateAppointmentStatus(appointment.id, newStatus);
+    
     if (error) {
         showToast(`Erro ao atualizar status: ${error.message}`, 'error');
         console.error("Error updating appointment status:", error);
     } else {
         showToast(`Agendamento marcado como ${statusLabelMap[newStatus].toLowerCase()}!`, 'success');
+        
+        if (newStatus === 'Completed' || newStatus === 'Cancelled') {
+            // Use the original appointment data as a base, then potentially override with updatedAppointmentData if available
+            // This ensures that even if updatedAppointmentData is null (but no error occurred), we can still log to history.
+            const baseAppointmentDataForHistory = {
+                ...appointment, // Start with original data
+                ...(updatedAppointmentData || {}), // Override with updated data if it exists
+                status: newStatus // Ensure the new status is set correctly
+            };
+
+            const historyEntry: Omit<ConsultationHistoryEntry, 'id' | 'completion_timestamp' | 'created_at'> = {
+                appointment_id: baseAppointmentDataForHistory.id,
+                patient_cpf: baseAppointmentDataForHistory.patient_cpf,
+                patient_name: baseAppointmentDataForHistory.patient_name,
+                dentist_id: baseAppointmentDataForHistory.dentist_id,
+                dentist_name: baseAppointmentDataForHistory.dentist_name,
+                procedure_details: baseAppointmentDataForHistory.procedure,
+                consultation_date: baseAppointmentDataForHistory.appointment_date,
+                notes: baseAppointmentDataForHistory.notes,
+                status: newStatus,
+            };
+            const { error: historyError } = await addConsultationHistoryEntry(historyEntry);
+            if (historyError) {
+                showToast('Status atualizado, mas falha ao registrar no histórico: ' + historyError.message, 'warning');
+                console.error("Error adding to consultation history:", historyError);
+            }
+        }
         fetchAllDashboardData(); 
     }
     setIsUpdatingStatus(false);
@@ -283,6 +348,12 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         icon: <DocumentPlusIcon />, 
         onClick: () => navigate(NavigationPath.TreatmentPlan, { state: { fromDentistDashboard: true, dentistUsernameContext: dentistUsername } }),
         color: "bg-emerald-600" 
+    },
+    { 
+        title: "Histórico de Consultas", 
+        icon: <ListBulletIcon />, 
+        to: NavigationPath.ConsultationHistory,
+        color: "bg-purple-600" 
     },
     { 
         title: "Sair", 

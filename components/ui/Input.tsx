@@ -27,7 +27,7 @@ export const Input: React.FC<InputProps> = ({
 
   return (
     <div className={`relative ${containerClassName}`}>
-      {label && <label htmlFor={id} className="block text-sm font-medium text-[#b0b0b0] mb-2">{label}</label>}
+      {label && <label htmlFor={id} className="block text-sm font-medium text-[#b0b0b0] mb-1">{label}</label>} {/* Changed mb-2 to mb-1 */}
       <div className="relative flex items-center">
         {prefixIcon && (
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

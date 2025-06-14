@@ -14,15 +14,15 @@ import { useToast } from '../contexts/ToastContext';
 import { getKnownDentists } from '../src/utils/users'; 
 
 const statusColorMap: Record<Appointment['status'], string> = {
-    Scheduled: 'bg-blue-600', 
+    Scheduled: 'bg-yellow-500', 
     Confirmed: 'bg-[#00bcd4]', 
-    Completed: 'bg-gray-600', 
+    Completed: 'bg-green-500', 
     Cancelled: 'bg-[#f44336]', 
 };
 const statusTextClassMap: Record<Appointment['status'], string> = {
-    Scheduled: 'text-white',
+    Scheduled: 'text-black',
     Confirmed: 'text-black', 
-    Completed: 'text-gray-100',
+    Completed: 'text-white',
     Cancelled: 'text-white',
 };
 const statusLabelMap: Record<Appointment['status'], string> = {

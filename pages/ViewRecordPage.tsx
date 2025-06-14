@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -269,6 +270,7 @@ export const ViewRecordPage: React.FC = () => {
               containerClassName="flex-grow mb-0"
               className={`rounded-r-none bg-[#1f1f1f] border-gray-700 focus:border-[#00bcd4] ${isInitialSearchState && !cameFromDentistDashboard ? 'h-[60px] text-lg px-6' : 'h-[46px]'}`}
               disabled={isLoadingPatientsList || isLoadingRecord}
+              prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />}
             />
             <Button
               type="button"
@@ -279,7 +281,7 @@ export const ViewRecordPage: React.FC = () => {
               title="Selecionar Paciente"
               disabled={isLoadingPatientsList || isLoadingRecord}
             >
-              <ChevronUpDownIcon className={`text-gray-400 ${isInitialSearchState && !cameFromDentistDashboard ? 'w-7 h-7' : 'w-5 h-5'}`} />
+              <MagnifyingGlassIcon className={`text-gray-400 ${isInitialSearchState && !cameFromDentistDashboard ? 'w-7 h-7' : 'w-5 h-5'}`} />
             </Button>
           </div>
           {isPatientDropdownOpen && (

@@ -82,6 +82,7 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName }) 
                 <NavLink to={NavigationPath.PatientsList}>Pacientes</NavLink>
                 <NavLink to={NavigationPath.Appointments}>Agendamentos</NavLink>
                 <NavLink to={NavigationPath.ViewRecord}>Prontuários</NavLink>
+                <NavLink to={NavigationPath.ConsultationHistory}>Histórico</NavLink> 
                 <NavLink to={NavigationPath.AllTreatmentPlans}>Tratamentos</NavLink>
                 <NavLink to={NavigationPath.Configurations}>Configurações</NavLink> 
               </div>
@@ -129,6 +130,7 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName }) 
                 <NavLink to={NavigationPath.PatientsList} onClick={closeMobileMenu} isMobile>Pacientes</NavLink>
                 <NavLink to={NavigationPath.Appointments} onClick={closeMobileMenu} isMobile>Agendamentos</NavLink>
                 <NavLink to={NavigationPath.ViewRecord} onClick={closeMobileMenu} isMobile>Prontuários</NavLink>
+                <NavLink to={NavigationPath.ConsultationHistory} onClick={closeMobileMenu} isMobile>Histórico</NavLink>
                 <NavLink to={NavigationPath.AllTreatmentPlans} onClick={closeMobileMenu} isMobile>Tratamentos</NavLink>
                 <NavLink to={NavigationPath.Configurations} onClick={closeMobileMenu} isMobile>Configurações</NavLink>
               </>

@@ -17,7 +17,8 @@ import { ViewRecordPage } from './pages/ViewRecordPage';
 import { LoginPage } from './pages/LoginPage';
 import { DentistDashboardPage } from './pages/DentistDashboardPage'; 
 import { ConfigurationsPage } from './pages/ConfigurationsPage';
-import { ManageAppointmentPage } from './pages/ManageAppointmentPage'; // Added
+import { ManageAppointmentPage } from './pages/ManageAppointmentPage'; 
+import { ConsultationHistoryPage } from './pages/ConsultationHistoryPage'; // Added
 import { NavigationPath } from './types';
 import { Button } from './components/ui/Button';
 import { ToastProvider } from './contexts/ToastContext';
@@ -150,6 +151,10 @@ const App: React.FC = () => {
                     {/* Routes for Admin and Dentist */}
                     <Route path={NavigationPath.TreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
                     <Route path={NavigationPath.EditTreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
+                    <Route 
+                      path={NavigationPath.ConsultationHistory.substring(1)} 
+                      element={<ConsultationHistoryPage />} // Accessible to both admin and dentist
+                    />
                     
                     {/* Common Routes or routes accessible by logged-in users based on other logic */}
                     <Route path={NavigationPath.PatientDetail.substring(1)} element={<PatientDetailPage />} />

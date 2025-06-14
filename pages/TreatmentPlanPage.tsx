@@ -60,7 +60,7 @@ export const TreatmentPlanPage: React.FC = () => {
   const patientDropdownRef = useRef<HTMLDivElement>(null);
 
   const [prescribedMedication, setPrescribedMedication] = useState('');
-  const [payments, setPayments] = useState<PaymentInput[]>([{ value: '', payment_method: '', payment_date: '' }]);
+  const [payments, setPayments] = useState<PaymentInput[]>([{ value: '', payment_method: '', payment_date: '', description: '' }]);
 
   const cameFromDentistDashboard = location.state?.fromDentistDashboard;
 
@@ -100,7 +100,7 @@ export const TreatmentPlanPage: React.FC = () => {
             setCurrentFileUrl(data.file_url || null);
             setSelectedFile(null); 
             setPrescribedMedication(data.prescribed_medication || '');
-            setPayments(data.payments || [{ value: '', payment_method: '', payment_date: '' }]);
+            setPayments(data.payments?.map(p => ({...p, description: p.description || ''})) || [{ value: '', payment_method: '', payment_date: '', description: '' }]);
           } else {
             setPageError("Plano de tratamento não encontrado.");
             showToast("Plano de tratamento não encontrado.", "error");
@@ -149,7 +149,7 @@ export const TreatmentPlanPage: React.FC = () => {
     setPatientSearchTermDropdown('');
     setIsPatientDropdownOpen(false);
     setPrescribedMedication('');
-    setPayments([{ value: '', payment_method: '', payment_date: '' }]);
+    setPayments([{ value: '', payment_method: '', payment_date: '', description: '' }]);
   };
 
   const handlePatientSelect = (patient: Patient) => {
@@ -159,14 +159,18 @@ export const TreatmentPlanPage: React.FC = () => {
   };
 
   const handlePaymentChange = (index: number, field: keyof PaymentInput, value: string | PaymentMethod) => {
-    const newPayments = [...payments];
-    (newPayments[index] as any)[field] = value;
+    const newPayments = payments.map((payment, i) => {
+      if (i === index) {
+        return { ...payment, [field]: value };
+      }
+      return payment;
+    });
     setPayments(newPayments);
   };
 
   const addPaymentRow = () => {
     if (payments.length < 4) {
-      setPayments([...payments, { value: '', payment_method: '', payment_date: '' }]);
+      setPayments([...payments, { value: '', payment_method: '', payment_date: '', description: '' }]);
     } else {
       showToast("Máximo de 4 entradas de pagamento atingido.", "warning");
     }
@@ -177,13 +181,13 @@ export const TreatmentPlanPage: React.FC = () => {
       const newPayments = payments.filter((_, i) => i !== index);
       setPayments(newPayments);
     } else { 
-      setPayments([{ value: '', payment_method: '', payment_date: '' }]);
+      setPayments([{ value: '', payment_method: '', payment_date: '', description: '' }]);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientCPF.trim() && !cameFromDentistDashboard) { // If from dentist dash, patientCPF might be empty initially for a new plan
+    if (!patientCPF.trim() && !cameFromDentistDashboard) { 
         showToast("CPF do Paciente é obrigatório se não estiver criando um plano geral a partir do dashboard do dentista.", "error");
         return;
     }
@@ -204,7 +208,6 @@ export const TreatmentPlanPage: React.FC = () => {
         return;
     }
 
-    // Determine the CPF to use for file path: use patientCPF if available, otherwise use a generic dentist ID or placeholder if from dentist dash and no patient yet
     const cpfForFilePath = patientCPF || (cameFromDentistDashboard ? location.state?.dentistUsernameContext || 'geral' : 'unknown_patient');
 
     if (selectedFile) {
@@ -240,12 +243,12 @@ export const TreatmentPlanPage: React.FC = () => {
       .filter(p => p.value.trim() !== '' && p.payment_method !== '' && p.payment_date.trim() !== '')
       .map(p => {
         const stringValue = p.value.trim().replace(',', '.');
-        return {...p, value: stringValue };
+        return {...p, value: stringValue, description: p.description?.trim() || undefined };
       })
       .filter(p => p.value && !isNaN(parseFloat(p.value)));
 
     const planDataPayload: Partial<SupabaseTreatmentPlanData> = {
-        patient_cpf: patientCPF, // Can be empty if cameFromDentistDashboard and no patient selected yet
+        patient_cpf: patientCPF, 
         description: description,
         file_names: finalFileNames ? finalFileNames.trim() : null,
         file_url: uploadedFileUrl,
@@ -266,7 +269,6 @@ export const TreatmentPlanPage: React.FC = () => {
           navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', originalPatientCpf || patientCPF));
         }
       } else {
-        // For new plans, ensure patient_cpf is set, or handle generic plans if allowed
         if (!planDataPayload.patient_cpf && !cameFromDentistDashboard) {
             showToast('CPF do Paciente é obrigatório para novo plano.', 'error');
             setIsLoading(false);
@@ -294,7 +296,7 @@ export const TreatmentPlanPage: React.FC = () => {
 
   const handleBackNavigation = () => {
     if (cameFromDentistDashboard) {
-        navigate(NavigationPath.Home); // Dentist dashboard is at '/' for dentist role
+        navigate(NavigationPath.Home); 
         return;
     }
     if (isEditMode && originalPatientCpf) {
@@ -353,8 +355,8 @@ export const TreatmentPlanPage: React.FC = () => {
                         if(e.target.value.trim() !== '') setIsPatientDropdownOpen(true); else setIsPatientDropdownOpen(false);
                     }}
                     placeholder="Buscar por Nome ou CPF" 
-                    required={!cameFromDentistDashboard} // Required only if not from dentist dash (where it can be a general plan)
-                    disabled={isLoading || isEditMode || cameFromDentistDashboard && isEditMode} // Disable CPF edit if editing or from dentist dash & editing
+                    required={!cameFromDentistDashboard} 
+                    disabled={isLoading || isEditMode || cameFromDentistDashboard && isEditMode} 
                     containerClassName="mb-0 flex-grow" 
                     className="rounded-r-none h-[46px]" 
                     prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400"/>}
@@ -383,6 +385,15 @@ export const TreatmentPlanPage: React.FC = () => {
                   <Select label="Forma de Pagamento" value={payment.payment_method} onChange={(e) => handlePaymentChange(index, 'payment_method', e.target.value as PaymentMethod)} options={paymentMethodOptions} placeholder="Selecione..." disabled={isLoading} containerClassName="mb-0" />
                   <DatePicker label="Data do Pagamento" value={payment.payment_date} onChange={(e) => handlePaymentChange(index, 'payment_date', e.target.value)} disabled={isLoading} containerClassName="mb-0" />
                 </div>
+                <Input 
+                  label="Descrição do Pagamento (Opcional)" 
+                  type="text" 
+                  placeholder="Ex: Referente à consulta inicial" 
+                  value={payment.description || ''}
+                  onChange={(e) => handlePaymentChange(index, 'description', e.target.value)} 
+                  disabled={isLoading} 
+                  containerClassName="mb-0" 
+                />
               </div>
             ))}
             {payments.length < 4 && <Button type="button" variant="ghost" size="sm" onClick={addPaymentRow} leftIcon={<PlusIcon />} disabled={isLoading}>Adicionar Pagamento</Button>}

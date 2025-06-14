@@ -1,3 +1,4 @@
+
 // services/supabaseService.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { 
@@ -8,7 +9,10 @@ import {
     TreatmentPlanWithPatientInfo,
     SupabaseAnamnesisData, 
     SupabaseBloodPressureReading,
-    Dentist 
+    Dentist,
+    Reminder,
+    Procedure,
+    ConsultationHistoryEntry 
 } from '../types'; 
 
 const SUPABASE_URL: string = 'https://wbxjsqixqxdcagiorccx.supabase.co';
@@ -83,7 +87,7 @@ export const updatePatient = async (cpf: string, patientData: Partial<Omit<Patie
   if (patientData.emergencyContactPhone !== undefined) dataToUpdate.emergency_contact_phone = patientData.emergencyContactPhone || null;
   dataToUpdate.updated_at = new Date().toISOString(); 
 
-  if (Object.keys(dataToUpdate).length === 1 && dataToUpdate.updated_at) { // only updated_at means no actual data change
+  if (Object.keys(dataToUpdate).length === 1 && dataToUpdate.updated_at) { 
     return { data: null, error: { message: "No data provided for update." } };
   }
 
@@ -108,14 +112,12 @@ export const deletePatientByCpf = async (cpf: string): Promise<{ data: any[] | n
   if (supabaseError) {
     console.error(`[SupabaseService] Error deleting patient CPF ${cpf}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
   } else {
-    // Improved logging for deletion confirmation
     if (data && data.length > 0) {
         console.log(`[SupabaseService] Successfully deleted patient record for CPF ${cpf}. Response indicates ${data.length} record(s) affected.`);
     } else if (data && data.length === 0) {
         console.warn(`[SupabaseService] Supabase reported 0 records deleted for CPF ${cpf}. Patient might have been already deleted or CPF not found.`);
     } else {
-        // This case might occur if the .select() is removed or if Supabase changes its response format for DELETE
-        console.log(`[SupabaseService] Delete operation for CPF ${cpf} completed without error, but no specific record data returned (this is often normal for DELETE operations without a .select()).`);
+        console.log(`[SupabaseService] Delete operation for CPF ${cpf} completed. Data received:`, data);
     }
   }
   return { data, error: supabaseError };
@@ -159,9 +161,9 @@ export const getPatientByCpf = async (cpf: string): Promise<{ data: Patient | nu
   const { data, error: supabaseError } = await client.from('patients').select('*').eq('cpf', cpf).single();
 
   if (supabaseError) {
-    if (supabaseError.code === 'PGRST116') { // PGRST116: 0 rows, patient not found
+    if (supabaseError.code === 'PGRST116') { 
         console.log(`Patient with CPF ${cpf} not found.`);
-        return { data: null, error: null }; // Return null data, no error for "not found"
+        return { data: null, error: null }; 
     }
     console.error(`Error fetching patient by CPF ${cpf} from Supabase:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
     return { data: null, error: supabaseError };
@@ -395,7 +397,7 @@ export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithP
   }
 
   const transformedData: TreatmentPlanWithPatientInfo[] = data ? data.map(item => {
-    const patientsField = item.patients; // patients can be object or array from Supabase
+    const patientsField = item.patients; 
     let patientFullName: string | null = null;
 
     if (Array.isArray(patientsField) && patientsField.length > 0) {
@@ -455,9 +457,9 @@ export const getAppointmentById = async (appointmentId: string): Promise<{ data:
     .single();
 
   if (supabaseError) {
-    if (supabaseError.code === 'PGRST116') { // PGRST116: 0 rows, appointment not found
+    if (supabaseError.code === 'PGRST116') { 
         console.log(`Appointment with ID ${appointmentId} not found.`);
-        return { data: null, error: null }; // Return null data, no error for "not found"
+        return { data: null, error: null }; 
     }
     console.error(`Error fetching appointment by ID ${appointmentId} from Supabase:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
     return { data: null, error: supabaseError };
@@ -522,7 +524,11 @@ export const getAppointments = async (): Promise<{ data: Appointment[] | null, e
   return { data: data as Appointment[] | null, error: null };
 };
 
-export const getAppointmentsByDate = async (date: string, dentistId?: string): Promise<{ data: Appointment[] | null, error: any }> => {
+export const getAppointmentsByDate = async (
+  date: string, 
+  dentistId?: string, 
+  excludeStatus?: Appointment['status'] // Kept for potential other uses, but DentistDashboard will filter client-side
+): Promise<{ data: Appointment[] | null, error: any }> => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
   
@@ -532,7 +538,10 @@ export const getAppointmentsByDate = async (date: string, dentistId?: string): P
     .eq('appointment_date', date);
 
   if (dentistId) {
-    query = query.eq('dentist_id', dentistId); // dentist_id stores the username
+    query = query.eq('dentist_id', dentistId); 
+  }
+  if (excludeStatus) { // This will only exclude one status if provided.
+    query = query.neq('status', excludeStatus); 
   }
   
   query = query.order('appointment_time', { ascending: true });
@@ -540,7 +549,8 @@ export const getAppointmentsByDate = async (date: string, dentistId?: string): P
   const { data, error: supabaseError } = await query;
 
   if (supabaseError) {
-    console.error(`Error fetching appointments for date ${date} ${dentistId ? `for dentist ${dentistId}`: ''} from Supabase:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    const dentistInfoString = dentistId ? `for dentist ${dentistId}` : '';
+    console.error(`Error fetching appointments for date ${date} ${dentistInfoString} from Supabase:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
     return { data: null, error: supabaseError };
   }
   return { data: data as Appointment[] | null, error: null };
@@ -550,7 +560,8 @@ export const getAppointmentsByDate = async (date: string, dentistId?: string): P
 export const getAppointmentsByDateRangeForDentist = async (
   startDate: string,
   endDate: string,
-  dentistId?: string
+  dentistId?: string,
+  excludeStatus?: Appointment['status'] // Kept for potential other uses
 ): Promise<{ data: Appointment[] | null, error: any }> => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
@@ -564,13 +575,17 @@ export const getAppointmentsByDateRangeForDentist = async (
   if (dentistId) {
     query = query.eq('dentist_id', dentistId);
   }
+  if (excludeStatus) {
+    query = query.neq('status', excludeStatus); 
+  }
 
   query = query.order('appointment_date', { ascending: true }).order('appointment_time', { ascending: true });
 
   const { data, error: supabaseError } = await query;
 
   if (supabaseError) {
-    console.error(`Error fetching appointments for date range ${startDate}-${endDate} ${dentistId ? `for dentist ${dentistId}`: ''}:`, supabaseError);
+    const dentistInfoString = dentistId ? `for dentist ${dentistId}` : '';
+    console.error(`Error fetching appointments for date range ${startDate}-${endDate} ${dentistInfoString}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
     return { data: null, error: supabaseError };
   }
   return { data: data as Appointment[] | null, error: null };
@@ -578,21 +593,29 @@ export const getAppointmentsByDateRangeForDentist = async (
 
 export const getAllAppointmentsForDentist = async (
   dentistId: string,
-  limit: number = 50 // Default limit to avoid fetching too many
+  limit: number = 50,
+  excludeStatus?: Appointment['status'] // Kept for potential other uses
 ): Promise<{ data: Appointment[] | null, error: any }> => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
-  const { data, error: supabaseError } = await client
+  let query = client
     .from('appointments')
     .select('*')
-    .eq('dentist_id', dentistId)
-    .order('appointment_date', { ascending: false }) // Show most recent first
+    .eq('dentist_id', dentistId);
+
+  if (excludeStatus) {
+    query = query.neq('status', excludeStatus); 
+  }
+  
+  query = query.order('appointment_date', { ascending: false }) 
     .order('appointment_time', { ascending: false })
     .limit(limit);
 
+  const { data, error: supabaseError } = await query;
+
   if (supabaseError) {
-    console.error(`Error fetching all appointments for dentist ${dentistId}:`, supabaseError);
+    console.error(`Error fetching all appointments for dentist ${dentistId}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
     return { data: null, error: supabaseError };
   }
   return { data: data as Appointment[] | null, error: null };
@@ -685,10 +708,10 @@ export const getDentistByUsername = async (username: string): Promise<{ data: De
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
   const { data, error } = await client.from('dentists').select('*').eq('username', username).single();
-  if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is not an error for login check
+  if (error && error.code !== 'PGRST116') { 
     console.error('Error fetching dentist by username:', error);
   }
-  return { data: data as Dentist | null, error: (error && error.code === 'PGRST116' ? null : error) }; // Treat "not found" as null data, no error
+  return { data: data as Dentist | null, error: (error && error.code === 'PGRST116' ? null : error) }; 
 };
 
 export const updateDentist = async (dentistId: string, dentistData: Partial<Omit<Dentist, 'id' | 'created_at' | 'updated_at'>>) => {
@@ -707,4 +730,205 @@ export const deleteDentist = async (dentistId: string) => {
   const { error } = await client.from('dentists').delete().eq('id', dentistId);
   if (error) console.error('Error deleting dentist:', error);
   return { error };
+};
+
+// --- REMINDER FUNCTIONS ---
+export const addReminder = async (reminderData: Pick<Reminder, 'title' | 'content'>): Promise<{ data: Reminder | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  const { data, error } = await client
+    .from('reminders')
+    .insert([{ ...reminderData, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+    .select()
+    .single();
+  if (error) console.error('Error adding reminder:', error);
+  return { data, error };
+};
+
+export const getReminders = async (): Promise<{ data: Reminder[] | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  const { data, error } = await client
+    .from('reminders')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) console.error('Error fetching reminders:', error);
+  return { data, error };
+};
+
+export const getActiveReminders = async (): Promise<{ data: Reminder[] | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  const { data, error } = await client
+    .from('reminders')
+    .select('*')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+  if (error) console.error('Error fetching active reminders:', error);
+  return { data, error };
+};
+
+export const updateReminder = async (id: string, updates: Partial<Pick<Reminder, 'title' | 'content'>>): Promise<{ data: Reminder | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  
+  const payload: { title?: string; content?: string; updated_at: string } = { 
+      updated_at: new Date().toISOString() 
+  };
+  if (updates.title !== undefined) payload.title = updates.title;
+  if (updates.content !== undefined) payload.content = updates.content;
+
+  const { data, error } = await client
+    .from('reminders')
+    .update(payload)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) console.error('Error updating reminder content/title:', error);
+  return { data, error };
+};
+
+
+export const updateReminderIsActive = async (id: string, is_active: boolean): Promise<{ data: Reminder | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  const { data, error } = await client
+    .from('reminders')
+    .update({ is_active, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) console.error('Error updating reminder active status:', error);
+  return { data, error };
+};
+
+export const deleteReminderById = async (id: string): Promise<{ error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { error: { message: "Supabase client not initialized." } };
+  const { error } = await client
+    .from('reminders')
+    .delete()
+    .eq('id', id);
+  if (error) console.error('Error deleting reminder:', error);
+  return { error };
+};
+
+// --- CUSTOM PROCEDURE FUNCTIONS ---
+export const getProcedures = async (fetchInactive: boolean = false): Promise<{ data: Procedure[] | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  
+  let query = client.from('procedures').select('*').order('name', { ascending: true });
+  if (!fetchInactive) {
+    query = query.eq('is_active', true);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Error fetching procedures:', error);
+  }
+  return { data: data as Procedure[] | null, error };
+};
+
+export const addProcedure = async (procedureData: Pick<Procedure, 'name'>): Promise<{ data: Procedure | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  
+  const payload = { 
+    name: procedureData.name, 
+    is_active: true, 
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  
+  const { data, error } = await client.from('procedures').insert([payload]).select().single();
+  if (error) {
+    console.error('Error adding procedure:', error);
+  }
+  return { data: data as Procedure | null, error };
+};
+
+export const updateProcedure = async (id: string, updates: Partial<Pick<Procedure, 'name' | 'is_active'>>): Promise<{ data: Procedure | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  
+  const payload = { ...updates, updated_at: new Date().toISOString() };
+  
+  const { data, error } = await client.from('procedures').update(payload).eq('id', id).select().single();
+  if (error) {
+    console.error('Error updating procedure:', error);
+  }
+  return { data: data as Procedure | null, error };
+};
+
+export const deleteProcedure = async (id: string): Promise<{ error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { error: { message: "Supabase client not initialized." } };
+  
+  const { error } = await client.from('procedures').delete().eq('id', id);
+  if (error) {
+    console.error('Error deleting procedure:', error);
+  }
+  return { error };
+};
+
+// --- CONSULTATION HISTORY FUNCTIONS ---
+export const addConsultationHistoryEntry = async (
+  entryData: Omit<ConsultationHistoryEntry, 'id' | 'completion_timestamp' | 'created_at'>
+): Promise<{ data: ConsultationHistoryEntry | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const payload = {
+    ...entryData, // entryData now includes status from the caller
+    completion_timestamp: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await client
+    .from('consultation_history')
+    .insert([payload])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error adding consultation history entry:', error.message, JSON.stringify(error, null, 2));
+  }
+  return { data: data as ConsultationHistoryEntry | null, error };
+};
+
+export const getConsultationHistory = async (filters?: {
+  patientSearchTerm?: string;
+  dentistId?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<{ data: ConsultationHistoryEntry[] | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  let query = client
+    .from('consultation_history')
+    .select('*')
+    .order('completion_timestamp', { ascending: false });
+
+  if (filters?.patientSearchTerm) {
+    const searchTerm = `%${filters.patientSearchTerm}%`;
+    query = query.or(`patient_name.ilike.${searchTerm},patient_cpf.ilike.${searchTerm}`);
+  }
+  if (filters?.dentistId) {
+    query = query.eq('dentist_id', filters.dentistId);
+  }
+  if (filters?.startDate) {
+    query = query.gte('consultation_date', filters.startDate);
+  }
+  if (filters?.endDate) {
+    query = query.lte('consultation_date', filters.endDate);
+  }
+  
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching consultation history:', error.message, JSON.stringify(error, null, 2));
+  }
+  return { data: data as ConsultationHistoryEntry[] | null, error };
 };
