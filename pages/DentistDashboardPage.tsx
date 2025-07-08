@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -80,22 +81,24 @@ const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ app
         <span className={`text-sm font-semibold px-2 py-0.5 rounded-full ${colors.replace('border-', 'bg-').replace('/10', '/30')}`}>{currentStatusLabel}</span>
         <span className="text-xl font-bold text-teal-400">{formatToHHMM(appointment.appointment_time)}</span>
       </div>
-      <p className="text-md font-semibold text-white truncate" title={appointment.patient_name || appointment.patient_cpf}>{appointment.patient_name || appointment.patient_cpf}</p>
+      <p className="text-md font-semibold text-white truncate" title={appointment.patient_name}>{appointment.patient_name}</p>
       <p className="text-xs text-gray-400 truncate" title={appointment.procedure}>{appointment.procedure}</p>
       <div className="mt-3 flex justify-end space-x-2">
-         <Link 
-            to={`/patient/${appointment.patient_cpf}`} 
-            state={{ from: NavigationPath.Home, dentistUsernameContext: dentistUsername }}
+        <Link
+          to={appointment.patient_cpf ? `/patient/${appointment.patient_cpf}` : '#'}
+          onClick={(e) => !appointment.patient_cpf && e.preventDefault()}
+          className={!appointment.patient_cpf ? 'cursor-not-allowed' : ''}
+          state={{ from: NavigationPath.Home, dentistUsernameContext: dentistUsername }}
         >
-            <Button
-                variant="ghost"
-                size="sm"
-                className="p-2 border-gray-600 hover:border-teal-500 text-gray-300 hover:text-teal-400"
-                title="Ver Prontuário"
-                disabled={isUpdatingStatus}
-            >
-                <EyeIcon className="w-4 h-4"/>
-            </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="p-2 border-gray-600 hover:border-teal-500 text-gray-300 hover:text-teal-400"
+            title={appointment.patient_cpf ? "Ver Prontuário" : "Paciente não cadastrado"}
+            disabled={isUpdatingStatus || !appointment.patient_cpf}
+          >
+            <EyeIcon className="w-4 h-4" />
+          </Button>
         </Link>
         <Button
           onClick={() => onUpdateStatus(appointment, 'Cancelled')}
@@ -308,7 +311,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         if (newStatus === 'Completed' || newStatus === 'Cancelled') {
             // Use the original appointment data as a base, then potentially override with updatedAppointmentData if available
             // This ensures that even if updatedAppointmentData is null (but no error occurred), we can still log to history.
-            const baseAppointmentDataForHistory = {
+            const baseAppointmentDataForHistory: Appointment = {
                 ...appointment, // Start with original data
                 ...(updatedAppointmentData || {}), // Override with updated data if it exists
                 status: newStatus // Ensure the new status is set correctly

@@ -299,7 +299,7 @@ export const DashboardPage: React.FC = () => {
                         <span className="text-xs text-[#b0b0b0] uppercase tracking-wide">{new Date(appt.appointment_date + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase()}</span>
                       </div>
                       <div className="flex-grow">
-                        <p className="font-semibold text-lg text-white">{appt.patient_name || appt.patient_cpf}</p>
+                        <p className="font-semibold text-lg text-white">{appt.patient_name}</p>
                         <p className="text-sm text-[#b0b0b0]">{appt.procedure}</p>
                         <p className="text-xs text-gray-500">
                           {formatToHHMM(appt.appointment_time)}
@@ -311,11 +311,17 @@ export const DashboardPage: React.FC = () => {
                         <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusConfig.className}`}>
                           {statusConfig.label}
                         </span>
-                        <Link to={`/patient/${appt.patient_cpf}`} className="block">
-                            <Button size="sm" variant="ghost" className="text-xs border-gray-600 hover:border-[#00bcd4] text-[#b0b0b0] hover:text-[#00bcd4]" leftIcon={<EyeIcon className="w-4 h-4"/>}>
-                              Ver Paciente
-                            </Button>
-                        </Link>
+                        {appt.patient_cpf ? (
+                          <Link to={`/patient/${appt.patient_cpf}`} className="block">
+                              <Button size="sm" variant="ghost" className="text-xs border-gray-600 hover:border-[#00bcd4] text-[#b0b0b0] hover:text-[#00bcd4]" leftIcon={<EyeIcon className="w-4 h-4"/>}>
+                                Ver Paciente
+                              </Button>
+                          </Link>
+                        ) : (
+                          <Button size="sm" variant="ghost" className="text-xs border-gray-600" disabled>
+                            Não Cadastrado
+                          </Button>
+                        )}
                       </div>
                     </li>
                   );

@@ -264,9 +264,13 @@ export const AppointmentsPage: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{isoToDdMmYyyy(appt.appointment_date)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatToHHMM(appt.appointment_time)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                    <Link to={NavigationPath.PatientDetail.replace(':patientId', appt.patient_cpf)} className="hover:text-[#00bcd4] transition-colors">
-                        {appt.patient_name || appt.patient_cpf}
-                    </Link>
+                    {appt.patient_cpf ? (
+                      <Link to={NavigationPath.PatientDetail.replace(':patientId', appt.patient_cpf)} className="hover:text-[#00bcd4] transition-colors">
+                        {appt.patient_name}
+                      </Link>
+                    ) : (
+                      <span>{appt.patient_name}</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b0b0b0]">{appt.procedure}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b0b0b0]">{appt.dentist_name || 'N/A'}</td>
@@ -286,7 +290,7 @@ export const AppointmentsPage: React.FC = () => {
                             <PencilIcon className="w-5 h-5" />
                         </button>
                         <button 
-                            onClick={() => requestDeleteAppointment(appt.id, `${appt.procedure} - ${appt.patient_name || appt.patient_cpf} em ${isoToDdMmYyyy(appt.appointment_date)}`)}
+                            onClick={() => requestDeleteAppointment(appt.id, `${appt.procedure} - ${appt.patient_name} em ${isoToDdMmYyyy(appt.appointment_date)}`)}
                             className="text-[#f44336] hover:text-[#d32f2f] p-1"
                             title="Excluir Agendamento"
                             disabled={isLoading || isDeleting}

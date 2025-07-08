@@ -24,7 +24,24 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
         if (error) {
           setError('Não foi possível carregar as atualizações.');
         } else {
-          setChangelog(data || []);
+           const todayISOString = new Date().toISOString().split('T')[0];
+           const newEntry: ChangelogEntry = {
+            id: 'manual-entry-1',
+            created_at: new Date().toISOString(),
+            release_date: todayISOString,
+            version: 'v4.2.0',
+            changes: [
+                'Permitido agendamento para pacientes não cadastrados diretamente na tela de agendamento.',
+                'Adicionado ícone (favicon) da Top Dent na aba do navegador.',
+            ]
+          };
+          const existingData = data || [];
+          // Prepend the new entry if it doesn't already exist in the list
+          if (!existingData.some(entry => entry.version === newEntry.version)) {
+             setChangelog([newEntry, ...existingData]);
+          } else {
+             setChangelog(existingData);
+          }
         }
         setIsLoading(false);
       });

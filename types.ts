@@ -1,3 +1,4 @@
+
 export interface Patient {
   id: string; // Should be unique, CPF can serve this role for now
   fullName: string;
@@ -65,8 +66,8 @@ export interface AnamnesisFormUIData {
 
 export interface Appointment {
   id: string; // UUID from Supabase
-  patient_cpf: string;
-  patient_name?: string; // Denormalized for easier display
+  patient_cpf: string | null;
+  patient_name: string; // Denormalized for easier display, now required
   appointment_date: string; // YYYY-MM-DD
   appointment_time: string; // HH:MM
   procedure: string;
@@ -157,8 +158,8 @@ export interface Reminder {
 export interface ConsultationHistoryEntry {
   id: string; // UUID from Supabase
   appointment_id: string | null; // UUID of the original appointment
-  patient_cpf: string;
-  patient_name?: string; // Denormalized
+  patient_cpf: string | null;
+  patient_name: string;
   dentist_id?: string | null; // Username of the dentist
   dentist_name?: string | null; // Denormalized
   procedure_details: string; // The procedure string from appointment
@@ -209,7 +210,7 @@ export interface Procedure {
 export interface AppointmentReturnInfo {
   id: string; // appointment id
   return_date: string;
-  patient_cpf: string;
+  patient_cpf: string | null;
   patient_name: string;
   patient_phone: string;
 }

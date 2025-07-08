@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, FormEvent, useRef, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -35,35 +36,40 @@ export const ManageAppointmentPage: React.FC = () => {
   const isEditMode = !!appointmentId;
   const { showToast } = useToast();
 
-  const [patientCpf, setPatientCpf] = useState('');
+  // State for appointment fields
+  const [patientCpf, setPatientCpf] = useState<string | null>(null);
   const [patientName, setPatientName] = useState('');
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
   const [returnDate, setReturnDate] = useState('');
   
+  // State for procedures
   const [allSelectableProcedures, setAllSelectableProcedures] = useState<string[]>([]);
   const [selectedProcedures, setSelectedProcedures] = useState<Record<string, boolean>>({});
   const [otherProcedureText, setOtherProcedureText] = useState('');
   const [isOtherSelected, setIsOtherSelected] = useState(false);
 
+  // Other appointment states
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<Appointment['status']>('Scheduled');
   const [isLoading, setIsLoading] = useState(false); // For form submission
-  const [cpfError, setCpfError] = useState('');
 
+  // State for patient selection dropdown
   const [allPatients, setAllPatients] = useState<Patient[]>([]);
   const [isLoadingPageData, setIsLoadingPageData] = useState(true); 
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
   const patientDropdownRef = useRef<HTMLDivElement>(null);
 
+  // State for dentist selection dropdown
   const [availableDentists, setAvailableDentists] = useState<DentistUser[]>([]);
   const [selectedDentistId, setSelectedDentistId] = useState<string | null>(null);
   const [isDentistDropdownOpen, setIsDentistDropdownOpen] = useState(false);
   const [dentistSearchTerm, setDentistSearchTerm] = useState('');
   const dentistDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // General page state
   const [pageError, setPageError] = useState<string | null>(null);
-
   const [loadedAppointmentData, setLoadedAppointmentData] = useState<Appointment | null>(null);
 
   const parseProcedureString = useCallback((procedureStr: string | undefined | null) => {
@@ -124,7 +130,7 @@ export const ManageAppointmentPage: React.FC = () => {
             setLoadedAppointmentData(existingAppt); 
             setPatientCpf(existingAppt.patient_cpf);
             setPatientName(existingAppt.patient_name || '');
-            setPatientSearchTerm(existingAppt.patient_name || existingAppt.patient_cpf);
+            setPatientSearchTerm(existingAppt.patient_name || '');
             setAppointmentDate(existingAppt.appointment_date);
             setAppointmentTime(existingAppt.appointment_time);
             setReturnDate(existingAppt.return_date || '');
@@ -137,7 +143,7 @@ export const ManageAppointmentPage: React.FC = () => {
         } else {
           const today = new Date().toISOString().split('T')[0];
           setAppointmentDate(today);
-          setPatientCpf('');
+          setPatientCpf(null);
           setPatientName('');
           setPatientSearchTerm('');
           setAppointmentTime('');
@@ -167,46 +173,6 @@ export const ManageAppointmentPage: React.FC = () => {
         }
     }
   }, [isEditMode, loadedAppointmentData, allSelectableProcedures, parseProcedureString]);
-
-
-  const handleCpfBlur = async () => {
-    if (!patientCpf && !patientSearchTerm) {
-      setPatientName('');
-      setCpfError('');
-      return;
-    }
-    setCpfError('');
-    let cpfToSearch = patientCpf;
-    if (!patientCpf && patientSearchTerm) {
-        const foundPatient = allPatients.find(p => p.fullName === patientSearchTerm || p.cpf === patientSearchTerm);
-        if(foundPatient) {
-            cpfToSearch = foundPatient.cpf;
-            setPatientCpf(foundPatient.cpf);
-            setPatientName(foundPatient.fullName);
-        } else {
-            cpfToSearch = patientSearchTerm; 
-        }
-    }
-
-    if (!cpfToSearch) {
-      setCpfError("CPF ou Nome não fornecido para busca detalhada.");
-      return;
-    }
-
-    const { data: patient, error } = await getPatientByCpf(cpfToSearch);
-    if (error) {
-      console.error("Error fetching patient by CPF:", error);
-      setCpfError("Erro ao buscar CPF.");
-      setPatientName(''); 
-    } else if (patient) {
-      setPatientName(patient.fullName);
-      setPatientCpf(patient.cpf); 
-      setPatientSearchTerm(patient.fullName); 
-    } else {
-      setCpfError("Paciente não encontrado com este CPF/Nome.");
-      setPatientName('');
-    }
-  };
 
   const handleProcedureChange = (procedureName: string, checked: boolean) => {
     setSelectedProcedures(prev => ({ ...prev, [procedureName]: checked }));
@@ -241,7 +207,7 @@ export const ManageAppointmentPage: React.FC = () => {
     }
     const procedureString = finalProcedures.join(', ');
 
-    if (!patientCpf || !patientName || !selectedDentistId || !appointmentDate || !appointmentTime || !procedureString) {
+    if (!patientName.trim() || !selectedDentistId || !appointmentDate || !appointmentTime || !procedureString) {
       showToast('Paciente, Dentista, Data, Hora e Procedimento são obrigatórios.', 'error');
       return;
     }
@@ -254,7 +220,7 @@ export const ManageAppointmentPage: React.FC = () => {
     const selectedDentistObject = availableDentists.find(d => d.id === selectedDentistId);
     const appointmentDataPayload: SupabaseAppointmentData = {
       patient_cpf: patientCpf,
-      patient_name: patientName,
+      patient_name: patientName.trim(),
       appointment_date: appointmentDate,
       appointment_time: appointmentTime,
       procedure: procedureString,
@@ -305,8 +271,20 @@ export const ManageAppointmentPage: React.FC = () => {
     setPatientName(patient.fullName);
     setPatientSearchTerm(patient.fullName);
     setIsPatientDropdownOpen(false);
-    setCpfError('');
   };
+  
+  const handlePatientInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSearchTerm = e.target.value;
+    setPatientSearchTerm(newSearchTerm);
+    setPatientName(newSearchTerm);
+    setPatientCpf(null);
+    if(newSearchTerm.trim() !== '') {
+        setIsPatientDropdownOpen(true);
+    } else {
+        setIsPatientDropdownOpen(false);
+    }
+  };
+
 
   const handleDentistSelect = (dentist: DentistUser) => {
     setSelectedDentistId(dentist.id);
@@ -351,19 +329,20 @@ export const ManageAppointmentPage: React.FC = () => {
               <div className="flex">
                 <Input
                   id="patientCpfInput" value={patientSearchTerm}
-                  onChange={(e) => {setPatientSearchTerm(e.target.value); if(e.target.value.trim() !== '') setIsPatientDropdownOpen(true); else setIsPatientDropdownOpen(false);}}
-                  onFocus={() => {if (allPatients.length > 0) setIsPatientDropdownOpen(true);}}
-                  onBlurCapture={handleCpfBlur} placeholder="Buscar Paciente por Nome ou CPF" required
-                  disabled={isLoading || isEditMode} error={cpfError && !isPatientDropdownOpen ? cpfError : ''}
+                  onChange={handlePatientInputChange}
+                  onFocus={() => {if (allPatients.length > 0 && patientSearchTerm) setIsPatientDropdownOpen(true);}}
+                  placeholder="Buscar ou Digitar Nome do Paciente" required
+                  disabled={isLoading || (isEditMode && !!loadedAppointmentData?.patient_cpf)}
                   containerClassName="flex-grow mb-0" className="rounded-r-none"
                   prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />}
                 />
                 <Button type="button" onClick={() => setIsPatientDropdownOpen(!isPatientDropdownOpen)}
                   className="px-3 bg-gray-700 hover:bg-gray-600 border border-l-0 border-gray-600 rounded-l-none rounded-r-md h-[46px]"
-                  aria-expanded={isPatientDropdownOpen} title="Selecionar Paciente" disabled={isLoading || isEditMode}
+                  aria-expanded={isPatientDropdownOpen} title="Selecionar Paciente" 
+                  disabled={isLoading || (isEditMode && !!loadedAppointmentData?.patient_cpf)}
                 ><ChevronUpDownIcon className="w-5 h-5 text-gray-400" /></Button>
               </div>
-              {isPatientDropdownOpen && !isEditMode && (
+              {isPatientDropdownOpen && !(isEditMode && !!loadedAppointmentData?.patient_cpf) && (
                 <div className="absolute top-full left-0 right-0 mt-1 w-full bg-gray-700 border border-gray-600 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
                   {allPatients.length === 0 && !isLoadingPageData ? <p className="text-sm text-gray-400 text-center py-2">Carregando...</p> :
                     filteredDropdownPatients.length > 0 ? <ul>{filteredDropdownPatients.map(p => (

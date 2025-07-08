@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom'; // Added useNavigate
 import { Card } from '../components/ui/Card';
@@ -245,9 +246,13 @@ export const ConsultationHistoryPage: React.FC = () => {
                   <tr key={entry.id} className="hover:bg-[#1f1f1f] transition-colors duration-150">
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-white">{isoToDdMmYyyy(entry.consultation_date)}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
-                      <Link to={NavigationPath.PatientDetail.replace(':patientId', entry.patient_cpf)} className="hover:text-[#00bcd4]">
-                        {entry.patient_name || entry.patient_cpf}
-                      </Link>
+                      {entry.patient_cpf ? (
+                        <Link to={NavigationPath.PatientDetail.replace(':patientId', entry.patient_cpf)} className="hover:text-[#00bcd4]">
+                          {entry.patient_name}
+                        </Link>
+                      ) : (
+                        <span>{entry.patient_name}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">{entry.dentist_name || 'N/A'}</td>
                     <td className="px-4 py-3 text-sm text-[#b0b0b0] max-w-xs truncate" title={entry.procedure_details}>{entry.procedure_details}</td>
