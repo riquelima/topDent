@@ -206,8 +206,8 @@ export const AppointmentsPage: React.FC = () => {
       </div>
 
       <Card title="Filtros e Visualização" className="bg-[#1a1a1a]" titleClassName="text-white">
-        <div className="flex flex-col md:flex-row md:items-end md:gap-4">
-            <div className="flex-grow mb-4 md:mb-0">
+        <div className="flex flex-col md:flex-row items-center gap-4">
+            <div className="w-full md:w-auto md:min-w-[300px]">
                 <Select
                     label="Filtrar por Dentista"
                     options={dentistOptions}
@@ -217,7 +217,7 @@ export const AppointmentsPage: React.FC = () => {
                     containerClassName="mb-0"
                 />
             </div>
-            <div className="flex space-x-2 md:ml-auto">
+            <div className="flex space-x-2">
                 <Button
                     variant={activeSortFilter === 'all' ? 'primary' : 'ghost'}
                     onClick={() => setActiveSortFilter('all')}
