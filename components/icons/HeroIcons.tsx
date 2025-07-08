@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface IconProps {
@@ -189,6 +188,12 @@ export const CheckCircleIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) 
 export const XCircleIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
     <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clipRule="evenodd" />
+  </svg>
+);
+
+export const WhatsAppIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg fill="currentColor" viewBox="0 0 24 24" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path d="M16.63,13.21a11.14,11.14,0,0,1-1.35.61,1,1,0,0,1-1.12-.32,9.7,9.7,0,0,1-2.48-3.48,1,1,0,0,1,.33-1.11,10.74,10.74,0,0,1,1.33-.61,1,1,0,0,0,.71-1.23,12.23,12.23,0,0,0-.56-2.16,1,1,0,0,0-1.22-.7,12.12,12.12,0,0,0-2.18.57,1,1,0,0,0-.7,1.23,13,13,0,0,0,1.53,5.19,13.43,13.43,0,0,0,5.2,4.42,1,1,0,0,0,1.23-.7,12.23,12.23,0,0,0,.56-2.18,1,1,0,0,0-.71-1.23ZM12,2A10,10,0,1,0,22,12,10,10,0,0,0,12,2Zm0,18a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z"/>
   </svg>
 );
 

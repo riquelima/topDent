@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { HashRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { Header } from './components/layout/Header';
@@ -18,10 +17,13 @@ import { LoginPage } from './pages/LoginPage';
 import { DentistDashboardPage } from './pages/DentistDashboardPage'; 
 import { ConfigurationsPage } from './pages/ConfigurationsPage';
 import { ManageAppointmentPage } from './pages/ManageAppointmentPage'; 
-import { ConsultationHistoryPage } from './pages/ConsultationHistoryPage'; // Added
+import { ConsultationHistoryPage } from './pages/ConsultationHistoryPage';
+import { ReturnsPage } from './pages/ReturnsPage'; // Added
 import { NavigationPath } from './types';
 import { Button } from './components/ui/Button';
 import { ToastProvider } from './contexts/ToastContext';
+import { ChangelogModal } from './components/ChangelogModal';
+import { updateUserPreferences } from './services/supabaseService';
 
 export type UserRole = 'admin' | 'dentist' | null;
 
@@ -60,18 +62,30 @@ const App: React.FC = () => {
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [userDisplayFullName, setUserDisplayFullName] = useState<string | null>(null); 
   const [userIdForApi, setUserIdForApi] = useState<string | null>(null); 
+  const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
 
-  const handleLoginSuccess = useCallback((role: UserRole, idForApi: string | null, displayFullName: string | null) => {
+  const handleLoginSuccess = useCallback((role: UserRole, idForApi: string, displayFullName: string, showChangelog?: boolean) => {
     setUserRole(role);
     setUserIdForApi(idForApi); 
-    setUserDisplayFullName(displayFullName); 
+    setUserDisplayFullName(displayFullName);
+    if (role === 'admin' && showChangelog !== false) {
+        setIsChangelogModalOpen(true);
+    }
   }, []);
 
   const handleLogout = useCallback(() => {
     setUserRole(null);
     setUserIdForApi(null);
     setUserDisplayFullName(null);
+    setIsChangelogModalOpen(false);
   }, []);
+
+  const handleCloseChangelogModal = async (dontShowAgain: boolean) => {
+    setIsChangelogModalOpen(false);
+    if (dontShowAgain && userRole === 'admin' && userIdForApi) {
+        await updateUserPreferences(userIdForApi, { show_changelog: false });
+    }
+  };
 
   const ProtectedRoute: React.FC<{children: JSX.Element; adminOnly?: boolean}> = ({ children, adminOnly = false }) => {
     if (!userRole) {
@@ -96,6 +110,7 @@ const App: React.FC = () => {
   return (
     <ToastProvider>
       <HashRouter>
+        {userRole === 'admin' && <ChangelogModal isOpen={isChangelogModalOpen} onClose={handleCloseChangelogModal} />}
         <Routes>
           <Route
             path="/login"
@@ -145,6 +160,10 @@ const App: React.FC = () => {
                     <Route 
                       path={NavigationPath.EditAppointment.substring(1)} 
                       element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} 
+                    />
+                    <Route 
+                      path={NavigationPath.Return.substring(1)} 
+                      element={<ProtectedRoute adminOnly><ReturnsPage /></ProtectedRoute>} 
                     />
 
 

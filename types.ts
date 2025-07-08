@@ -1,4 +1,3 @@
-
 export interface Patient {
   id: string; // Should be unique, CPF can serve this role for now
   fullName: string;
@@ -75,6 +74,7 @@ export interface Appointment {
   status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
   dentist_id?: string | null; 
   dentist_name?: string | null; 
+  return_date?: string | null; // Date for follow-up
   created_at?: string; // ISO timestamp string
   updated_at?: string; // ISO timestamp string
 }
@@ -93,9 +93,8 @@ export interface SupabaseTreatmentPlanData {
     created_at?: string;
     patient_cpf: string;
     description: string;
-    file_names?: string | null; 
+    files?: { name: string; url: string; }[] | null;
     dentist_signature?: string | null;
-    file_url?: string | null;
     prescribed_medication?: string | null;
     payments?: PaymentInput[] | null; 
 }
@@ -142,6 +141,7 @@ export interface Dentist {
   full_name: string;
   username: string;
   password?: string; // Optional for reads/updates if not changing
+  show_changelog?: boolean; // For "What's New" modal preference
   created_at?: string;
   updated_at?: string;
 }
@@ -186,8 +186,9 @@ export enum NavigationPath {
   NewAppointment = "/new-appointment", 
   EditAppointment = "/edit-appointment/:appointmentId", 
   ViewRecord = "/view-record",
-  ConsultationHistory = "/consultation-history", // New path
+  ConsultationHistory = "/consultation-history",
   Configurations = "/configurations", 
+  Return = "/returns",
 }
 
 // Updated DentistUser for dropdowns, aligns with 'dentists' table structure
@@ -203,4 +204,21 @@ export interface Procedure {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface AppointmentReturnInfo {
+  id: string; // appointment id
+  return_date: string;
+  patient_cpf: string;
+  patient_name: string;
+  patient_phone: string;
+}
+
+// Interface for Changelog
+export interface ChangelogEntry {
+  id: string;
+  created_at: string;
+  release_date: string;
+  version: string;
+  changes: string[];
 }

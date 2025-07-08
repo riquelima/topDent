@@ -1,4 +1,3 @@
-
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TopDentLogo, UserIcon, LockClosedIcon, EyeIcon, EyeSlashIcon } from '../components/icons/HeroIcons';
@@ -8,10 +7,10 @@ import { useToast } from '../contexts/ToastContext';
 import { NavigationPath } from '../types';
 import { AuthLayout } from '../components/layout/AuthLayout';
 import type { UserRole } from '../App'; 
-import { getDentistByUsername } from '../services/supabaseService'; // Import Supabase service
+import { getDentistByUsername, addDentist } from '../services/supabaseService'; // Import addDentist
 
 interface LoginPageProps {
-  onLoginSuccess: (role: UserRole, idForApi: string | null, displayFullName: string | null) => void;
+  onLoginSuccess: (role: UserRole, idForApi: string, displayFullName: string, showChangelog?: boolean) => void;
 }
 
 const LoginForm: React.FC<{
@@ -110,11 +109,47 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     const username = usernameInput.toLowerCase(); 
 
     if (username === 'admin' && pass === '1234') {
-      showToast('Login de Admin realizado com sucesso!', 'success', 3000);
-      onLoginSuccess('admin', 'admin', 'Admin'); // role, idForApi, displayFullName
-      navigate(NavigationPath.Home);
-      setIsLoading(false);
-      return;
+        let { data: adminData, error: adminError } = await getDentistByUsername('admin');
+
+        // Handle case where admin user does not exist in DB - self-heal by creating it.
+        if (!adminData && !adminError) {
+            showToast('Configurando usuário admin...', 'warning', 2500);
+            const { data: newAdminData, error: creationError } = await addDentist({
+                full_name: 'Admin',
+                username: 'admin',
+                password: `autogen_${Date.now()}` // This password is a placeholder, admin login is hardcoded.
+            });
+
+            if (creationError || !newAdminData) {
+                console.error("Critical: Could not create admin user in DB:", creationError);
+                setErrorMessage("Falha crítica ao configurar o usuário admin. Contate o suporte.");
+                showToast("Erro de configuração do sistema.", 'error');
+                setIsLoading(false);
+                return;
+            }
+            adminData = newAdminData; // Use the newly created admin data to proceed.
+        } else if (adminError) {
+            console.error("Critical: Admin user not found in database or DB error:", adminError);
+            setErrorMessage('Erro de configuração: usuário Admin não encontrado na base de dados.');
+            showToast('Erro de configuração do sistema.', 'error');
+            setIsLoading(false);
+            return;
+        }
+        
+        if (!adminData || !adminData.id) {
+            // This is a safeguard, should not be hit with the logic above.
+            console.error("Critical: Admin user data is invalid after fetch/create.");
+            setErrorMessage('Erro de configuração: dados do usuário Admin inválidos.');
+            showToast('Erro de configuração do sistema.', 'error');
+            setIsLoading(false);
+            return;
+        }
+
+        showToast('Login de Admin realizado com sucesso!', 'success', 3000);
+        onLoginSuccess('admin', adminData.id, adminData.full_name, adminData.show_changelog);
+        navigate(NavigationPath.Home);
+        setIsLoading(false);
+        return;
     }
     
     // Authenticate against Supabase 'dentists' table
@@ -124,9 +159,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       console.error("Login error (fetching dentist):", dbError);
       setErrorMessage('Erro ao tentar fazer login. Tente novamente.');
       showToast('Erro ao tentar fazer login.', 'error', 4000);
-    } else if (dentist && dentist.password === pass) { // SECURITY: Plain text password check
+    } else if (dentist && dentist.password === pass && dentist.id) { // SECURITY: Plain text password check
       showToast(`Login de ${dentist.full_name} realizado com sucesso!`, 'success', 3000);
-      onLoginSuccess('dentist', dentist.username, dentist.full_name); // role, idForApi (username), displayFullName
+      onLoginSuccess('dentist', dentist.id, dentist.full_name, dentist.show_changelog);
       navigate(NavigationPath.Home);
     } else {
       setErrorMessage('Usuário ou senha inválidos.');

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -38,7 +39,7 @@ import { ImageModal } from '../components/ImageModal';
 const isImageFile = (fileName: string | null | undefined): boolean => {
   if (!fileName) return false;
   const lowerName = fileName.toLowerCase();
-  return lowerName.endsWith('.png') || lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.gif') || lowerName.endsWith('.webp');
+  return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.tif', '.tiff'].some(ext => lowerName.endsWith(ext));
 };
 
 interface DetailItemProps {
@@ -402,21 +403,27 @@ export const ViewRecordPage: React.FC = () => {
                   <div key={plan.id} className="p-3 bg-[#1f1f1f] rounded-md">
                     <p className="text-sm text-[#b0b0b0]">Criado em: {plan.created_at ? isoToDdMmYyyy(plan.created_at.split('T')[0]) : 'N/A'}</p>
                     <p className="font-medium text-white mt-1">Descrição: <span className="font-normal whitespace-pre-wrap">{plan.description}</span></p>
-                    {plan.file_url && plan.file_names && (
+                    {plan.files && plan.files.length > 0 && (
                       <div className="mt-2">
-                        {isImageFile(plan.file_names) ? (
-                            <img 
-                                src={plan.file_url} alt={plan.file_names || 'Anexo'} 
-                                className="rounded max-w-[100px] max-h-20 cursor-pointer border border-gray-700 hover:opacity-80 object-cover"
-                                onClick={() => openImageInModal(plan.file_url!)}
-                                title={`Clique para ampliar: ${plan.file_names}`}
-                            />
-                        ) : (
-                            <a href={plan.file_url} target="_blank" rel="noopener noreferrer" className="text-[#00bcd4] hover:underline text-sm flex items-center">
-                              {plan.file_names}
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3 ml-1"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-                            </a>
-                        )}
+                        <h4 className="text-sm font-medium text-[#b0b0b0] mb-1">Arquivos Anexados:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {plan.files.map((file, index) => (
+                              <a key={index} href={file.url} target="_blank" rel="noopener noreferrer" title={file.name} className="flex-shrink-0">
+                                {isImageFile(file.name) ? (
+                                    <img 
+                                        src={file.url} alt={file.name || 'Anexo'} 
+                                        className="rounded w-16 h-16 cursor-pointer border border-gray-700 hover:opacity-80 object-cover"
+                                        onClick={(e) => { e.preventDefault(); openImageInModal(file.url!); }}
+                                    />
+                                ) : (
+                                  <div className="w-16 h-16 rounded bg-gray-700 flex flex-col items-center justify-center border border-gray-700 hover:bg-gray-600 text-center p-1">
+                                      <DocumentTextIcon className="w-6 h-6 text-gray-400" />
+                                      <span className="text-xs text-gray-400 mt-1 truncate w-full">{file.name}</span>
+                                  </div>
+                                )}
+                              </a>
+                          ))}
+                        </div>
                       </div>
                     )}
                     {plan.dentist_signature && <p className="text-xs text-gray-500 mt-1">Ass.: {plan.dentist_signature}</p>}

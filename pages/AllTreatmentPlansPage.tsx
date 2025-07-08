@@ -4,12 +4,12 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input'; 
-import { ArrowUturnLeftIcon, PencilIcon, TrashIcon, PlusIcon, ChevronUpDownIcon, Squares2X2Icon, ListBulletIcon, MagnifyingGlassIcon } from '../components/icons/HeroIcons'; 
+import { ArrowUturnLeftIcon, PencilIcon, TrashIcon, PlusIcon, ChevronUpDownIcon, Squares2X2Icon, ListBulletIcon, MagnifyingGlassIcon, DocumentTextIcon } from '../components/icons/HeroIcons'; 
 import { NavigationPath, TreatmentPlanWithPatientInfo, Patient } from '../types'; 
 import { 
     getAllTreatmentPlans, 
     deleteTreatmentPlan,
-    getPatients
+    getPatients 
 } from '../services/supabaseService';
 import { isoToDdMmYyyy } from '../src/utils/formatDate';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
@@ -26,7 +26,7 @@ type ViewMode = 'card' | 'list';
 const isImageFile = (fileName: string | null | undefined): boolean => {
   if (!fileName) return false;
   const lowerName = fileName.toLowerCase();
-  return lowerName.endsWith('.png') || lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.gif') || lowerName.endsWith('.webp');
+  return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.tif', '.tiff'].some(ext => lowerName.endsWith(ext));
 };
 
 export const AllTreatmentPlansPage: React.FC = () => {
@@ -320,15 +320,21 @@ export const AllTreatmentPlansPage: React.FC = () => {
                     <ul className="list-disc list-inside ml-4 text-xs text-white">{plan.payments.map((p, i) => <li key={i}>{p.payment_method}: R$ {p.value} em {isoToDdMmYyyy(p.payment_date)}</li>)}</ul>
                   </div>
                 ) : <DetailItem label="Pagamentos" value="Nenhum registrado" />}
-                {plan.file_names && (
-                  <div className="mt-2"><h4 className="text-sm font-medium text-[#b0b0b0]">Arquivo Anexado:</h4>
-                    {plan.file_url && isImageFile(plan.file_names) ? (
-                      <img src={plan.file_url} alt={plan.file_names} className="mt-1 rounded-md max-w-[100px] max-h-20 object-cover cursor-pointer border border-gray-700" onClick={() => openImageInModal(plan.file_url!)} title={plan.file_names} />
-                    ) : plan.file_url ? (
-                      <a href={plan.file_url} target="_blank" rel="noopener noreferrer" className="text-[#00bcd4] hover:underline text-sm flex items-center">{plan.file_names}
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3 ml-1"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-                      </a>
-                    ) : (<p className="text-white text-xs">{plan.file_names}</p>)}
+                {plan.files && plan.files.length > 0 && (
+                  <div className="mt-2"><h4 className="text-sm font-medium text-[#b0b0b0]">Arquivos Anexados:</h4>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {plan.files.map((file, index) => (
+                          <a key={index} href={file.url} target="_blank" rel="noopener noreferrer" title={file.name}>
+                          {isImageFile(file.name) ? (
+                              <img src={file.url} alt={file.name} className="w-12 h-12 rounded object-cover border border-gray-700 hover:opacity-80"/>
+                          ) : (
+                              <div className="w-12 h-12 rounded bg-gray-700 flex items-center justify-center border border-gray-700 hover:bg-gray-600">
+                                  <DocumentTextIcon className="w-6 h-6 text-gray-400"/>
+                              </div>
+                          )}
+                          </a>
+                      ))}
+                    </div>
                   </div>
                 )}
                 <DetailItem label="Assinatura do Dentista" value={plan.dentist_signature} />
@@ -344,7 +350,7 @@ export const AllTreatmentPlansPage: React.FC = () => {
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Paciente</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Data Criação</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Descrição</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Arquivo</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Arquivos</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Dentista</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Ações</th>
               </tr>
@@ -360,17 +366,19 @@ export const AllTreatmentPlansPage: React.FC = () => {
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">{plan.created_at ? isoToDdMmYyyy(plan.created_at.split('T')[0]) : 'N/A'}</td>
                   <td className="px-4 py-3 text-sm text-[#b0b0b0] max-w-xs truncate" title={plan.description}>{plan.description}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm">
-                    {plan.file_url && plan.file_names ? (
-                      isImageFile(plan.file_names) ? (
-                        <img src={plan.file_url} alt={plan.file_names} className="rounded max-w-[50px] max-h-10 object-cover cursor-pointer border border-gray-700" onClick={() => openImageInModal(plan.file_url!)} title={plan.file_names} />
-                      ) : (
-                        <a href={plan.file_url} target="_blank" rel="noopener noreferrer" className="text-[#00bcd4] hover:underline flex items-center" title={plan.file_names}>
-                          Ver Arquivo
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3 ml-1"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-                        </a>
-                      )
-                    ) : plan.file_names ? (
-                        <span className="text-gray-500 text-xs" title={plan.file_names}>Sem Link</span>
+                    {plan.files && plan.files.length > 0 ? (
+                      <div className="flex items-center gap-1">
+                        {plan.files.slice(0, 2).map((file, index) => (
+                            <a key={index} href={file.url} target="_blank" rel="noopener noreferrer" title={file.name}>
+                                {isImageFile(file.name) ? (
+                                    <img src={file.url} alt={file.name} className="w-8 h-8 rounded object-cover border border-gray-700" />
+                                ) : (
+                                    <DocumentTextIcon className="w-6 h-6 text-gray-400 hover:text-white" />
+                                )}
+                            </a>
+                        ))}
+                        {plan.files.length > 2 && <span className="text-xs text-gray-500">+{plan.files.length - 2}</span>}
+                      </div>
                     ) : (
                         <span className="text-gray-500">Nenhum</span>
                     )}

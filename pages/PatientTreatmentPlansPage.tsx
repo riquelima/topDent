@@ -18,7 +18,7 @@ import { useToast } from '../contexts/ToastContext'; // Import useToast
 const isImageFile = (fileName: string | null | undefined): boolean => {
   if (!fileName) return false;
   const lowerName = fileName.toLowerCase();
-  return lowerName.endsWith('.png') || lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.gif') || lowerName.endsWith('.webp');
+  return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.tif', '.tiff'].some(ext => lowerName.endsWith(ext));
 };
 
 interface PlanToDelete {
@@ -172,41 +172,39 @@ export const PatientTreatmentPlansPage: React.FC = () => {
                   <h4 className="text-sm font-medium text-gray-400">Descrição:</h4>
                   <p className="text-gray-200 whitespace-pre-wrap">{plan.description}</p>
                 </div>
-
-                {plan.file_url && plan.file_names && (
+                
+                {plan.files && plan.files.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-400">Arquivo Anexado:</h4>
-                    {isImageFile(plan.file_names) ? (
-                      <div className="mt-1">
-                        <img 
-                          src={plan.file_url} 
-                          alt={plan.file_names} 
-                          className="rounded-md max-w-[150px] max-h-24 cursor-pointer object-cover border border-gray-600 hover:opacity-80 transition-opacity"
-                          onClick={() => openImageInModal(plan.file_url!)}
-                          title={`Clique para ampliar: ${plan.file_names}`}
-                        />
-                        <p className="text-xs text-gray-400 mt-1">{plan.file_names}</p>
-                      </div>
-                    ) : (
-                      <a 
-                        href={plan.file_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-teal-400 hover:text-teal-300 hover:underline text-sm flex items-center"
-                      >
-                        {plan.file_names}
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                        </svg>
-                      </a>
-                    )}
+                    <h4 className="text-sm font-medium text-gray-400">Arquivos Anexados:</h4>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {plan.files.map((file, index) => (
+                        <div key={index} className="flex flex-col items-center">
+                          {isImageFile(file.name) ? (
+                            <img 
+                              src={file.url} 
+                              alt={file.name} 
+                              className="rounded-md w-24 h-24 cursor-pointer object-cover border border-gray-600 hover:opacity-80 transition-opacity"
+                              onClick={() => openImageInModal(file.url)}
+                              title={`Clique para ampliar: ${file.name}`}
+                            />
+                          ) : (
+                            <a 
+                              href={file.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-teal-400 hover:text-teal-300 hover:underline text-sm flex items-center justify-center w-24 h-24 bg-gray-700 rounded-md border border-gray-600"
+                              title={`Baixar: ${file.name}`}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.165 12.165L10.5 16.5m0 0l2.165-2.165M10.5 16.5V7.875" />
+                              </svg>
+                            </a>
+                          )}
+                           <p className="text-xs text-gray-400 mt-1 w-24 truncate text-center" title={file.name}>{file.name}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                )}
-                {!plan.file_url && plan.file_names && ( 
-                     <div>
-                        <h4 className="text-sm font-medium text-gray-400">Arquivos Anexados (Nomes):</h4>
-                        <p className="text-gray-300 text-xs">{plan.file_names}</p>
-                     </div>
                 )}
 
                 {plan.dentist_signature && (

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, FormEvent, useRef, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -40,6 +39,7 @@ export const ManageAppointmentPage: React.FC = () => {
   const [patientName, setPatientName] = useState('');
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
+  const [returnDate, setReturnDate] = useState('');
   
   const [allSelectableProcedures, setAllSelectableProcedures] = useState<string[]>([]);
   const [selectedProcedures, setSelectedProcedures] = useState<Record<string, boolean>>({});
@@ -127,6 +127,7 @@ export const ManageAppointmentPage: React.FC = () => {
             setPatientSearchTerm(existingAppt.patient_name || existingAppt.patient_cpf);
             setAppointmentDate(existingAppt.appointment_date);
             setAppointmentTime(existingAppt.appointment_time);
+            setReturnDate(existingAppt.return_date || '');
             setNotes(existingAppt.notes || '');
             setStatus(existingAppt.status);
             setSelectedDentistId(existingAppt.dentist_id || null);
@@ -140,6 +141,7 @@ export const ManageAppointmentPage: React.FC = () => {
           setPatientName('');
           setPatientSearchTerm('');
           setAppointmentTime('');
+          setReturnDate('');
           setNotes('');
           setStatus('Scheduled');
           setSelectedDentistId(null);
@@ -260,6 +262,7 @@ export const ManageAppointmentPage: React.FC = () => {
       status,
       dentist_id: selectedDentistId,
       dentist_name: selectedDentistObject?.full_name || null,
+      return_date: returnDate || null,
     };
 
     try {
@@ -400,9 +403,10 @@ export const ManageAppointmentPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <DatePicker label="Data da Consulta *" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} required disabled={isLoading} prefixIcon={<CalendarDaysIcon className="w-5 h-5 text-gray-400" />} />
             <Input label="Hora da Consulta (HH:MM) *" value={appointmentTime} onChange={handleTimeInputChange} placeholder="Ex: 14:30" required maxLength={5} disabled={isLoading} prefixIcon={<ClockIcon className="w-5 h-5 text-gray-400" />} />
+            <DatePicker label="Data de Retorno (Opcional)" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} disabled={isLoading} prefixIcon={<CalendarDaysIcon className="w-5 h-5 text-gray-400" />} />
           </div>
           
           <div>

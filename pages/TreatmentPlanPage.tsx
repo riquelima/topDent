@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useRef, useCallback, ChangeEvent } from 'react';
 import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -9,7 +6,7 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { DatePicker } from '../components/ui/DatePicker';
-import { ArrowUturnLeftIcon, TrashIcon, ChevronUpDownIcon, PlusIcon, MagnifyingGlassIcon } from '../components/icons/HeroIcons';
+import { ArrowUturnLeftIcon, TrashIcon, ChevronUpDownIcon, PlusIcon, MagnifyingGlassIcon, DocumentTextIcon } from '../components/icons/HeroIcons';
 import { NavigationPath, SupabaseTreatmentPlanData, Patient, PaymentInput, PaymentMethod } from '../types'; 
 import { 
     addTreatmentPlan, 
@@ -32,6 +29,12 @@ const paymentMethodOptions: { value: PaymentMethod; label: string }[] = [
   { value: "Outro", label: "Outro" },
 ];
 
+const isImageFile = (fileName: string | null | undefined): boolean => {
+  if (!fileName) return false;
+  const lowerName = fileName.toLowerCase();
+  return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.tif', '.tiff'].some(ext => lowerName.endsWith(ext));
+};
+
 export const TreatmentPlanPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,10 +49,9 @@ export const TreatmentPlanPage: React.FC = () => {
   const [description, setDescription] = useState('');
   const [dentistSignature, setDentistSignature] = useState('');
   
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [currentFileUrl, setCurrentFileUrl] = useState<string | null>(null); 
-  const [fileNamesDisplay, setFileNamesDisplay] = useState(''); 
-
+  const [currentFiles, setCurrentFiles] = useState<{ name: string; url: string; }[]>([]);
+  const [newlySelectedFiles, setNewlySelectedFiles] = useState<File[]>([]);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [originalPatientCpf, setOriginalPatientCpf] = useState<string | null>(null);
 
@@ -63,6 +65,9 @@ export const TreatmentPlanPage: React.FC = () => {
   const [payments, setPayments] = useState<PaymentInput[]>([{ value: '', payment_method: '', payment_date: '', description: '' }]);
 
   const cameFromDentistDashboard = location.state?.fromDentistDashboard;
+  
+  const [localImagePreviews, setLocalImagePreviews] = useState<Record<string, string>>({});
+
 
   const fetchPatientsForDropdown = useCallback(async () => {
     if (isEditMode) return; 
@@ -96,9 +101,8 @@ export const TreatmentPlanPage: React.FC = () => {
             setOriginalPatientCpf(data.patient_cpf); 
             setDescription(data.description);
             setDentistSignature(data.dentist_signature || '');
-            setFileNamesDisplay(data.file_names || '');
-            setCurrentFileUrl(data.file_url || null);
-            setSelectedFile(null); 
+            setCurrentFiles(data.files || []);
+            setNewlySelectedFiles([]); 
             setPrescribedMedication(data.prescribed_medication || '');
             setPayments(data.payments?.map(p => ({...p, description: p.description || ''})) || [{ value: '', payment_method: '', payment_date: '', description: '' }]);
           } else {
@@ -111,6 +115,21 @@ export const TreatmentPlanPage: React.FC = () => {
       clearForm(false); 
     }
   }, [planId, isEditMode, showToast]);
+  
+  useEffect(() => {
+    const newPreviews: Record<string, string> = {};
+    newlySelectedFiles.forEach(file => {
+      if (isImageFile(file.name)) {
+        newPreviews[file.name] = URL.createObjectURL(file);
+      }
+    });
+    setLocalImagePreviews(newPreviews);
+
+    return () => {
+      Object.values(newPreviews).forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [newlySelectedFiles]);
+
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -123,28 +142,25 @@ export const TreatmentPlanPage: React.FC = () => {
   }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setSelectedFile(event.target.files[0]);
-      setFileNamesDisplay(event.target.files[0].name);
-    } else {
-      setSelectedFile(null);
-      if (!isEditMode) setFileNamesDisplay(''); 
+    if (event.target.files) {
+      setNewlySelectedFiles(prevFiles => [...prevFiles, ...Array.from(event.target.files)]);
     }
   };
 
-  const removeSelectedFile = () => {
-    setSelectedFile(null);
-    setFileNamesDisplay(isEditMode ? (currentFileUrl ? "Arquivo existente será mantido se não selecionar novo" : "") : ""); 
-    if(fileInputRef.current) fileInputRef.current.value = "";
+  const removeCurrentFile = (index: number) => {
+    setCurrentFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeNewFile = (index: number) => {
+    setNewlySelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
   
   const clearForm = (clearCpf = true) => {
     if (clearCpf || !isEditMode) setPatientCPF(''); 
     setDescription('');
     setDentistSignature('');
-    setFileNamesDisplay('');
-    setSelectedFile(null);
-    setCurrentFileUrl(null);
+    setNewlySelectedFiles([]);
+    setCurrentFiles([]);
     if(fileInputRef.current) fileInputRef.current.value = "";
     setPatientSearchTermDropdown('');
     setIsPatientDropdownOpen(false);
@@ -198,8 +214,7 @@ export const TreatmentPlanPage: React.FC = () => {
 
     setIsLoading(true);
     
-    let uploadedFileUrl: string | null = isEditMode ? currentFileUrl : null;
-    let finalFileNames: string | null = isEditMode ? fileNamesDisplay : null;
+    let uploadedFilesData: { name: string; url: string; }[] = [];
 
     const supabase = getSupabaseClient();
     if (!supabase) {
@@ -210,34 +225,37 @@ export const TreatmentPlanPage: React.FC = () => {
 
     const cpfForFilePath = patientCPF || (cameFromDentistDashboard ? location.state?.dentistUsernameContext || 'geral' : 'unknown_patient');
 
-    if (selectedFile) {
-        const sanitizedFileName = selectedFile.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    if (newlySelectedFiles.length > 0) {
+      const uploadPromises = newlySelectedFiles.map(async (file) => {
+        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
         const filePath = `public/${cpfForFilePath}/${Date.now()}-${sanitizedFileName}`;
         
         const { error: uploadError } = await supabase.storage
             .from(STORAGE_BUCKET_NAME)
-            .upload(filePath, selectedFile, { cacheControl: '3600', upsert: true });
-
+            .upload(filePath, file, { cacheControl: '3600', upsert: true });
+        
         if (uploadError) {
-            showToast('Erro ao fazer upload do arquivo. Verifique o console.', 'error');
-            console.error("Supabase Storage upload error:", uploadError);
-            setIsLoading(false);
-            return;
+          throw new Error(`Falha no upload do arquivo ${file.name}: ${uploadError.message}`);
         }
         
         const { data: publicUrlData } = supabase.storage.from(STORAGE_BUCKET_NAME).getPublicUrl(filePath);
         if (!publicUrlData || !publicUrlData.publicUrl) {
-            showToast('Erro ao obter URL pública do arquivo.', 'error');
-            setIsLoading(false);
-            return;
+          throw new Error(`Falha ao obter URL pública para ${file.name}.`);
         }
-        uploadedFileUrl = publicUrlData.publicUrl;
-        finalFileNames = selectedFile.name;
-    } else if (isEditMode && fileNamesDisplay.trim() === '' && currentFileUrl) {
-        uploadedFileUrl = null;
-        finalFileNames = null;
+        return { name: file.name, url: publicUrlData.publicUrl };
+      });
+
+      try {
+        uploadedFilesData = await Promise.all(uploadPromises);
+      } catch (uploadError: any) {
+        showToast(uploadError.message, 'error');
+        console.error("Supabase Storage upload error:", uploadError);
+        setIsLoading(false);
+        return;
+      }
     }
 
+    const finalFiles = [...currentFiles, ...uploadedFilesData];
 
     const validPayments = payments
       .filter(p => p.value.trim() !== '' && p.payment_method !== '' && p.payment_date.trim() !== '')
@@ -250,8 +268,7 @@ export const TreatmentPlanPage: React.FC = () => {
     const planDataPayload: Partial<SupabaseTreatmentPlanData> = {
         patient_cpf: patientCPF, 
         description: description,
-        file_names: finalFileNames ? finalFileNames.trim() : null,
-        file_url: uploadedFileUrl,
+        files: finalFiles.length > 0 ? finalFiles : null,
         dentist_signature: dentistSignature.trim() || null,
         prescribed_medication: prescribedMedication.trim() || null,
         payments: validPayments.length > 0 ? validPayments : null,
@@ -320,7 +337,7 @@ export const TreatmentPlanPage: React.FC = () => {
   }
 
 
-  if (isLoading && isEditMode && !description && !currentFileUrl) { 
+  if (isLoading && isEditMode && !description) { 
     return <div className="text-center py-10 text-[#b0b0b0]">Carregando plano para edição...</div>;
   }
   if (pageError) {
@@ -400,18 +417,40 @@ export const TreatmentPlanPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#b0b0b0] mb-1">Upload de Arquivo (Exames, Radiografias - PDF, PNG, JPG)</label>
+            <label className="block text-sm font-medium text-[#b0b0b0] mb-1">Upload de Arquivos (Exames, Radiografias, etc.)</label>
             <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-700 border-dashed rounded-lg bg-[#1f1f1f] ${isLoading ? 'opacity-70' : ''}`}>
               <div className="space-y-1 text-center">
                 <svg className="mx-auto h-12 w-12 text-gray-500" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 <div className="flex text-sm text-gray-400">
-                  <label htmlFor="file-upload" className={`relative bg-gray-700 rounded-md font-medium text-[#00bcd4] hover:text-[#00a5b8] focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-[#1f1f1f] focus-within:ring-[#00bcd4] px-2 py-1 ${isLoading ? 'cursor-not-allowed' : 'cursor-pointer'}`}><span>Carregar arquivo</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} ref={fileInputRef} accept=".png,.jpg,.jpeg,.pdf" disabled={isLoading} /></label>
+                  <label htmlFor="file-upload" className={`relative bg-gray-700 rounded-md font-medium text-[#00bcd4] hover:text-[#00a5b8] focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-[#1f1f1f] focus-within:ring-[#00bcd4] px-2 py-1 ${isLoading ? 'cursor-not-allowed' : 'cursor-pointer'}`}><span>Carregar arquivos</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} ref={fileInputRef} disabled={isLoading} multiple /></label>
                   <p className="pl-1">ou arraste e solte</p>
-                </div><p className="text-xs text-gray-500">PNG, JPG, PDF. Um arquivo por vez.</p>
+                </div><p className="text-xs text-gray-500">Qualquer tipo de arquivo é aceito.</p>
               </div>
             </div>
-            {fileNamesDisplay && (<div className="mt-3 p-3 border border-gray-700 rounded-lg bg-[#1f1f1f]"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-[#b0b0b0]">{selectedFile ? "Arquivo selecionado:" : (isEditMode && currentFileUrl ? "Arquivo atual:" : "Nome do arquivo:")}</p><p className="text-sm text-[#00bcd4] truncate" title={fileNamesDisplay}>{fileNamesDisplay}</p>{isEditMode && currentFileUrl && !selectedFile && (<a href={currentFileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">Visualizar atual</a>)}</div><Button type="button" variant="ghost" size="sm" onClick={removeSelectedFile} className="p-1" disabled={isLoading} aria-label="Remover arquivo selecionado"><TrashIcon className="w-4 h-4 text-[#f44336] hover:text-red-400" /></Button></div></div>)}
-            {isEditMode && (<Input label="Nome do Arquivo (se desejar remover o arquivo existente e não adicionar novo, apague o nome abaixo e salve)" type="text" value={fileNamesDisplay} onChange={(e) => setFileNamesDisplay(e.target.value)} placeholder="Nome do arquivo anexo" disabled={isLoading} containerClassName='mt-3 mb-0' />)}
+            
+            {(currentFiles.length > 0 || newlySelectedFiles.length > 0) && (
+              <div className="mt-4 space-y-2">
+                <h4 className="text-sm font-medium text-[#b0b0b0]">Arquivos Anexados:</h4>
+                {currentFiles.map((file, index) => (
+                    <div key={file.url} className="flex items-center justify-between p-2 bg-[#2a2a2a] rounded-md border border-gray-600">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {isImageFile(file.name) ? <img src={file.url} alt={`Preview of ${file.name}`} className="w-10 h-10 rounded object-cover flex-shrink-0" /> : <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center flex-shrink-0"><DocumentTextIcon className="w-6 h-6 text-gray-400" /></div>}
+                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-sm text-[#00bcd4] hover:underline truncate" title={file.name}>{file.name}</a>
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeCurrentFile(index)} className="p-1 ml-2" disabled={isLoading} aria-label={`Remover ${file.name}`}><TrashIcon className="w-4 h-4 text-[#f44336] hover:text-red-400" /></Button>
+                    </div>
+                ))}
+                 {newlySelectedFiles.map((file, index) => (
+                    <div key={`${file.name}-${index}`} className="flex items-center justify-between p-2 bg-[#2a2a2a] rounded-md border border-teal-800">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                             {isImageFile(file.name) ? <img src={localImagePreviews[file.name]} alt={`Preview of ${file.name}`} className="w-10 h-10 rounded object-cover flex-shrink-0" /> : <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center flex-shrink-0"><DocumentTextIcon className="w-6 h-6 text-gray-400" /></div>}
+                            <span className="text-sm text-white truncate" title={file.name}>{file.name}</span>
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeNewFile(index)} className="p-1 ml-2" disabled={isLoading} aria-label={`Remover ${file.name}`}><TrashIcon className="w-4 h-4 text-[#f44336] hover:text-red-400" /></Button>
+                    </div>
+                ))}
+              </div>
+            )}
           </div>
           
           <Input label="Assinatura do Dentista (Nome Digitado)" value={dentistSignature} onChange={(e) => setDentistSignature(e.target.value)} placeholder="Digite o nome completo do dentista responsável" disabled={isLoading} />

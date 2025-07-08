@@ -1,4 +1,3 @@
-
 // services/supabaseService.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { 
@@ -12,7 +11,9 @@ import {
     Dentist,
     Reminder,
     Procedure,
-    ConsultationHistoryEntry 
+    ConsultationHistoryEntry,
+    AppointmentReturnInfo,
+    ChangelogEntry
 } from '../types'; 
 
 const SUPABASE_URL: string = 'https://wbxjsqixqxdcagiorccx.supabase.co';
@@ -40,6 +41,32 @@ export const getSupabaseClient = (): SupabaseClient | null => {
   }
   return supabase;
 };
+
+// --- Helper for Plan Transformation ---
+const transformDbPlanToUiPlan = (dbPlan: any) => {
+    const { file_names, file_url, ...rest } = dbPlan;
+    let files: { name: string, url: string }[] = [];
+
+    // New multi-file format: file_url contains a JSON string
+    if (file_url && file_url.startsWith('[') && file_url.endsWith(']')) {
+        try {
+            const parsed = JSON.parse(file_url);
+            if (Array.isArray(parsed)) {
+                files = parsed;
+            }
+        } catch (e) {
+            console.warn(`Could not parse file_url as JSON for plan ${dbPlan.id}. It may be a single URL.`, e);
+             if (file_names && file_url) {
+                files = [{ name: file_names, url: file_url }];
+            }
+        }
+    } else if (file_names && file_url) { // Fallback for old single-file format
+        files = [{ name: file_names, url: file_url }];
+    }
+
+    return { ...rest, files: files.length > 0 ? files : null };
+};
+
 
 // --- PATIENT FUNCTIONS ---
 export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
@@ -275,8 +302,8 @@ export const addTreatmentPlan = async (planData: Omit<SupabaseTreatmentPlanData,
   const dataToInsert = {
       patient_cpf: planData.patient_cpf,
       description: planData.description,
-      file_names: planData.file_names ? planData.file_names.trim() : null,
-      file_url: planData.file_url,
+      file_names: planData.files && planData.files.length > 0 ? planData.files[0].name : null,
+      file_url: planData.files && planData.files.length > 0 ? JSON.stringify(planData.files) : null,
       dentist_signature: planData.dentist_signature ? planData.dentist_signature.trim() : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(), 
@@ -300,7 +327,7 @@ export const getTreatmentPlanById = async (planId: string): Promise<{ data: Supa
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
   
-  const { data, error: supabaseError } = await client
+  const { data: dbData, error: supabaseError } = await client
     .from('treatment_plans')
     .select('id, created_at, patient_cpf, description, file_names, file_url, dentist_signature, prescribed_medication, payments') 
     .eq('id', planId)
@@ -310,7 +337,13 @@ export const getTreatmentPlanById = async (planId: string): Promise<{ data: Supa
     console.error(`Error fetching treatment plan by ID ${planId}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
     return { data: null, error: supabaseError };
   }
-  return { data: data as SupabaseTreatmentPlanData | null, error: null };
+
+  if (!dbData) {
+    return { data: null, error: null };
+  }
+  
+  const transformedData = transformDbPlanToUiPlan(dbData);
+  return { data: transformedData, error: null };
 };
 
 export const updateTreatmentPlan = async (planId: string, planData: Partial<Omit<SupabaseTreatmentPlanData, 'id' | 'created_at' | 'patient_cpf'>>) => {
@@ -322,13 +355,19 @@ export const updateTreatmentPlan = async (planId: string, planData: Partial<Omit
   };
 
   if (planData.description !== undefined) updatePayload.description = planData.description;
-  if (planData.file_names !== undefined) updatePayload.file_names = planData.file_names ? planData.file_names.trim() : null;
-  if (planData.file_url !== undefined) updatePayload.file_url = planData.file_url;
   if (planData.dentist_signature !== undefined) updatePayload.dentist_signature = planData.dentist_signature ? planData.dentist_signature.trim() : null;
-  
   if (planData.prescribed_medication !== undefined) updatePayload.prescribed_medication = planData.prescribed_medication ? planData.prescribed_medication.trim() : null;
   if (planData.payments !== undefined) updatePayload.payments = planData.payments && planData.payments.length > 0 ? planData.payments : null;
-
+  
+  if (planData.files !== undefined) {
+    if (planData.files && planData.files.length > 0) {
+        updatePayload.file_names = planData.files[0].name;
+        updatePayload.file_url = JSON.stringify(planData.files);
+    } else {
+        updatePayload.file_names = null;
+        updatePayload.file_url = null;
+    }
+  }
 
   const { data, error: supabaseError } = await client
     .from('treatment_plans')
@@ -363,7 +402,7 @@ export const getTreatmentPlansByPatientCpf = async (patientCpf: string): Promise
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
-  const { data, error: supabaseError } = await client
+  const { data: dbData, error: supabaseError } = await client
     .from('treatment_plans')
     .select('id, created_at, patient_cpf, description, file_names, file_url, dentist_signature, prescribed_medication, payments') 
     .eq('patient_cpf', patientCpf)
@@ -373,7 +412,9 @@ export const getTreatmentPlansByPatientCpf = async (patientCpf: string): Promise
     console.error(`Error fetching treatment plans for CPF ${patientCpf} from Supabase:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
     return { data: null, error: supabaseError };
   }
-  return { data: data as SupabaseTreatmentPlanData[] | null, error: null };
+
+  const transformedData = dbData ? dbData.map(transformDbPlanToUiPlan) : [];
+  return { data: transformedData, error: null };
 };
 
 export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithPatientInfo[] | null, error: any }> => {
@@ -397,6 +438,8 @@ export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithP
   }
 
   const transformedData: TreatmentPlanWithPatientInfo[] = data ? data.map(item => {
+    const planWithFiles = transformDbPlanToUiPlan(item);
+    
     const patientsField = item.patients; 
     let patientFullName: string | null = null;
 
@@ -406,7 +449,7 @@ export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithP
       patientFullName = (patientsField as { full_name: string })?.full_name || null;
     }
     
-    const { patients, ...planFields } = item;
+    const { patients, ...planFields } = planWithFiles;
 
     return {
       ...planFields, 
@@ -435,6 +478,7 @@ export const addAppointment = async (appointmentData: SupabaseAppointmentData) =
     status: appointmentData.status,
     dentist_id: appointmentData.dentist_id || null, 
     dentist_name: appointmentData.dentist_name || null, 
+    return_date: appointmentData.return_date || null,
     created_at: new Date().toISOString(), 
     updated_at: new Date().toISOString(),
   };
@@ -477,6 +521,7 @@ export const updateAppointment = async (appointmentId: string, appointmentData: 
   if (appointmentData.dentist_id !== undefined) updatePayload.dentist_id = appointmentData.dentist_id || null;
   if (appointmentData.dentist_name !== undefined) updatePayload.dentist_name = appointmentData.dentist_name || null;
   if (appointmentData.notes !== undefined) updatePayload.notes = appointmentData.notes || null;
+  if (appointmentData.return_date !== undefined) updatePayload.return_date = appointmentData.return_date || null;
 
 
   const { data, error: supabaseError } = await client
@@ -680,6 +725,47 @@ export const updateAppointmentStatus = async (appointmentId: string, status: App
   return { data: data as Appointment | null, error: supabaseError };
 };
 
+export const getUpcomingReturns = async (): Promise<{ data: AppointmentReturnInfo[] | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const { data, error: supabaseError } = await client
+    .from('appointments')
+    .select(`
+      id,
+      return_date,
+      patient_cpf,
+      patients (
+        full_name,
+        phone
+      )
+    `)
+    .not('return_date', 'is', null)
+    .gte('return_date', today)
+    .order('return_date', { ascending: true });
+
+  if (supabaseError) {
+    console.error('Error fetching upcoming returns:', supabaseError);
+    return { data: null, error: supabaseError };
+  }
+  
+  const transformedData: AppointmentReturnInfo[] = data.map(item => {
+    const patientData = Array.isArray(item.patients) ? item.patients[0] : item.patients;
+    return {
+      id: item.id,
+      return_date: item.return_date,
+      patient_cpf: item.patient_cpf,
+      patient_name: patientData?.full_name,
+      patient_phone: patientData?.phone,
+    };
+  }).filter(item => item.patient_name && item.patient_phone);
+
+  return { data: transformedData, error: null };
+};
+
+
 // --- DENTIST FUNCTIONS ---
 export const addDentist = async (dentistData: Omit<Dentist, 'id' | 'created_at' | 'updated_at'>) => {
   const client = getSupabaseClient();
@@ -722,6 +808,23 @@ export const updateDentist = async (dentistId: string, dentistData: Partial<Omit
   const { data, error } = await client.from('dentists').update(payload).eq('id', dentistId).select().single();
   if (error) console.error('Error updating dentist:', error);
   return { data: data as Dentist | null, error };
+};
+
+export const updateUserPreferences = async (dentistId: string, preferences: { show_changelog: boolean }): Promise<{ data: Dentist | null; error: any }> => {
+    const client = getSupabaseClient();
+    if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+    const { data, error } = await client
+        .from('dentists')
+        .update(preferences)
+        .eq('id', dentistId)
+        .select()
+        .single();
+    
+    if (error) {
+        console.error(`Error updating preferences for dentist ${dentistId}:`, error);
+    }
+    return { data, error };
 };
 
 export const deleteDentist = async (dentistId: string) => {
@@ -931,4 +1034,61 @@ export const getConsultationHistory = async (filters?: {
     console.error('Error fetching consultation history:', error.message, JSON.stringify(error, null, 2));
   }
   return { data: data as ConsultationHistoryEntry[] | null, error };
+};
+
+// --- CONFIGURATION FUNCTIONS ---
+export const getConfigurationValue = async (key: string): Promise<{ data: string | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const { data, error } = await client
+    .from('configurations')
+    .select('value')
+    .eq('key', key)
+    .single();
+
+  if (error) {
+    // Code 'PGRST116' means no rows found, which is not a critical error here.
+    if (error.code === 'PGRST116') {
+      return { data: null, error: null };
+    }
+    console.error(`Error fetching configuration for key ${key}:`, error);
+    return { data: null, error };
+  }
+
+  return { data: data?.value || null, error: null };
+};
+
+export const updateConfigurationValue = async (key: string, value: string): Promise<{ data: any, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  
+  const { data, error } = await client
+    .from('configurations')
+    .upsert({ key, value, updated_at: new Date().toISOString() })
+    .select()
+    .single();
+
+  if (error) {
+    console.error(`Error updating configuration for key ${key}:`, error);
+  }
+
+  return { data, error };
+};
+
+// --- CHANGELOG FUNCTIONS ---
+export const getChangelog = async (): Promise<{ data: ChangelogEntry[] | null, error: any }> => {
+    const client = getSupabaseClient();
+    if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  
+    const { data, error } = await client
+      .from('changelog')
+      .select('*')
+      .order('release_date', { ascending: false });
+  
+    if (error) {
+      console.error('Error fetching changelog:', error);
+    }
+  
+    return { data, error };
 };
