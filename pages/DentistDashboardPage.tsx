@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -227,7 +226,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const notificationIdsRef = useRef<Set<string>>(new Set());
 
-  const [arrivalNotificationQueue, setArrivalNotificationQueue] = useState<Notification[]>([]);
+  const [arrivalNotification, setArrivalNotification] = useState<Notification | null>(null);
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
   const isAudioUnlocked = useRef(false);
@@ -242,8 +241,14 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const todayDateString = new Date().toISOString().split('T')[0];
 
   const playNotificationSound = useCallback(() => {
-    if (notificationSoundRef.current && isAudioUnlocked.current) {
-        notificationSoundRef.current.play().catch(e => console.error("Error playing notification sound:", e));
+    try {
+        if (notificationSoundRef.current && isAudioUnlocked.current) {
+            notificationSoundRef.current.play().catch(e => console.error("Error playing notification sound:", e));
+        } else if (!isAudioUnlocked.current) {
+            console.warn("Audio not unlocked yet. Skipping sound for this notification.");
+        }
+    } catch(e) {
+        console.error("Critical error in playNotificationSound:", e);
     }
   }, []);
 
@@ -253,15 +258,17 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     
     const unlockAudio = () => {
       if (notificationSoundRef.current && !isAudioUnlocked.current) {
+        notificationSoundRef.current.muted = true;
         const promise = notificationSoundRef.current.play();
         if (promise !== undefined) {
           promise.then(() => {
             notificationSoundRef.current?.pause();
-            notificationSoundRef.current!.currentTime = 0;
+            if (notificationSoundRef.current) {
+              notificationSoundRef.current.currentTime = 0;
+              notificationSoundRef.current.muted = false;
+            }
             isAudioUnlocked.current = true;
             console.log("Audio context unlocked.");
-            window.removeEventListener('click', unlockAudio);
-            window.removeEventListener('keydown', unlockAudio);
           }).catch((error) => {
              console.warn("Audio unlock failed, will try again on next interaction.", error);
           });
@@ -278,12 +285,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     };
   }, []);
 
-  useEffect(() => {
-    if (arrivalNotificationQueue.length > 0 && !isArrivalModalOpen) {
-      setIsArrivalModalOpen(true);
-      playNotificationSound();
-    }
-  }, [arrivalNotificationQueue, isArrivalModalOpen, playNotificationSound]);
 
   useEffect(() => {
     if (!dentistId) return;
@@ -342,12 +343,20 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         }
 
         const handleNewNotification = (newNotification: Notification) => {
+            console.log("[Realtime] Received new notification, processing...", newNotification);
+
+            // Add to the general notification list (for the panel)
             if (!notificationIdsRef.current.has(newNotification.id)) {
                 notificationIdsRef.current.add(newNotification.id);
                 setNotifications(prev => [newNotification, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-                setArrivalNotificationQueue(prev => [...prev, newNotification]);
             }
+
+            // Set the notification for the pop-up modal and open it
+            setArrivalNotification(newNotification);
+            setIsArrivalModalOpen(true);
+            playNotificationSound();
         };
+
         notificationSub = subscribeToNotificationsForDentist(dentistId, handleNewNotification);
 
         const handleNewMessage = (newMessage: ChatMessage) => {
@@ -365,7 +374,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         notificationSub?.unsubscribe();
         chatSub?.unsubscribe();
     };
-  }, [dentistId, dentistUsername, showToast]);
+  }, [dentistId, dentistUsername, showToast, playNotificationSound]);
 
 
   useEffect(() => {
@@ -375,7 +384,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const handleCloseArrivalModal = () => {
     setIsArrivalModalOpen(false);
     setTimeout(() => {
-      setArrivalNotificationQueue(prev => prev.slice(1));
+      setArrivalNotification(null);
     }, 300);
   };
 
@@ -537,11 +546,11 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         <div className="flex flex-wrap justify-center gap-6">{shortcuts.map(s => <ShortcutCard key={s.title} {...s} />)}</div>
       </section>
 
-      {isArrivalModalOpen && arrivalNotificationQueue.length > 0 && (
+      {isArrivalModalOpen && arrivalNotification && (
         <Modal isOpen={isArrivalModalOpen} onClose={handleCloseArrivalModal} title="Aviso de Chegada de Paciente" size="md" footer={<div className="w-full flex justify-center"><Button variant="primary" onClick={handleCloseArrivalModal} className="px-8 py-2.5 text-lg">OK, Entendido</Button></div>}>
           <div className="text-center py-6 px-4 animate-pulse-once">
             <BellIcon className="w-20 h-20 text-yellow-400 mx-auto mb-5" />
-            <p className="text-xl font-semibold text-white">{arrivalNotificationQueue[0].message}</p>
+            <p className="text-xl font-semibold text-white">{arrivalNotification.message}</p>
           </div>
         </Modal>
       )}
