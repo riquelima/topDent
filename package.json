@@ -1,5 +1,5 @@
 {
-  "name": "top-dent---v6",
+  "name": "top-dent---v7",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,7 +12,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.2",
-    "@supabase/supabase-js": "^2.50.0"
+    "@supabase/supabase-js": "^2.50.0",
+    "emoji-picker-react": "^4.9.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

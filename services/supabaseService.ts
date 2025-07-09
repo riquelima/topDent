@@ -1,3 +1,4 @@
+
 // services/supabaseService.ts
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { 
@@ -505,10 +506,21 @@ export const getMessagesBetweenUsers = async (userId1: string, userId2: string) 
         .order('created_at');
 };
 
-export const sendMessage = async (message: Omit<ChatMessage, 'id' | 'created_at'>) => {
+export const sendMessage = async (message: Omit<ChatMessage, 'id' | 'created_at' | 'is_read'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
     return client.from('chat_messages').insert([message]);
+};
+
+export const markMessagesAsRead = async (messageIds: string[], recipientId: string) => {
+    const client = getSupabaseClient();
+    if (!client || messageIds.length === 0) return { data: null, error: { message: "Client not initialized or no messages to mark." } };
+    
+    return client.from('chat_messages')
+        .update({ is_read: true })
+        .in('id', messageIds)
+        .eq('recipient_id', recipientId) // Security check
+        .select();
 };
 
 export const subscribeToMessages = (userId: string, callback: (payload: ChatMessage) => void): RealtimeChannel | null => {

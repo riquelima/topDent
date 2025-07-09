@@ -1,8 +1,7 @@
 
-
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -18,7 +17,9 @@ import {
     EyeIcon,
     ListBulletIcon,
     BellIcon,
-    PaperAirplaneIcon
+    PaperAirplaneIcon,
+    FaceSmileIcon,
+    CheckDoubleIcon,
 } from '../components/icons/HeroIcons';
 import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
 import { NavigationPath, Appointment, ConsultationHistoryEntry, Notification, ChatMessage, Dentist } from '../types';
@@ -34,7 +35,8 @@ import {
     getMessagesBetweenUsers,
     sendMessage,
     subscribeToMessages,
-    subscribeToNotificationsForDentist
+    subscribeToNotificationsForDentist,
+    markMessagesAsRead
 } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
 import { formatToHHMM, isoToDdMmYyyy } from '../src/utils/formatDate';
@@ -235,9 +237,14 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const [adminUser, setAdminUser] = useState<Dentist | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [isChatLoading, setIsChatLoading] = useState(false);
   const [unreadChatMessages, setUnreadChatMessages] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const todayDateString = new Date().toISOString().split('T')[0];
+
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
 
   const playNotificationSound = useCallback(() => {
     try {
@@ -262,12 +269,17 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     playNotificationSound();
   }, [playNotificationSound]);
 
-  const handleNewMessage = useCallback((newMessagePayload: ChatMessage) => {
+  const handleNewMessage = useCallback(async (newMessagePayload: ChatMessage) => {
       setChatMessages(prev => [...prev, newMessagePayload]);
-      if (!document.body.classList.contains('chat-modal-open')) {
+      if (document.body.classList.contains('chat-modal-open')) {
+          if (newMessagePayload.recipient_id === dentistId) {
+              await markMessagesAsRead([newMessagePayload.id], dentistId);
+          }
+      } else if (newMessagePayload.recipient_id === dentistId) {
           setUnreadChatMessages(prev => prev + 1);
+          playNotificationSound();
       }
-  }, []);
+  }, [dentistId, playNotificationSound]);
 
   useEffect(() => {
     notificationSoundRef.current = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_2c8a3063cf.mp3');
@@ -345,7 +357,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
                 const unreadNotifs = initialNotificationsRes.data;
                 setNotifications(unreadNotifs);
                 notificationIdsRef.current = new Set(unreadNotifs.map(n => n.id));
-                // Show the most recent unread notification
                 setArrivalNotification(unreadNotifs[0]);
                 setIsArrivalModalOpen(true);
                 playNotificationSound();
@@ -353,8 +364,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
             if (adminUserRes.data) {
                 setAdminUser(adminUserRes.data);
-                const messagesRes = await getMessagesBetweenUsers(dentistId, adminUserRes.data.id!);
-                if (messagesRes.data) setChatMessages(messagesRes.data);
             }
         } catch (e: any) {
             setError(e.message);
@@ -379,6 +388,18 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+            setIsPickerOpen(false);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [pickerRef]);
   
   const handleDismissArrivalModal = async () => {
     if (!arrivalNotification) return;
@@ -475,15 +496,45 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     }
     setIsUpdatingStatus(false);
   };
+  
+  const fetchChatMessages = useCallback(async () => {
+    if (!adminUser || !dentistId) return;
+
+    setIsChatLoading(true);
+    const { data, error } = await getMessagesBetweenUsers(dentistId, adminUser.id!);
+    
+    if (error) {
+        showToast('Erro ao carregar mensagens.', 'error');
+        setChatMessages([]);
+    } else {
+        const receivedMessages = data || [];
+        setChatMessages(receivedMessages);
+
+        const unreadMessageIds = receivedMessages
+            .filter(msg => !msg.is_read && msg.recipient_id === dentistId)
+            .map(msg => msg.id);
+
+        if (unreadMessageIds.length > 0) {
+            await markMessagesAsRead(unreadMessageIds, dentistId);
+            const updatedMessages = receivedMessages.map(msg => 
+                unreadMessageIds.includes(msg.id) ? { ...msg, is_read: true } : msg
+            );
+            setChatMessages(updatedMessages);
+        }
+    }
+    setIsChatLoading(false);
+  }, [adminUser, dentistId, showToast]);
 
   const handleOpenChat = () => {
     setIsChatOpen(true);
     setUnreadChatMessages(0);
     document.body.classList.add('chat-modal-open');
+    fetchChatMessages();
   };
   
   const handleCloseChat = () => {
     setIsChatOpen(false);
+    setIsPickerOpen(false);
     document.body.classList.remove('chat-modal-open');
   }
   
@@ -492,10 +543,23 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     setIsSendingMessage(true);
     const content = newMessage;
     setNewMessage('');
+
+    const sentMessage: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      sender_id: dentistId,
+      recipient_id: adminUser.id!,
+      content: content,
+      created_at: new Date().toISOString(),
+      is_read: false,
+    };
+    setChatMessages(prev => [...prev, sentMessage]);
+
     const { error } = await sendMessage({ sender_id: dentistId, recipient_id: adminUser.id!, content: content });
+    
     if (error) {
         showToast(`Falha ao enviar mensagem: ${error.message}`, 'error');
         setNewMessage(content);
+        setChatMessages(prev => prev.filter(m => m.id !== sentMessage.id));
     }
     setIsSendingMessage(false);
   };
@@ -506,6 +570,11 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         state: { fromDentistDashboard: true }
       });
     }
+  };
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setNewMessage(prevMessage => prevMessage + emojiData.emoji);
+    setIsPickerOpen(false);
   };
 
   const shortcuts: ShortcutCardProps[] = [
@@ -593,18 +662,51 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
           {unreadChatMessages > 0 && (<span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#00bcd4]">{unreadChatMessages}</span>)}
       </button>
 
-      <Modal isOpen={isChatOpen} onClose={handleCloseChat} title={`Chat com ${adminUser?.full_name || 'Admin'}`} size="lg">
-          <div className="flex flex-col h-[60vh]"><div className="flex-grow p-4 space-y-4 overflow-y-auto bg-[#181818] rounded-t-md">
-              {chatMessages.map(msg => (<div key={msg.id} className={`flex ${msg.sender_id === dentistId ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-xl ${msg.sender_id === dentistId ? 'bg-[#007b8b] text-white rounded-br-none' : 'bg-[#2a2a2a] text-gray-200 rounded-bl-none'}`}><p className="text-sm">{msg.content}</p><p className="text-xs text-right mt-1 opacity-60">{formatToHHMM(msg.created_at)}</p></div></div>))}
-              <div ref={messagesEndRef} /></div>
-              <div className="p-4 bg-[#1f1f1f] rounded-b-md border-t border-gray-700">
-                  <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-3">
-                      <Input containerClassName="flex-grow" className="bg-[#2a2a2a] border-gray-600 focus:border-[#00bcd4] h-12" placeholder="Digite sua mensagem..." value={newMessage} onChange={e => setNewMessage(e.target.value)} disabled={isSendingMessage} />
-                      <Button type="submit" variant="primary" className="h-12 w-12 p-0 flex-shrink-0" disabled={isSendingMessage || !newMessage.trim()}><PaperAirplaneIcon className="w-6 h-6" /></Button>
-                  </form>
-              </div>
-          </div>
+      <Modal isOpen={isChatOpen} onClose={handleCloseChat} title={`Chat com ${adminUser?.full_name || 'Admin'}`} size="fill">
+        <div className="flex flex-col h-full">
+            <div className="flex-grow p-4 space-y-4 overflow-y-auto bg-[#181818] rounded-t-md">
+                {isChatLoading ? (
+                    <p className="text-center text-gray-400">Carregando mensagens...</p>
+                ) : chatMessages.length === 0 ? (
+                    <p className="text-center text-gray-400">Inicie uma conversa com o Admin.</p>
+                ) : (
+                  chatMessages.map(msg => (
+                  <div key={msg.id} className={`flex items-end ${msg.sender_id === dentistId ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xs md:max-w-md lg:max-w-2xl px-4 py-2 rounded-xl shadow-md ${msg.sender_id === dentistId ? 'bg-[#007b8b] text-white rounded-br-none' : 'bg-[#2a2a2a] text-gray-200 rounded-bl-none'}`}>
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          <div className="flex items-center justify-end text-right mt-1 opacity-60">
+                              <p className="text-xs">{formatToHHMM(msg.created_at)}</p>
+                              {msg.sender_id === dentistId && (
+                                  <span className="ml-2">
+                                      {msg.is_read ? (
+                                          <CheckDoubleIcon className="w-4 h-4 text-cyan-300" />
+                                      ) : (
+                                          <CheckIcon className="w-4 h-4 text-gray-400" />
+                                      )}
+                                  </span>
+                              )}
+                          </div>
+                      </div>
+                  </div>
+                  ))
+                )}
+                <div ref={messagesEndRef} />
+            </div>
+            <div className="p-4 bg-[#1f1f1f] rounded-b-md border-t border-gray-700 relative">
+                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-3">
+                    <Button type="button" variant="ghost" className="h-12 w-12 p-0 flex-shrink-0 text-gray-400 hover:text-white" onClick={() => setIsPickerOpen(!isPickerOpen)}>
+                      <FaceSmileIcon className="w-6 h-6"/>
+                    </Button>
+                    <Input containerClassName="flex-grow" className="bg-[#2a2a2a] border-gray-600 focus:border-[#00bcd4] h-12" placeholder="Digite sua mensagem..." value={newMessage} onChange={e => setNewMessage(e.target.value)} disabled={isSendingMessage || isChatLoading} />
+                    <Button type="submit" variant="primary" className="h-12 w-12 p-0 flex-shrink-0" disabled={isSendingMessage || !newMessage.trim() || isChatLoading}><PaperAirplaneIcon className="w-6 h-6" /></Button>
+                </form>
+                {isPickerOpen && (
+                  <div ref={pickerRef} className="absolute bottom-full left-4 z-20">
+                      <EmojiPicker onEmojiClick={handleEmojiClick} theme={Theme.DARK} />
+                  </div>
+                )}
+            </div>
+        </div>
       </Modal>
 
       <style>{`@keyframes pulse-once { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } } .animate-pulse-once { animation: pulse-once 1.5s ease-in-out; } @keyframes fade-in-down { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } } .animate-fade-in-down { animation: fade-in-down 0.3s ease-out forwards; }`}</style>

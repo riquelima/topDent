@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from './Card';
 import { XMarkIcon } from '../icons/HeroIcons';
@@ -8,7 +9,7 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'fill';
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -26,6 +27,7 @@ export const Modal: React.FC<ModalProps> = ({
     md: 'max-w-md',
     lg: 'max-w-lg',
     xl: 'max-w-xl',
+    fill: 'w-[80vw] h-[80vh]'
   };
 
   return (

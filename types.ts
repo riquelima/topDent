@@ -1,3 +1,4 @@
+
 export interface Patient {
   id: string; // Should be unique, CPF can serve this role for now
   fullName: string;
@@ -187,6 +188,7 @@ export interface ChatMessage {
   recipient_id: string;
   content: string;
   created_at: string;
+  is_read: boolean;
 }
 
 export enum NavigationPath {

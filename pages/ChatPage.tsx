@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -21,6 +22,53 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId }) => {
   const [isLoading, setIsLoading] = useState({ dentists: true, messages: false });
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+  const isAudioUnlocked = useRef(false);
+
+  useEffect(() => {
+    notificationSoundRef.current = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_2c8a3063cf.mp3');
+    notificationSoundRef.current.load();
+    
+    const unlockAudio = () => {
+      if (notificationSoundRef.current && !isAudioUnlocked.current) {
+        notificationSoundRef.current.muted = true;
+        const promise = notificationSoundRef.current.play();
+        if (promise !== undefined) {
+          promise.then(() => {
+            notificationSoundRef.current?.pause();
+            if (notificationSoundRef.current) {
+              notificationSoundRef.current.currentTime = 0;
+              notificationSoundRef.current.muted = false;
+            }
+            isAudioUnlocked.current = true;
+            console.log("ChatPage Audio context unlocked.");
+          }).catch((error) => {
+             console.warn("ChatPage Audio unlock failed, will try again on next interaction.", error);
+          });
+        }
+      }
+    };
+    
+    window.addEventListener('click', unlockAudio, { once: true });
+    window.addEventListener('keydown', unlockAudio, { once: true });
+
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
+
+  const playNotificationSound = useCallback(() => {
+    try {
+        if (notificationSoundRef.current && isAudioUnlocked.current) {
+            notificationSoundRef.current.play().catch(e => console.error("Error playing notification sound:", e));
+        } else if (!isAudioUnlocked.current) {
+            console.warn("Audio not unlocked yet. Skipping sound for this notification.");
+        }
+    } catch(e) {
+        console.error("Critical error in playNotificationSound:", e);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchAllDentists = async () => {
@@ -65,18 +113,20 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId }) => {
     if (!adminId) return;
 
     const subscription = subscribeToMessages(adminId, (newMessagePayload) => {
+        playNotificationSound();
         if (newMessagePayload.sender_id === selectedDentist?.id) {
             setMessages(prevMessages => [...prevMessages, newMessagePayload]);
         } else {
-            // Future enhancement: show notification badge on dentist list
-            showToast(`Nova mensagem de outro dentista!`, 'success');
+            const sender = dentists.find(d => d.id === newMessagePayload.sender_id);
+            const senderName = sender ? sender.full_name : 'outro dentista';
+            showToast(`Nova mensagem de ${senderName}!`, 'info');
         }
     });
 
     return () => {
       subscription?.unsubscribe();
     };
-  }, [adminId, selectedDentist, showToast]);
+  }, [adminId, selectedDentist, showToast, playNotificationSound, dentists]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +141,8 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId }) => {
       sender_id: adminId,
       recipient_id: selectedDentist.id,
       content: content,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      is_read: false
     };
     setMessages(prev => [...prev, sentMessage]);
 
