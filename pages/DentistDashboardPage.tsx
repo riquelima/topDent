@@ -253,6 +253,24 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     }
   }, []);
 
+  const handleNewNotification = useCallback((newNotification: Notification) => {
+    console.log("[Realtime] Received new notification, processing...", newNotification);
+    if (!notificationIdsRef.current.has(newNotification.id)) {
+        notificationIdsRef.current.add(newNotification.id);
+        setNotifications(prev => [newNotification, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+    }
+    setArrivalNotification(newNotification);
+    setIsArrivalModalOpen(true);
+    playNotificationSound();
+  }, [playNotificationSound]);
+
+  const handleNewMessage = useCallback((newMessagePayload: ChatMessage) => {
+      setChatMessages(prev => [...prev, newMessagePayload]);
+      if (!document.body.classList.contains('chat-modal-open')) {
+          setUnreadChatMessages(prev => prev + 1);
+      }
+  }, []);
+
   useEffect(() => {
     notificationSoundRef.current = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_2c8a3063cf.mp3');
     notificationSoundRef.current.load();
@@ -285,7 +303,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
       window.removeEventListener('keydown', unlockAudio);
     };
   }, []);
-
 
   useEffect(() => {
     if (!dentistId) return;
@@ -326,9 +343,14 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             const past = filteredAll.filter(a => a.appointment_date < todayStr).sort((a,b) => new Date(`${b.appointment_date}T${b.appointment_time}`).getTime() - new Date(`${a.appointment_date}T${a.appointment_time}`).getTime());
             setAllAppointmentsData([...upcoming, ...past]);
 
-            if (initialNotificationsRes.data) {
-                setNotifications(initialNotificationsRes.data);
-                notificationIdsRef.current = new Set(initialNotificationsRes.data.map(n => n.id));
+            if (initialNotificationsRes.data && initialNotificationsRes.data.length > 0) {
+                const unreadNotifs = initialNotificationsRes.data;
+                setNotifications(unreadNotifs);
+                notificationIdsRef.current = new Set(unreadNotifs.map(n => n.id));
+                // Show the most recent unread notification
+                setArrivalNotification(unreadNotifs[0]);
+                setIsArrivalModalOpen(true);
+                playNotificationSound();
             }
 
             if (adminUserRes.data) {
@@ -343,27 +365,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             setIsLoading(false);
         }
 
-        const handleNewNotification = (newNotification: Notification) => {
-            console.log("[Realtime] Received new notification, processing...", newNotification);
-
-            if (!notificationIdsRef.current.has(newNotification.id)) {
-                notificationIdsRef.current.add(newNotification.id);
-                setNotifications(prev => [newNotification, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-            }
-
-            setArrivalNotification(newNotification);
-            setIsArrivalModalOpen(true);
-            playNotificationSound();
-        };
-
         notificationSub = subscribeToNotificationsForDentist(dentistId, handleNewNotification);
-
-        const handleNewMessage = (newMessage: ChatMessage) => {
-            setChatMessages(prev => [...prev, newMessage]);
-            if (!document.body.classList.contains('chat-modal-open')) {
-                setUnreadChatMessages(prev => prev + 1);
-            }
-        };
         chatSub = subscribeToMessages(dentistId, handleNewMessage);
     };
 
@@ -373,18 +375,29 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         notificationSub?.unsubscribe();
         chatSub?.unsubscribe();
     };
-  }, [dentistId, dentistUsername, showToast, playNotificationSound]);
+  }, [dentistId, dentistUsername, showToast, handleNewNotification, handleNewMessage, playNotificationSound]);
 
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
   
-  const handleCloseArrivalModal = () => {
+  const handleDismissArrivalModal = async () => {
+    if (!arrivalNotification) return;
+
+    const notificationIdToDismiss = arrivalNotification.id;
+
     setIsArrivalModalOpen(false);
-    setTimeout(() => {
-      setArrivalNotification(null);
-    }, 300);
+    setArrivalNotification(null);
+    
+    setNotifications(prev => prev.filter(n => n.id !== notificationIdToDismiss));
+    notificationIdsRef.current.delete(notificationIdToDismiss);
+
+    const { error } = await markNotificationsAsRead([notificationIdToDismiss]);
+    if (error) {
+        showToast("Erro ao marcar notificação como lida.", "error");
+        console.error("Failed to mark notification as read:", error);
+    }
   };
 
   const handleToggleNotificationPanel = () => {
@@ -546,7 +559,22 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
       </section>
 
       {isArrivalModalOpen && arrivalNotification && (
-        <Modal isOpen={isArrivalModalOpen} onClose={handleCloseArrivalModal} title="Aviso de Chegada de Paciente" size="md" footer={<div className="w-full flex justify-center"><Button variant="primary" onClick={handleCloseArrivalModal} className="px-8 py-2.5 text-lg">OK, Entendido</Button></div>}>
+        <Modal 
+            isOpen={isArrivalModalOpen} 
+            onClose={() => {}}
+            title="Aviso de Chegada de Paciente" 
+            size="md" 
+            footer={
+              <div className="w-full flex justify-center">
+                  <Button 
+                      variant="primary" 
+                      onClick={handleDismissArrivalModal} 
+                      className="px-8 py-2.5 text-lg"
+                  >
+                      OK, Entendido
+                  </Button>
+              </div>
+            }>
           <div className="text-center py-6 px-4 animate-pulse-once">
             <BellIcon className="w-20 h-20 text-yellow-400 mx-auto mb-5" />
             <p className="text-xl font-semibold text-white">{arrivalNotification.message}</p>
