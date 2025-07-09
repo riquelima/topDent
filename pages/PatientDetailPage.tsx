@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'; // Adicionado useLocation
 import { Card } from '../components/ui/Card';
@@ -62,9 +60,14 @@ export const PatientDetailPage: React.FC = () => {
   }, [patientId]);
 
   // Determine back navigation based on location state or default
-  const cameFromDentistDashboard = location.state?.from === NavigationPath.Home && location.state?.dentistUsernameContext;
+  const cameFromDentistDashboard = location.state?.from === NavigationPath.Home && location.state?.dentistIdContext;
   const backButtonPath = cameFromDentistDashboard ? NavigationPath.Home : NavigationPath.PatientsList;
   const backButtonText = cameFromDentistDashboard ? "Voltar ao Dashboard Dentista" : "Voltar para Lista de Pacientes";
+
+  const getPaymentTypeDisplay = (patient: Patient | null): string | null => {
+    if (!patient || !patient.payment_type) return "Não informado";
+    return patient.payment_type === 'health_plan' ? 'Plano de Saúde' : 'Particular';
+  };
 
 
   if (isLoading) {
@@ -97,6 +100,10 @@ export const PatientDetailPage: React.FC = () => {
               <DetailItem label="RG" value={patient.rg} />
               <DetailItem label="Telefone" value={patient.phone} />
               <DetailItem label="Responsável" value={patient.guardian} />
+              <DetailItem label="Tipo de Pagamento" value={getPaymentTypeDisplay(patient)} />
+              {patient.payment_type === 'health_plan' && (
+                <DetailItem label="Código do Plano" value={patient.health_plan_code} />
+              )}
             </dl>
           </div>
 

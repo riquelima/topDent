@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { TopDentLogo, ArrowRightOnRectangleIcon } from '../icons/HeroIcons';
+import { TopDentLogo, ArrowRightOnRectangleIcon, ChatBubbleLeftRightIcon } from '../icons/HeroIcons'; // Added ChatBubbleLeftRightIcon
 import { NavigationPath } from '../../types';
 import type { UserRole } from '../../App'; 
 
@@ -86,6 +86,7 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName }) 
                 <NavLink to={NavigationPath.Appointments}>Agendamentos</NavLink>
                 <NavLink to={NavigationPath.Return}>Retornos</NavLink>
                 <NavLink to={NavigationPath.ViewRecord}>Prontuários</NavLink>
+                <NavLink to={NavigationPath.Chat}>Chat</NavLink>
                 <NavLink to={NavigationPath.ConsultationHistory}>Histórico</NavLink> 
                 <NavLink to={NavigationPath.AllTreatmentPlans}>Tratamentos</NavLink>
                 <NavLink to={NavigationPath.Configurations}>Configurações</NavLink> 
@@ -138,6 +139,7 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName }) 
                 <NavLink to={NavigationPath.Appointments} onClick={closeMobileMenu} isMobile>Agendamentos</NavLink>
                 <NavLink to={NavigationPath.Return} onClick={closeMobileMenu} isMobile>Retornos</NavLink>
                 <NavLink to={NavigationPath.ViewRecord} onClick={closeMobileMenu} isMobile>Prontuários</NavLink>
+                <NavLink to={NavigationPath.Chat} onClick={closeMobileMenu} isMobile>Chat</NavLink>
                 <NavLink to={NavigationPath.ConsultationHistory} onClick={closeMobileMenu} isMobile>Histórico</NavLink>
                 <NavLink to={NavigationPath.AllTreatmentPlans} onClick={closeMobileMenu} isMobile>Tratamentos</NavLink>
                 <NavLink to={NavigationPath.Configurations} onClick={closeMobileMenu} isMobile>Configurações</NavLink>

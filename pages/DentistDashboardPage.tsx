@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { Input } from '../components/ui/Input';
 import { 
     ClockIcon, 
     MagnifyingGlassIcon, 
@@ -14,10 +15,12 @@ import {
     EyeIcon,
     ListBulletIcon,
     BellIcon,
-    XCircleIcon
+    XCircleIcon,
+    ChatBubbleLeftRightIcon,
+    PaperAirplaneIcon
 } from '../components/icons/HeroIcons';
 import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
-import { NavigationPath, Appointment, ConsultationHistoryEntry, Notification } from '../types';
+import { NavigationPath, Appointment, ConsultationHistoryEntry, Notification, ChatMessage, Dentist } from '../types';
 import { 
     getAppointmentsByDate, 
     updateAppointmentStatus,
@@ -25,17 +28,22 @@ import {
     getAllAppointmentsForDentist,
     addConsultationHistoryEntry,
     getUnreadNotificationsForDentist,
-    markNotificationsAsRead
+    markNotificationsAsRead,
+    getAdminUserId,
+    getMessagesBetweenUsers,
+    sendMessage,
+    subscribeToMessages
 } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
 import { formatToHHMM, isoToDdMmYyyy } from '../src/utils/formatDate';
 
 interface DentistDashboardPageProps {
-  dentistUsername: string; 
+  dentistId: string;
   dentistDisplayFullName: string; 
   onLogout: () => void;
 }
 
+// ... (other components like AppointmentActionSubcard remain the same)
 const getWeekDateRange = (date: Date): { start: string, end: string } => {
     const d = new Date(date);
     const day = d.getDay(); 
@@ -48,7 +56,6 @@ const getWeekDateRange = (date: Date): { start: string, end: string } => {
         end: sunday.toISOString().split('T')[0],
     };
 };
-
 
 const statusLabelMap: Record<Appointment['status'], string> = {
     Scheduled: 'Agendado',
@@ -64,16 +71,7 @@ const statusColors: Record<Appointment['status'], string> = {
   Cancelled: 'border-red-500 bg-red-500/10 text-red-300',   
 };
 
-
-interface AppointmentActionSubcardProps {
-  appointment: Appointment;
-  onUpdateStatus: (appointment: Appointment, newStatus: Appointment['status']) => void;
-  isUpdatingStatus: boolean;
-  dentistUsername: string;
-  showDate: boolean;
-}
-
-const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ appointment, onUpdateStatus, isUpdatingStatus, dentistUsername, showDate }) => {
+const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ appointment, onUpdateStatus, isUpdatingStatus, dentistId, showDate }) => {
   const currentStatusLabel = statusLabelMap[appointment.status] || appointment.status;
   const colors = statusColors[appointment.status] || statusColors.Scheduled;
   const isCancelled = appointment.status === 'Cancelled';
@@ -97,7 +95,7 @@ const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ app
           to={appointment.patient_cpf ? `/patient/${appointment.patient_cpf}` : '#'}
           onClick={(e) => !appointment.patient_cpf && e.preventDefault()}
           className={!appointment.patient_cpf ? 'cursor-not-allowed' : ''}
-          state={{ from: NavigationPath.Home, dentistUsernameContext: dentistUsername }}
+          state={{ from: NavigationPath.Home, dentistIdContext: dentistId }}
         >
           <Button
             variant="ghost"
@@ -134,20 +132,15 @@ const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ app
   );
 };
 
-
-interface VerticalAgendaCardProps {
-  title: string;
-  icon: React.ReactElement<HeroIconProps>;
-  appointments: Appointment[];
-  isLoading: boolean;
-  error: string | null;
-  onUpdateStatus: (appointment: Appointment, newStatus: Appointment['status']) => void; 
+interface AppointmentActionSubcardProps {
+  appointment: Appointment;
+  onUpdateStatus: (appointment: Appointment, newStatus: Appointment['status']) => void;
   isUpdatingStatus: boolean;
-  dentistUsername: string;
+  dentistId: string;
   showDate: boolean;
 }
 
-const VerticalAgendaCard: React.FC<VerticalAgendaCardProps> = ({ title, icon, appointments, isLoading, error, onUpdateStatus, isUpdatingStatus, dentistUsername, showDate }) => {
+const VerticalAgendaCard: React.FC<VerticalAgendaCardProps> = ({ title, icon, appointments, isLoading, error, onUpdateStatus, isUpdatingStatus, dentistId, showDate }) => {
   return (
     <Card className="bg-gray-800 shadow-xl flex-1 min-w-[300px]">
       <div className="flex items-center text-xl font-semibold text-teal-400 mb-4 p-4 border-b border-gray-700">
@@ -166,7 +159,7 @@ const VerticalAgendaCard: React.FC<VerticalAgendaCardProps> = ({ title, icon, ap
                 appointment={appt} 
                 onUpdateStatus={onUpdateStatus} 
                 isUpdatingStatus={isUpdatingStatus}
-                dentistUsername={dentistUsername}
+                dentistId={dentistId}
                 showDate={showDate}
             />
           ))
@@ -178,12 +171,16 @@ const VerticalAgendaCard: React.FC<VerticalAgendaCardProps> = ({ title, icon, ap
   );
 };
 
-interface ShortcutCardProps {
+interface VerticalAgendaCardProps {
   title: string;
   icon: React.ReactElement<HeroIconProps>;
-  to?: NavigationPath | string; 
-  onClick?: () => void; 
-  color?: string; 
+  appointments: Appointment[];
+  isLoading: boolean;
+  error: string | null;
+  onUpdateStatus: (appointment: Appointment, newStatus: Appointment['status']) => void; 
+  isUpdatingStatus: boolean;
+  dentistId: string;
+  showDate: boolean;
 }
 
 const ShortcutCard: React.FC<ShortcutCardProps> = ({ title, icon, to, onClick, color = 'bg-gray-700' }) => {
@@ -211,8 +208,16 @@ const ShortcutCard: React.FC<ShortcutCardProps> = ({ title, icon, to, onClick, c
   return <div className={cardBaseStyle}>{content}</div>; 
 };
 
+interface ShortcutCardProps {
+  title: string;
+  icon: React.ReactElement<HeroIconProps>;
+  to?: NavigationPath | string; 
+  onClick?: () => void; 
+  color?: string; 
+}
 
-export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dentistUsername, dentistDisplayFullName, onLogout }) => {
+
+export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dentistId, dentistDisplayFullName, onLogout }) => {
   const { showToast } = useToast();
   const navigate = useNavigate();
   
@@ -235,6 +240,16 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   const [arrivalNotificationQueue, setArrivalNotificationQueue] = useState<Notification[]>([]);
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
+
+  // Chat state
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [adminUser, setAdminUser] = useState<Dentist | null>(null);
+  const [newMessage, setNewMessage] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [unreadChatMessages, setUnreadChatMessages] = useState(0);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
 
   const todayDateString = new Date().toISOString().split('T')[0];
   const weekDateRange = getWeekDateRange(new Date());
@@ -264,7 +279,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     let fetchedTodayAppointments: Appointment[] = [];
 
     try {
-        const { data: todayData, error: todayError } = await getAppointmentsByDate(todayDateString, dentistUsername);
+        const { data: todayData, error: todayError } = await getAppointmentsByDate(todayDateString, dentistId);
         if (todayError) { 
             setErrorToday("Falha ao carregar agenda de hoje."); 
             console.error(todayError); 
@@ -279,7 +294,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     }
 
     try {
-        const { data: weekData, error: weekError } = await getAppointmentsByDateRangeForDentist(weekDateRange.start, weekDateRange.end, dentistUsername);
+        const { data: weekData, error: weekError } = await getAppointmentsByDateRangeForDentist(weekDateRange.start, weekDateRange.end, dentistId);
         if (weekError) { 
             setErrorWeek("Falha ao carregar agenda da semana."); 
             console.error(weekError); 
@@ -297,7 +312,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     }
     
     try {
-        const {data: allData, error: allError} = await getAllAppointmentsForDentist(dentistUsername, 50);
+        const {data: allData, error: allError} = await getAllAppointmentsForDentist(dentistId, 50);
         if (allError) { 
             setErrorAll("Falha ao carregar agenda completa."); 
             console.error(allError); 
@@ -313,12 +328,12 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         setIsLoadingAll(false);
     }
 
-  }, [todayDateString, dentistUsername, weekDateRange.start, weekDateRange.end]);
+  }, [todayDateString, dentistId, weekDateRange.start, weekDateRange.end]);
 
   const pollForNotifications = useCallback(async (isInitialLoad = false) => {
-    if (!dentistUsername) return;
+    if (!dentistId) return;
     
-    const { data, error } = await getUnreadNotificationsForDentist(dentistUsername);
+    const { data, error } = await getUnreadNotificationsForDentist(dentistId);
 
     if (error) {
         console.error("Error polling for notifications:", error.message || JSON.stringify(error));
@@ -337,10 +352,54 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
     setNotifications(fetchedNotifications);
     notificationIdsRef.current = newIds;
-  }, [dentistUsername]);
+  }, [dentistId]);
+  
+  // Chat UseEffects
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
 
   useEffect(() => {
-    if (dentistUsername) {
+    if (!dentistId) return;
+
+    let chatSubscription: any;
+
+    const setupChat = async () => {
+        const { data: adminData, error: adminError } = await getAdminUserId();
+        if (adminError || !adminData) {
+            console.error("Could not get admin user for chat.", adminError);
+            return;
+        }
+        setAdminUser(adminData);
+
+        const { data: messagesData, error: messagesError } = await getMessagesBetweenUsers(dentistId, adminData.id!);
+        if (messagesError) {
+            console.error("Error fetching chat messages", messagesError);
+            showToast(`Erro ao buscar mensagens: ${messagesError.message}`, 'error');
+        } else {
+            setChatMessages(messagesData || []);
+        }
+
+        chatSubscription = subscribeToMessages(dentistId, (newMessage) => {
+            setChatMessages(prev => [...prev, newMessage]);
+            if (!isChatOpen) {
+                setUnreadChatMessages(prev => prev + 1);
+            }
+        });
+    };
+
+    setupChat();
+
+    return () => {
+        if (chatSubscription) {
+            chatSubscription.unsubscribe();
+        }
+    };
+}, [dentistId, isChatOpen, showToast]);
+
+
+  useEffect(() => {
+    if (dentistId) {
       fetchAllDashboardData();
       pollForNotifications(true); 
       
@@ -348,7 +407,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
       
       return () => clearInterval(intervalId);
     }
-  }, [dentistUsername, fetchAllDashboardData, pollForNotifications]);
+  }, [dentistId, fetchAllDashboardData, pollForNotifications]);
 
   const handleToggleNotificationPanel = () => {
     setIsNotificationPanelOpen(prev => !prev);
@@ -418,17 +477,42 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     setIsUpdatingStatus(false);
   };
 
+  const handleOpenChat = () => {
+    setIsChatOpen(true);
+    setUnreadChatMessages(0);
+  };
+  
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !adminUser || !dentistId) return;
+    
+    setIsSendingMessage(true);
+    const content = newMessage;
+    setNewMessage('');
+
+    const { error } = await sendMessage({
+        sender_id: dentistId,
+        recipient_id: adminUser.id!,
+        content: content,
+    });
+
+    if (error) {
+        showToast(`Falha ao enviar mensagem: ${error.message}`, 'error');
+        setNewMessage(content); // Restore message on failure
+    }
+    setIsSendingMessage(false);
+  };
+
   const shortcuts: ShortcutCardProps[] = [
     { 
         title: "Buscar Prontuário", 
         icon: <MagnifyingGlassIcon />, 
-        onClick: () => navigate(NavigationPath.ViewRecord, { state: { fromDentistDashboard: true, dentistUsernameContext: dentistUsername } }),
+        onClick: () => navigate(NavigationPath.ViewRecord, { state: { fromDentistDashboard: true, dentistIdContext: dentistId } }),
         color: "bg-sky-600" 
     },
     { 
         title: "Adicionar Tratamento", 
         icon: <DocumentPlusIcon />, 
-        onClick: () => navigate(NavigationPath.TreatmentPlan, { state: { fromDentistDashboard: true, dentistUsernameContext: dentistUsername } }),
+        onClick: () => navigate(NavigationPath.TreatmentPlan, { state: { fromDentistDashboard: true, dentistIdContext: dentistId } }),
         color: "bg-emerald-600" 
     },
     { 
@@ -516,7 +600,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             error={errorToday}
             onUpdateStatus={handleUpdateStatus}
             isUpdatingStatus={isUpdatingStatus}
-            dentistUsername={dentistUsername}
+            dentistId={dentistId}
             showDate={false}
           />
           <VerticalAgendaCard 
@@ -527,7 +611,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             error={errorWeek}
             onUpdateStatus={handleUpdateStatus}
             isUpdatingStatus={isUpdatingStatus}
-            dentistUsername={dentistUsername}
+            dentistId={dentistId}
             showDate={true}
           />
           <VerticalAgendaCard 
@@ -538,7 +622,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             error={errorAll}
             onUpdateStatus={handleUpdateStatus}
             isUpdatingStatus={isUpdatingStatus}
-            dentistUsername={dentistUsername}
+            dentistId={dentistId}
             showDate={true}
           />
         </div>
@@ -575,6 +659,46 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
           </div>
         </Modal>
       )}
+
+        <button onClick={handleOpenChat} className="fixed bottom-8 right-8 bg-[#00bcd4] hover:bg-[#00a5b8] text-black w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#121212] focus:ring-[#00bcd4] z-40">
+            <img src="https://cdn-icons-png.flaticon.com/512/1078/1078011.png" alt="Chat" className="w-8 h-8" />
+            {unreadChatMessages > 0 && (
+                 <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#00bcd4]">
+                    {unreadChatMessages}
+                 </span>
+            )}
+        </button>
+
+        <Modal isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} title={`Chat com ${adminUser?.full_name || 'Admin'}`} size="lg">
+            <div className="flex flex-col h-[60vh]">
+                <div className="flex-grow p-4 space-y-4 overflow-y-auto bg-[#181818] rounded-t-md">
+                    {chatMessages.map(msg => (
+                        <div key={msg.id} className={`flex ${msg.sender_id === dentistId ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-xl ${msg.sender_id === dentistId ? 'bg-[#007b8b] text-white rounded-br-none' : 'bg-[#2a2a2a] text-gray-200 rounded-bl-none'}`}>
+                                <p className="text-sm">{msg.content}</p>
+                                <p className="text-xs text-right mt-1 opacity-60">{formatToHHMM(msg.created_at)}</p>
+                            </div>
+                        </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                </div>
+                <div className="p-4 bg-[#1f1f1f] rounded-b-md border-t border-gray-700">
+                    <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-3">
+                        <Input
+                            containerClassName="flex-grow"
+                            className="bg-[#2a2a2a] border-gray-600 focus:border-[#00bcd4] h-12"
+                            placeholder="Digite sua mensagem..."
+                            value={newMessage}
+                            onChange={e => setNewMessage(e.target.value)}
+                            disabled={isSendingMessage}
+                        />
+                        <Button type="submit" variant="primary" className="h-12 w-12 p-0 flex-shrink-0" disabled={isSendingMessage || !newMessage.trim()}>
+                            <PaperAirplaneIcon className="w-6 h-6" />
+                        </Button>
+                    </form>
+                </div>
+            </div>
+        </Modal>
 
     </div>
   );

@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -323,6 +321,11 @@ export const ViewRecordPage: React.FC = () => {
     </Card>
   );
 
+  const getPaymentTypeDisplay = (patient: Patient | null): string | null => {
+    if (!patient || !patient.payment_type) return "Não informado";
+    return patient.payment_type === 'health_plan' ? 'Plano de Saúde' : 'Particular';
+  };
+
   return (
     <div className="space-y-8">
       {!(isInitialSearchState && !cameFromDentistDashboard) && <h1 className="text-3xl font-bold text-white text-center">Prontuário do Paciente</h1>}
@@ -342,6 +345,10 @@ export const ViewRecordPage: React.FC = () => {
               <DetailItem label="RG" value={patientDetails.rg} />
               <DetailItem label="Telefone" value={patientDetails.phone} />
               <DetailItem label="Responsável" value={patientDetails.guardian} />
+              <DetailItem label="Tipo de Pagamento" value={getPaymentTypeDisplay(patientDetails)} />
+              {patientDetails.payment_type === 'health_plan' && (
+                <DetailItem label="Código do Plano" value={patientDetails.health_plan_code} />
+              )}
               <DetailItem label="Rua/Avenida" value={patientDetails.addressStreet} />
               <DetailItem label="Número" value={patientDetails.addressNumber} />
               <DetailItem label="Bairro" value={patientDetails.addressDistrict} />

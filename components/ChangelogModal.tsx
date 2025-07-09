@@ -29,8 +29,11 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
               id: 'manual-entry-6',
               created_at: new Date('2025-07-09T18:00:00Z').toISOString(),
               release_date: '2025-07-09',
-              version: 'v4.6.0',
+              version: 'v4.7.0',
               changes: [
+                'Adicionado campo para "Plano de Saúde" ou "Particular" no cadastro de pacientes.',
+                'Notificação de chegada do paciente agora informa o tipo de convênio.',
+                'Ícone flutuante de chat para dentistas agora exibe um contador para mensagens não lidas.',
                 'Implementado pop-up de notificação para chegada de paciente.',
                 'O alerta permanece visível até que seja dispensado manualmente pelo médico.',
                 'Adicionada contagem de notificações não lidas no ícone de notificações.',

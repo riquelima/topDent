@@ -12,6 +12,8 @@ export interface Patient {
   addressDistrict: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
+  payment_type?: 'health_plan' | 'private' | null;
+  health_plan_code?: string | null;
   created_at?: string; // ISO timestamp string
   updated_at?: string; // ISO timestamp string
 }
@@ -179,6 +181,14 @@ export interface Notification {
   appointment_id?: string | null;
 }
 
+export interface ChatMessage {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  content: string;
+  created_at: string;
+}
+
 export enum NavigationPath {
   Home = "/",
   NewPatient = "/new-patient",
@@ -198,6 +208,7 @@ export enum NavigationPath {
   ConsultationHistory = "/consultation-history",
   Configurations = "/configurations", 
   Return = "/returns",
+  Chat = "/chat",
 }
 
 // Updated DentistUser for dropdowns, aligns with 'dentists' table structure

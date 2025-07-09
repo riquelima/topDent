@@ -18,7 +18,8 @@ import { DentistDashboardPage } from './pages/DentistDashboardPage';
 import { ConfigurationsPage } from './pages/ConfigurationsPage';
 import { ManageAppointmentPage } from './pages/ManageAppointmentPage'; 
 import { ConsultationHistoryPage } from './pages/ConsultationHistoryPage';
-import { ReturnsPage } from './pages/ReturnsPage'; // Added
+import { ReturnsPage } from './pages/ReturnsPage'; 
+import { ChatPage } from './pages/ChatPage'; // Added
 import { NavigationPath } from './types';
 import { Button } from './components/ui/Button';
 import { ToastProvider } from './contexts/ToastContext';
@@ -102,7 +103,7 @@ const App: React.FC = () => {
       return <DashboardPage />;
     }
     if (userRole === 'dentist' && userIdForApi && userDisplayFullName) {
-      return <DentistDashboardPage dentistUsername={userIdForApi} dentistDisplayFullName={userDisplayFullName} onLogout={handleLogout} />;
+      return <DentistDashboardPage dentistId={userIdForApi} dentistDisplayFullName={userDisplayFullName} onLogout={handleLogout} />;
     }
     return <Navigate to="/login" replace />; 
   };
@@ -144,6 +145,10 @@ const App: React.FC = () => {
                     <Route 
                       path={NavigationPath.AllTreatmentPlans.substring(1)} 
                       element={<ProtectedRoute adminOnly>{<AllTreatmentPlansPage />}</ProtectedRoute>} 
+                    />
+                     <Route 
+                      path={NavigationPath.Chat.substring(1)} 
+                      element={<ProtectedRoute adminOnly>{<ChatPage adminId={userIdForApi!} />}</ProtectedRoute>} 
                     />
                     <Route 
                       path={NavigationPath.Configurations.substring(1)} 

@@ -1,3 +1,4 @@
+
 // services/supabaseService.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { 
@@ -14,7 +15,8 @@ import {
     ConsultationHistoryEntry,
     AppointmentReturnInfo,
     ChangelogEntry,
-    Notification
+    Notification,
+    ChatMessage
 } from '../types'; 
 
 const SUPABASE_URL: string = 'https://wbxjsqixqxdcagiorccx.supabase.co';
@@ -46,7 +48,7 @@ export const getSupabaseClient = (): SupabaseClient | null => {
 // --- Helper for Plan Transformation ---
 const transformDbPlanToUiPlan = (dbPlan: any) => {
     const { file_names, file_url, ...rest } = dbPlan;
-    let files: { name: string, url: string }[] = [];
+    let files: { name: string; url: string; }[] = [];
 
     // New multi-file format: file_url contains a JSON string
     if (file_url && file_url.startsWith('[') && file_url.endsWith(']')) {
@@ -74,7 +76,7 @@ export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
-  const { cpf, fullName, dob, guardian, rg, phone, addressStreet, addressNumber, addressDistrict, emergencyContactName, emergencyContactPhone } = patientData;
+  const { cpf, fullName, dob, guardian, rg, phone, addressStreet, addressNumber, addressDistrict, emergencyContactName, emergencyContactPhone, payment_type, health_plan_code } = patientData;
   
   const dataToInsert = {
     created_at: new Date().toISOString(), 
@@ -89,6 +91,8 @@ export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
     address_district: addressDistrict || null,
     emergency_contact_name: emergencyContactName || null,
     emergency_contact_phone: emergencyContactPhone || null,
+    payment_type: payment_type || null,
+    health_plan_code: health_plan_code || null,
   };
 
   const { data, error: supabaseError } = await client.from('patients').insert([dataToInsert]).select();
@@ -113,6 +117,8 @@ export const updatePatient = async (cpf: string, patientData: Partial<Omit<Patie
   if (patientData.addressDistrict !== undefined) dataToUpdate.address_district = patientData.addressDistrict || null;
   if (patientData.emergencyContactName !== undefined) dataToUpdate.emergency_contact_name = patientData.emergencyContactName || null;
   if (patientData.emergencyContactPhone !== undefined) dataToUpdate.emergency_contact_phone = patientData.emergencyContactPhone || null;
+  if (patientData.payment_type !== undefined) dataToUpdate.payment_type = patientData.payment_type || null;
+  if (patientData.health_plan_code !== undefined) dataToUpdate.health_plan_code = patientData.health_plan_code || null;
   dataToUpdate.updated_at = new Date().toISOString(); 
 
   if (Object.keys(dataToUpdate).length === 1 && dataToUpdate.updated_at) { 
@@ -176,6 +182,8 @@ export const getPatients = async (): Promise<{ data: Patient[] | null, error: an
     addressDistrict: p.address_district,
     emergencyContactName: p.emergency_contact_name,
     emergencyContactPhone: p.emergency_contact_phone,
+    payment_type: p.payment_type,
+    health_plan_code: p.health_plan_code,
     created_at: p.created_at, 
     updated_at: p.updated_at, 
   })) : [];
@@ -210,6 +218,8 @@ export const getPatientByCpf = async (cpf: string): Promise<{ data: Patient | nu
     addressDistrict: data.address_district,
     emergencyContactName: data.emergency_contact_name,
     emergencyContactPhone: data.emergency_contact_phone,
+    payment_type: data.payment_type,
+    health_plan_code: data.health_plan_code,
     created_at: data.created_at, 
     updated_at: data.updated_at, 
   } : null;
@@ -851,6 +861,14 @@ export const deleteDentist = async (dentistId: string) => {
   return { error };
 };
 
+export const getAdminUserId = async (): Promise<{ data: Dentist | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  const { data, error } = await client.from('dentists').select('id, full_name, username').eq('username', 'admin').single();
+  if (error) console.error('Error fetching admin user:', error);
+  return { data: data as Dentist | null, error };
+};
+
 // --- REMINDER FUNCTIONS ---
 export const addReminder = async (reminderData: Pick<Reminder, 'title' | 'content'>): Promise<{ data: Reminder | null; error: any }> => {
   const client = getSupabaseClient();
@@ -1173,4 +1191,59 @@ export const getChangelog = async (): Promise<{ data: ChangelogEntry[] | null, e
     }
   
     return { data, error };
+};
+
+// --- CHAT FUNCTIONS ---
+
+export const getMessagesBetweenUsers = async (user1Id: string, user2Id: string): Promise<{ data: ChatMessage[] | null, error: any }> => {
+    const client = getSupabaseClient();
+    if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+    const { data, error } = await client
+        .from('chat_messages')
+        .select('*')
+        .or(`and(sender_id.eq.${user1Id},recipient_id.eq.${user2Id}),and(sender_id.eq.${user2Id},recipient_id.eq.${user1Id})`)
+        .order('created_at', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching messages:', { message: error.message, details: error.details, code: error.code });
+    }
+    return { data: data as ChatMessage[] | null, error };
+};
+
+export const sendMessage = async (message: Omit<ChatMessage, 'id' | 'created_at'>): Promise<{ data: ChatMessage | null, error: any }> => {
+    const client = getSupabaseClient();
+    if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+    
+    const { data, error } = await client
+        .from('chat_messages')
+        .insert([message])
+        .select()
+        .single();
+    
+    if (error) {
+        console.error('Error sending message:', { message: error.message, details: error.details, code: error.code });
+    }
+    return { data: data as ChatMessage | null, error };
+};
+
+export const subscribeToMessages = (userId: string, callback: (payload: ChatMessage) => void) => {
+    const client = getSupabaseClient();
+    if (!client) return null;
+
+    const channel = client.channel(`chat_messages_for_${userId}`)
+      .on('postgres_changes', 
+          { 
+              event: 'INSERT', 
+              schema: 'public', 
+              table: 'chat_messages', 
+              filter: `recipient_id=eq.${userId}` 
+          }, 
+          payload => {
+              callback(payload.new as ChatMessage);
+          }
+      )
+      .subscribe();
+      
+    return channel;
 };

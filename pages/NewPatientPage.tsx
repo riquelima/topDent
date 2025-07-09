@@ -93,6 +93,7 @@ export const NewPatientPage: React.FC = () => {
     fullName: '', dob: '', guardian: '', rg: '', cpf: '', phone: '',
     addressStreet: '', addressNumber: '', addressDistrict: '',
     emergencyContactName: '', emergencyContactPhone: '',
+    payment_type: null, health_plan_code: '',
   });
 
   const [medications, setMedications] = useState<{ value: 'Sim' | 'Não' | null, details: string }>({ value: null, details: '' });
@@ -138,6 +139,8 @@ export const NewPatientPage: React.FC = () => {
               addressDistrict: data.addressDistrict || '',
               emergencyContactName: data.emergencyContactName || '',
               emergencyContactPhone: data.emergencyContactPhone || '',
+              payment_type: data.payment_type || null,
+              health_plan_code: data.health_plan_code || '',
             });
           } else {
             setPageError("Paciente não encontrado para edição.");
@@ -191,6 +194,7 @@ export const NewPatientPage: React.FC = () => {
       fullName: '', dob: '', guardian: '', rg: '', cpf: '', phone: '',
       addressStreet: '', addressNumber: '', addressDistrict: '',
       emergencyContactName: '', emergencyContactPhone: '',
+      payment_type: null, health_plan_code: '',
     });
   };
 
@@ -364,6 +368,39 @@ export const NewPatientPage: React.FC = () => {
                    required disabled={isLoading || isEditMode} 
             />
             <Input label="Telefone" name="phone" type="tel" value={formData.phone} onChange={handleChange} disabled={isLoading} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-800">
+            <Select
+              label="Tipo de Pagamento"
+              name="payment_type"
+              value={formData.payment_type || ''}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                  const value = e.target.value as 'health_plan' | 'private' | '';
+                  setFormData(prev => ({ 
+                      ...prev, 
+                      payment_type: value || null,
+                      health_plan_code: value !== 'health_plan' ? '' : prev.health_plan_code 
+                  }));
+              }}
+              options={[
+                  { value: 'private', label: 'Particular' },
+                  { value: 'health_plan', label: 'Plano de Saúde' }
+              ]}
+              placeholder="Selecione..."
+              containerClassName="mb-0"
+              disabled={isLoading}
+            />
+            {formData.payment_type === 'health_plan' && (
+              <Input
+                  label="Código do Plano"
+                  name="health_plan_code"
+                  value={formData.health_plan_code || ''}
+                  onChange={handleChange}
+                  disabled={isLoading}
+                  placeholder="Digite o código/número do plano"
+              />
+            )}
           </div>
           
           <h3 className="text-lg font-medium text-[#00bcd4] border-b border-gray-700 pb-2 mb-4 pt-4">Endereço</h3>

@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select'; 
 import { PlusIcon, PencilIcon, TrashIcon, BellIcon } from '../components/icons/HeroIcons'; 
 import { Appointment, DentistUser, NavigationPath } from '../types'; 
-import { getAppointments, deleteAppointment, addNotification } from '../services/supabaseService'; 
+import { getAppointments, deleteAppointment, addNotification, getPatientByCpf } from '../services/supabaseService'; 
 import { isoToDdMmYyyy, formatToHHMM } from '../src/utils/formatDate';
 // import { AppointmentModal } from '../components/AppointmentModal'; // Removed
 import { ConfirmationModal } from '../components/ui/ConfirmationModal'; 
@@ -154,8 +154,28 @@ export const AppointmentsPage: React.FC = () => {
         return;
     }
 
-    const notificationMessage = `Paciente ${appointment.patient_name} chegou para a consulta.`;
+    let paymentInfo = '';
+    if (appointment.patient_cpf) {
+        try {
+            const { data: patientData, error: patientError } = await getPatientByCpf(appointment.patient_cpf);
+            if (patientError) {
+                console.warn("Could not fetch patient details for notification:", patientError);
+            } else if (patientData) {
+                if (patientData.payment_type === 'health_plan') {
+                    paymentInfo = '(Plano de Saúde)';
+                } else if (patientData.payment_type === 'private') {
+                    paymentInfo = '(Particular)';
+                }
+            }
+        } catch (e) {
+            console.warn("Exception fetching patient details for notification:", e);
+        }
+    }
     
+    const baseMessage = `Paciente ${appointment.patient_name} chegou para a consulta`;
+    const fullMessage = paymentInfo ? `${baseMessage} ${paymentInfo}` : baseMessage;
+    const notificationMessage = `${fullMessage}.`;
+
     setNotifiedAppointments(prev => new Set(prev).add(appointment.id));
 
     const { error } = await addNotification({
@@ -231,112 +251,98 @@ export const AppointmentsPage: React.FC = () => {
       </div>
 
       <Card title="Filtros e Visualização" className="bg-[#1a1a1a]" titleClassName="text-white">
-        <div className="flex flex-col md:flex-row items-center gap-4">
-            <div className="w-full md:w-auto md:min-w-[300px]">
-                <Select
-                    label="Filtrar por Dentista"
-                    options={dentistOptions}
-                    value={selectedDentistId}
-                    onChange={(e) => setSelectedDentistId(e.target.value)}
-                    disabled={isLoading || isLoadingDentists || isDeleting}
-                    containerClassName="mb-0"
-                />
-            </div>
-            <div className="flex space-x-2">
-                <Button
-                    variant={activeSortFilter === 'all' ? 'primary' : 'ghost'}
-                    onClick={() => setActiveSortFilter('all')}
-                    disabled={isLoading || isDeleting}
-                    className="flex-1 md:flex-none"
-                >
-                    Todos
-                </Button>
-                <Button
-                    variant={activeSortFilter === 'upcoming' ? 'primary' : 'ghost'}
-                    onClick={() => setActiveSortFilter('upcoming')}
-                    disabled={isLoading || isDeleting}
-                    className="flex-1 md:flex-none"
-                >
-                    Próximos
-                </Button>
-            </div>
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="flex-grow w-full sm:w-auto">
+            <Select 
+                label="Filtrar por dentista"
+                value={selectedDentistId}
+                onChange={(e) => setSelectedDentistId(e.target.value)}
+                options={dentistOptions}
+                disabled={isLoadingDentists || isLoading}
+                containerClassName="mb-0"
+            />
+          </div>
+          <div className="flex-shrink-0 flex items-center space-x-2 bg-[#1f1f1f] p-1 rounded-lg">
+            <Button
+                size="sm"
+                variant={activeSortFilter === 'upcoming' ? 'primary' : 'ghost'}
+                onClick={() => setActiveSortFilter('upcoming')}
+                disabled={isLoading}
+            >
+                Próximos
+            </Button>
+            <Button
+                size="sm"
+                variant={activeSortFilter === 'all' ? 'primary' : 'ghost'}
+                onClick={() => setActiveSortFilter('all')}
+                disabled={isLoading}
+            >
+                Todos
+            </Button>
+          </div>
         </div>
       </Card>
-
-      {filteredAndSortedAppointments.length === 0 ? (
+      
+      {filteredAndSortedAppointments.length === 0 && !isLoading ? (
         <Card className="bg-[#1a1a1a]">
           <p className="text-center text-[#b0b0b0] py-8">
-            {allAppointments.length === 0 ? "Nenhum agendamento encontrado." : "Nenhum agendamento corresponde aos filtros selecionados."}
+            Nenhum agendamento encontrado para a seleção atual.
           </p>
         </Card>
       ) : (
-        <div className="bg-[#1a1a1a] shadow-lg rounded-lg overflow-x-auto border border-gray-700/50">
+        <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-700">
             <thead className="bg-[#1f1f1f]">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Data</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Hora</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Data & Hora</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Paciente</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Procedimento</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Dentista</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Status</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Ações</th>
+                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody className="bg-[#1a1a1a] divide-y divide-gray-700">
-              {filteredAndSortedAppointments.map(appt => (
-                <tr key={appt.id} className="hover:bg-[#1f1f1f] transition-colors duration-150">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{isoToDdMmYyyy(appt.appointment_date)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatToHHMM(appt.appointment_time)}</td>
+              {filteredAndSortedAppointments.map(appointment => (
+                <tr key={appointment.id} className="hover:bg-[#1f1f1f] transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-semibold">
+                    {isoToDdMmYyyy(appointment.appointment_date)} <br />
+                    <span className="text-xs text-gray-400">{formatToHHMM(appointment.appointment_time)}</span>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                    {appt.patient_cpf ? (
-                      <Link to={NavigationPath.PatientDetail.replace(':patientId', appt.patient_cpf)} className="hover:text-[#00bcd4] transition-colors">
-                        {appt.patient_name}
+                    {appointment.patient_cpf ? (
+                      <Link to={NavigationPath.PatientDetail.replace(':patientId', appointment.patient_cpf)} className="hover:text-[#00bcd4]">
+                          {appointment.patient_name}
                       </Link>
                     ) : (
-                      <span>{appt.patient_name}</span>
+                      <span>{appointment.patient_name} <span className="text-xs text-yellow-500">(Não cadastrado)</span></span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b0b0b0]">{appt.procedure}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b0b0b0]">{appt.dentist_name || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 max-w-xs truncate" title={appointment.procedure}>
+                    {appointment.procedure}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{appointment.dentist_name || 'Não definido'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColorMap[appt.status]} ${statusTextClassMap[appt.status]}`}>
-                      {statusLabelMap[appt.status]}
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColorMap[appointment.status]} ${statusTextClassMap[appointment.status]}`}>
+                      {statusLabelMap[appointment.status] || appointment.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleNotifyArrival(appt)}
-                          className="text-yellow-400 hover:text-yellow-300 p-1 disabled:opacity-40 disabled:cursor-not-allowed"
-                          title="Notificar chegada do paciente"
-                          disabled={
-                              isLoading || 
-                              isDeleting || 
-                              !appt.dentist_id || 
-                              notifiedAppointments.has(appt.id) ||
-                              appt.status === 'Completed' ||
-                              appt.status === 'Cancelled'
-                          }
-                        >
-                          <BellIcon className="w-5 h-5" />
-                        </button>
-                        <button 
-                            onClick={() => handleOpenEditAppointmentPage(appt)} 
-                            className="text-[#00bcd4] hover:text-[#00a5b8] p-1"
-                            title="Editar Agendamento"
-                            disabled={isLoading || isDeleting}
-                        >
-                            <PencilIcon className="w-5 h-5" />
-                        </button>
-                        <button 
-                            onClick={() => requestDeleteAppointment(appt.id, `${appt.procedure} - ${appt.patient_name} em ${isoToDdMmYyyy(appt.appointment_date)}`)}
-                            className="text-[#f44336] hover:text-[#d32f2f] p-1"
-                            title="Excluir Agendamento"
-                            disabled={isLoading || isDeleting}
-                        >
-                            <TrashIcon className="w-5 h-5" />
-                        </button>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex items-center justify-center space-x-1">
+                      <Button
+                        size="sm" variant="ghost" className="p-1.5"
+                        onClick={() => handleNotifyArrival(appointment)}
+                        disabled={isDeleting || notifiedAppointments.has(appointment.id)}
+                        title={notifiedAppointments.has(appointment.id) ? "Notificação já enviada" : "Notificar Chegada"}
+                      >
+                          <BellIcon className={`w-4 h-4 ${notifiedAppointments.has(appointment.id) ? 'text-green-400' : 'text-yellow-400 hover:text-yellow-300'}`} />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="p-1.5" onClick={() => handleOpenEditAppointmentPage(appointment)} disabled={isDeleting} title="Editar Agendamento">
+                        <PencilIcon className="w-4 h-4 text-[#00bcd4] hover:text-[#00a5b8]" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="p-1.5" onClick={() => requestDeleteAppointment(appointment.id, `${appointment.procedure} para ${appointment.patient_name}`)} disabled={isDeleting} title="Excluir Agendamento">
+                        <TrashIcon className="w-4 h-4 text-[#f44336] hover:text-[#d32f2f]" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -345,16 +351,15 @@ export const AppointmentsPage: React.FC = () => {
           </table>
         </div>
       )}
-      {/* AppointmentModal removed from here */}
       {appointmentToDelete && (
         <ConfirmationModal
-          isOpen={isConfirmDeleteModalOpen}
-          onClose={closeConfirmDeleteModal}
-          onConfirm={executeDeleteAppointment}
-          title="Confirmar Exclusão de Agendamento"
-          message={`Tem certeza que deseja excluir o agendamento: ${appointmentToDelete.details}? Esta ação é irreversível.`}
-          confirmButtonText="Excluir Agendamento"
-          isLoading={isDeleting}
+            isOpen={isConfirmDeleteModalOpen}
+            onClose={closeConfirmDeleteModal}
+            onConfirm={executeDeleteAppointment}
+            title="Confirmar Exclusão de Agendamento"
+            message={<p>Tem certeza que deseja excluir o agendamento: <strong className="text-[#00bcd4]">{appointmentToDelete.details}</strong>? Esta ação é irreversível.</p>}
+            confirmButtonText="Excluir Agendamento"
+            isLoading={isDeleting}
         />
       )}
     </div>
