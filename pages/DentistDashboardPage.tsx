@@ -245,48 +245,53 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [unreadChatMessages, setUnreadChatMessages] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
   const todayDateString = new Date().toISOString().split('T')[0];
 
   const playNotificationSound = useCallback(() => {
+    // Browsers require user interaction to play audio. This is unlocked in the effect below.
     if (notificationSoundRef.current && isAudioUnlocked.current) {
         notificationSoundRef.current.play().catch(e => console.error("Error playing notification sound:", e));
     }
   }, []);
 
-  const unlockAudio = useCallback(() => {
-    if (notificationSoundRef.current && !isAudioUnlocked.current) {
-        const promise = notificationSoundRef.current.play();
-        if (promise !== undefined) {
-            promise.then(() => {
-                notificationSoundRef.current?.pause();
-                notificationSoundRef.current!.currentTime = 0;
-                isAudioUnlocked.current = true;
-                window.removeEventListener('click', unlockAudio);
-                window.removeEventListener('keydown', unlockAudio);
-            }).catch(() => {});
-        }
-    }
-  }, []);
-
+  // Effect to handle audio unlocking, a browser security feature.
   useEffect(() => {
     notificationSoundRef.current = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_2c8a3063cf.mp3');
     notificationSoundRef.current.load();
+    
+    const unlockAudio = () => {
+      if (notificationSoundRef.current && !isAudioUnlocked.current) {
+        const promise = notificationSoundRef.current.play();
+        if (promise !== undefined) {
+          promise.then(() => {
+            notificationSoundRef.current?.pause();
+            notificationSoundRef.current!.currentTime = 0;
+            isAudioUnlocked.current = true;
+            window.removeEventListener('click', unlockAudio);
+            window.removeEventListener('keydown', unlockAudio);
+          }).catch(() => {});
+        }
+      }
+    };
+    
     window.addEventListener('click', unlockAudio, { once: true });
     window.addEventListener('keydown', unlockAudio, { once: true });
+
     return () => {
       window.removeEventListener('click', unlockAudio);
       window.removeEventListener('keydown', unlockAudio);
     };
-  }, [unlockAudio]);
+  }, []);
 
   const handleCloseArrivalModal = () => {
     setIsArrivalModalOpen(false);
+    // Process next notification in queue after a short delay for modal to close
     setTimeout(() => {
       setArrivalNotificationQueue(prev => prev.slice(1));
     }, 300);
   };
   
+  // This effect shows the notification modal when the queue has items.
   useEffect(() => {
     if (arrivalNotificationQueue.length > 0 && !isArrivalModalOpen) {
       setIsArrivalModalOpen(true);
@@ -294,8 +299,10 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     }
   }, [arrivalNotificationQueue, isArrivalModalOpen, playNotificationSound]);
 
-  const fetchAllDashboardData = useCallback(async () => {
-    const weekDateRange = getWeekDateRange(new Date());
+  // This function will be called to refresh all appointment data.
+  const fetchAllAppointmentData = useCallback(async () => {
+    if (!dentistId) return;
+    
     setIsLoadingToday(true);
     setIsLoadingWeek(true);
     setIsLoadingAll(true);
@@ -303,96 +310,97 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     setErrorWeek(null);
     setErrorAll(null);
 
-    let fetchedTodayAppointments: Appointment[] = [];
+    const todayStr = new Date().toISOString().split('T')[0];
+    const weekDateRange = getWeekDateRange(new Date());
 
     try {
-        const { data: todayData, error: todayError } = await getAppointmentsByDate(todayDateString, dentistId, dentistUsername);
-        if (todayError) throw todayError;
-        fetchedTodayAppointments = (todayData || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
+        const [todayRes, weekRes, allRes] = await Promise.all([
+            getAppointmentsByDate(todayStr, dentistId, dentistUsername),
+            getAppointmentsByDateRangeForDentist(weekDateRange.start, weekDateRange.end, dentistId, dentistUsername),
+            getAllAppointmentsForDentist(dentistId, 50, undefined, dentistUsername)
+        ]);
+        
+        if (todayRes.error) throw new Error("Falha ao carregar agenda de hoje.");
+        const fetchedTodayAppointments = (todayRes.data || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
         setTodayAppointments(fetchedTodayAppointments);
-    } catch (e) {
-        setErrorToday("Falha ao carregar agenda de hoje."); console.error(e);
+
+        if (weekRes.error) throw new Error("Falha ao carregar agenda da semana.");
+        const weekAppointmentsIntermediate = (weekRes.data || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
+        setWeekAppointments(weekAppointmentsIntermediate.filter(weekAppt => !fetchedTodayAppointments.find(todayAppt => todayAppt.id === weekAppt.id)));
+        
+        if (allRes.error) throw new Error("Falha ao carregar agenda completa.");
+        const filteredAll = (allRes.data || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
+        const upcoming = filteredAll.filter(a => a.appointment_date >= todayStr).sort((a,b) => new Date(`${a.appointment_date}T${a.appointment_time}`).getTime() - new Date(`${b.appointment_date}T${b.appointment_time}`).getTime());
+        const past = filteredAll.filter(a => a.appointment_date < todayStr).sort((a,b) => new Date(`${b.appointment_date}T${b.appointment_time}`).getTime() - new Date(`${a.appointment_date}T${a.appointment_time}`).getTime());
+        setAllAppointmentsData([...upcoming, ...past]);
+
+    } catch (e: any) {
+        showToast(e.message, 'error');
+        setErrorToday(e.message);
+        setErrorWeek(e.message);
+        setErrorAll(e.message);
     } finally {
         setIsLoadingToday(false);
-    }
-
-    try {
-        const { data: weekData, error: weekError } = await getAppointmentsByDateRangeForDentist(weekDateRange.start, weekDateRange.end, dentistId, dentistUsername);
-        if (weekError) throw weekError;
-        const weekAppointmentsIntermediate = (weekData || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
-        const finalWeekAppointments = weekAppointmentsIntermediate.filter(
-            weekAppt => !fetchedTodayAppointments.find(todayAppt => todayAppt.id === weekAppt.id)
-        );
-        setWeekAppointments(finalWeekAppointments);
-    } catch (e) {
-        setErrorWeek("Falha ao carregar agenda da semana."); console.error(e);
-    } finally {
         setIsLoadingWeek(false);
-    }
-    
-    try {
-        const {data: allData, error: allError} = await getAllAppointmentsForDentist(dentistId, 50, undefined, dentistUsername);
-        if (allError) throw allError;
-        const filteredAppointments = (allData || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
-        const upcoming = filteredAppointments.filter(a => a.appointment_date >= todayDateString).sort((a,b) => new Date(`${a.appointment_date}T${a.appointment_time}`).getTime() - new Date(`${b.appointment_date}T${b.appointment_time}`).getTime());
-        const past = filteredAppointments.filter(a => a.appointment_date < todayDateString).sort((a,b) => new Date(`${b.appointment_date}T${b.appointment_time}`).getTime() - new Date(`${a.appointment_date}T${a.appointment_time}`).getTime());
-        setAllAppointmentsData([...upcoming, ...past]);
-    } catch (e) {
-        setErrorAll("Falha ao carregar agenda completa."); console.error(e);
-    } finally {
         setIsLoadingAll(false);
     }
-  }, [todayDateString, dentistId, dentistUsername]);
-  
+  }, [dentistId, dentistUsername, showToast]);
+
+  // Effect for fetching initial non-realtime data
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+    if (!dentistId) return;
+    
+    fetchAllAppointmentData();
 
-  const handleNewNotification = useCallback((newNotification: Notification) => {
-    if (!notificationIdsRef.current.has(newNotification.id)) {
-      notificationIdsRef.current.add(newNotification.id);
-      setNotifications(prev => [newNotification, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-      setArrivalNotificationQueue(prev => [...prev, newNotification]);
-    }
-  }, []);
+    getUnreadNotificationsForDentist(dentistId).then(({ data }) => {
+        if (data) {
+            setNotifications(data);
+            notificationIdsRef.current = new Set(data.map(n => n.id));
+        }
+    });
 
+    getAdminUserId().then(({data: adminData}) => {
+        if(adminData) {
+            setAdminUser(adminData);
+            getMessagesBetweenUsers(dentistId, adminData.id!).then(({data: messagesData}) => {
+                setChatMessages(messagesData || []);
+            });
+        }
+    });
+  }, [dentistId, fetchAllAppointmentData]);
+
+  // Effect for handling REALTIME SUBSCRIPTIONS. This is stable and runs once.
   useEffect(() => {
     if (!dentistId) return;
 
-    fetchAllDashboardData();
-
-    getUnreadNotificationsForDentist(dentistId).then(({ data }) => {
-      if (data) {
-        setNotifications(data);
-        notificationIdsRef.current = new Set(data.map(n => n.id));
-      }
-    });
-
-    const notificationSubscription = subscribeToNotificationsForDentist(dentistId, handleNewNotification);
-
-    const setupChat = async () => {
-        const { data: adminData, error: adminError } = await getAdminUserId();
-        if (adminError || !adminData) return;
-        setAdminUser(adminData);
-
-        const { data: messagesData, error: messagesError } = await getMessagesBetweenUsers(dentistId, adminData.id!);
-        if (messagesError) console.error("Error fetching chat messages", messagesError);
-        else setChatMessages(messagesData || []);
+    // Handler for new notifications from Supabase
+    const handleNewNotification = (newNotification: Notification) => {
+        if (!notificationIdsRef.current.has(newNotification.id)) {
+            notificationIdsRef.current.add(newNotification.id);
+            setNotifications(prev => [newNotification, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+            setArrivalNotificationQueue(prev => [...prev, newNotification]);
+        }
     };
-    setupChat();
-    const chatSubscription = subscribeToMessages(dentistId, (newMessage) => {
+    const notificationSub = subscribeToNotificationsForDentist(dentistId, handleNewNotification);
+
+    // Handler for new chat messages from Supabase
+    const handleNewMessage = (newMessage: ChatMessage) => {
         setChatMessages(prev => [...prev, newMessage]);
         if (!document.body.classList.contains('chat-modal-open')) {
             setUnreadChatMessages(prev => prev + 1);
         }
-    });
-
-    return () => {
-      notificationSubscription?.unsubscribe();
-      chatSubscription?.unsubscribe();
     };
-  }, [dentistId, fetchAllDashboardData, handleNewNotification]);
+    const chatSub = subscribeToMessages(dentistId, handleNewMessage);
+    
+    return () => {
+        notificationSub?.unsubscribe();
+        chatSub?.unsubscribe();
+    };
+  }, [dentistId]);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
 
   const handleToggleNotificationPanel = () => {
     setIsNotificationPanelOpen(prev => !prev);
@@ -432,7 +440,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             };
             await addConsultationHistoryEntry(historyEntry);
         }
-        fetchAllDashboardData(); 
+        fetchAllAppointmentData(); 
     }
     setIsUpdatingStatus(false);
   };
