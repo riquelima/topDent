@@ -282,7 +282,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   }, [dentistId, playNotificationSound]);
 
   useEffect(() => {
-    notificationSoundRef.current = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_2c8a3063cf.mp3');
+    notificationSoundRef.current = new Audio('https://www.soundjay.com/buttons/sounds/button-1.mp3');
     notificationSoundRef.current.load();
     
     const unlockAudio = () => {
