@@ -20,7 +20,7 @@ import { ConfigurationsPage } from './pages/ConfigurationsPage';
 import { ManageAppointmentPage } from './pages/ManageAppointmentPage'; 
 import { ConsultationHistoryPage } from './pages/ConsultationHistoryPage';
 import { ReturnsPage } from './pages/ReturnsPage'; 
-import { ChatPage } from './pages/ChatPage'; // Added
+import { ChatPage } from './pages/ChatPage';
 import { NavigationPath } from './types';
 import { Button } from './components/ui/Button';
 import { ToastProvider } from './contexts/ToastContext';
@@ -32,7 +32,7 @@ export type UserRole = 'admin' | 'dentist' | null;
 interface AppLayoutProps {
   onLogout: () => void;
   userRole: UserRole;
-  userName: string | null; // This will now be the display name (full name)
+  userName: string | null;
   children: React.ReactNode;
 }
 
@@ -60,6 +60,8 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
   </div>
 );
 
+const SESSION_STORAGE_KEY = 'topDentUserSession_v1';
+
 const App: React.FC = () => {
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [userDisplayFullName, setUserDisplayFullName] = useState<string | null>(null); 
@@ -69,34 +71,47 @@ const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
+    // This effect runs only once on initial app load to restore the session.
     try {
-      const persistedSession = localStorage.getItem('topDentUserSession');
+      const persistedSession = localStorage.getItem(SESSION_STORAGE_KEY);
       if (persistedSession) {
         const sessionData = JSON.parse(persistedSession);
-        if (sessionData && sessionData.userRole && sessionData.userIdForApi) {
+        // Basic validation of the stored session data
+        if (sessionData && sessionData.userRole && sessionData.userIdForApi && sessionData.userDisplayFullName) {
           setUserRole(sessionData.userRole);
           setUserIdForApi(sessionData.userIdForApi);
           setUserUsername(sessionData.userUsername);
           setUserDisplayFullName(sessionData.userDisplayFullName);
+        } else {
+          // Clear invalid session data
+          localStorage.removeItem(SESSION_STORAGE_KEY);
         }
       }
     } catch (error) {
       console.error("Could not load user session from localStorage", error);
-      localStorage.removeItem('topDentUserSession');
+      // Ensure corrupted data is cleared
+      localStorage.removeItem(SESSION_STORAGE_KEY);
     } finally {
+      // Finished attempting to load session, allow rendering
       setIsInitializing(false);
     }
   }, []);
 
   const handleLoginSuccess = useCallback((role: UserRole, idForApi: string, username: string, displayFullName: string, showChangelog?: boolean) => {
+    const sessionData = { 
+      userRole: role, 
+      userIdForApi: idForApi, 
+      userUsername: username, 
+      userDisplayFullName: displayFullName 
+    };
+
     setUserRole(role);
     setUserIdForApi(idForApi);
     setUserUsername(username);
     setUserDisplayFullName(displayFullName);
     
     try {
-      const sessionData = { userRole: role, userIdForApi: idForApi, userUsername: username, userDisplayFullName: displayFullName };
-      localStorage.setItem('topDentUserSession', JSON.stringify(sessionData));
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
     } catch (error) {
       console.error("Could not save user session to localStorage", error);
     }
@@ -113,7 +128,7 @@ const App: React.FC = () => {
     setUserDisplayFullName(null);
     setIsChangelogModalOpen(false);
     try {
-      localStorage.removeItem('topDentUserSession');
+      localStorage.removeItem(SESSION_STORAGE_KEY);
     } catch (error) {
       console.error("Could not remove user session from localStorage", error);
     }
@@ -128,17 +143,20 @@ const App: React.FC = () => {
 
   const ProtectedRoute: React.FC<{children: JSX.Element; adminOnly?: boolean}> = ({ children, adminOnly = false }) => {
     if (isInitializing) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-[#0e0e0e] text-white">
-                Verificando sessão...
-            </div>
-        );
+      // While checking for session, show a loading indicator to prevent flicker.
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-[#0e0e0e] text-white">
+            Carregando sessão...
+        </div>
+      );
     }
 
     if (!userRole) {
+      // If not logged in after checking, redirect to login.
       return <Navigate to="/login" replace />;
     }
     if (adminOnly && userRole !== 'admin') {
+      // If route is admin-only and user is not admin, redirect to home.
       return <Navigate to="/" replace />; 
     }
     return children;
@@ -151,13 +169,14 @@ const App: React.FC = () => {
     if (userRole === 'dentist' && userIdForApi && userUsername && userDisplayFullName) {
       return <DentistDashboardPage dentistId={userIdForApi} dentistUsername={userUsername} dentistDisplayFullName={userDisplayFullName} onLogout={handleLogout} />;
     }
+    // If userRole is somehow set but other data is missing, redirect to login as a failsafe.
     return <Navigate to="/login" replace />; 
   };
 
   if (isInitializing) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#0e0e0e] text-white">
-        Carregando...
+        Inicializando...
       </div>
     );
   }
@@ -179,62 +198,22 @@ const App: React.FC = () => {
                   <Routes>
                     <Route index element={renderDashboard()} />
                     
-                    {/* Admin Specific Routes */}
-                    <Route 
-                      path={NavigationPath.NewPatient.substring(1)} 
-                      element={<ProtectedRoute adminOnly>{<NewPatientPage />}</ProtectedRoute>} 
-                    />
-                    <Route 
-                      path={NavigationPath.EditPatient.substring(1)} 
-                      element={<ProtectedRoute adminOnly>{<NewPatientPage />}</ProtectedRoute>} 
-                    />
-                    <Route 
-                      path={NavigationPath.PatientsList.substring(1)} 
-                      element={<ProtectedRoute adminOnly>{<PatientListPage />}</ProtectedRoute>} 
-                    />
-                    <Route 
-                      path={NavigationPath.Anamnesis.substring(1)} 
-                      element={<ProtectedRoute adminOnly>{<AnamnesisFormPage />}</ProtectedRoute>} 
-                    />
-                    <Route 
-                      path={NavigationPath.AllTreatmentPlans.substring(1)} 
-                      element={<ProtectedRoute adminOnly>{<AllTreatmentPlansPage />}</ProtectedRoute>} 
-                    />
-                     <Route 
-                      path={NavigationPath.Chat.substring(1)} 
-                      element={<ProtectedRoute adminOnly>{<ChatPage adminId={userIdForApi!} />}</ProtectedRoute>} 
-                    />
-                    <Route 
-                      path={NavigationPath.Configurations.substring(1)} 
-                      element={<ProtectedRoute adminOnly>{<ConfigurationsPage />}</ProtectedRoute>} 
-                    />
-                     <Route 
-                      path={NavigationPath.Appointments.substring(1)} 
-                      element={<ProtectedRoute adminOnly><AppointmentsPage /></ProtectedRoute>} 
-                    />
-                     <Route 
-                      path={NavigationPath.NewAppointment.substring(1)} 
-                      element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} 
-                    />
-                    <Route 
-                      path={NavigationPath.EditAppointment.substring(1)} 
-                      element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} 
-                    />
-                    <Route 
-                      path={NavigationPath.Return.substring(1)} 
-                      element={<ProtectedRoute adminOnly><ReturnsPage /></ProtectedRoute>} 
-                    />
+                    <Route path={NavigationPath.NewPatient.substring(1)} element={<ProtectedRoute adminOnly>{<NewPatientPage />}</ProtectedRoute>} />
+                    <Route path={NavigationPath.EditPatient.substring(1)} element={<ProtectedRoute adminOnly>{<NewPatientPage />}</ProtectedRoute>} />
+                    <Route path={NavigationPath.PatientsList.substring(1)} element={<ProtectedRoute adminOnly>{<PatientListPage />}</ProtectedRoute>} />
+                    <Route path={NavigationPath.Anamnesis.substring(1)} element={<ProtectedRoute adminOnly>{<AnamnesisFormPage />}</ProtectedRoute>} />
+                    <Route path={NavigationPath.AllTreatmentPlans.substring(1)} element={<ProtectedRoute adminOnly>{<AllTreatmentPlansPage />}</ProtectedRoute>} />
+                    <Route path={NavigationPath.Chat.substring(1)} element={<ProtectedRoute adminOnly>{<ChatPage adminId={userIdForApi!} />}</ProtectedRoute>} />
+                    <Route path={NavigationPath.Configurations.substring(1)} element={<ProtectedRoute adminOnly>{<ConfigurationsPage />}</ProtectedRoute>} />
+                    <Route path={NavigationPath.Appointments.substring(1)} element={<ProtectedRoute adminOnly><AppointmentsPage /></ProtectedRoute>} />
+                    <Route path={NavigationPath.NewAppointment.substring(1)} element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} />
+                    <Route path={NavigationPath.EditAppointment.substring(1)} element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} />
+                    <Route path={NavigationPath.Return.substring(1)} element={<ProtectedRoute adminOnly><ReturnsPage /></ProtectedRoute>} />
 
-
-                    {/* Routes for Admin and Dentist */}
                     <Route path={NavigationPath.TreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
                     <Route path={NavigationPath.EditTreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
-                    <Route 
-                      path={NavigationPath.ConsultationHistory.substring(1)} 
-                      element={<ConsultationHistoryPage />} // Accessible to both admin and dentist
-                    />
+                    <Route path={NavigationPath.ConsultationHistory.substring(1)} element={<ConsultationHistoryPage />} />
                     
-                    {/* Common Routes or routes accessible by logged-in users based on other logic */}
                     <Route path={NavigationPath.PatientDetail.substring(1)} element={<PatientDetailPage />} />
                     <Route path={NavigationPath.PatientAnamnesis.substring(1)} element={<PatientAnamnesisPage />} />
                     <Route path={NavigationPath.PatientTreatmentPlans.substring(1)} element={<PatientTreatmentPlansPage />} />
