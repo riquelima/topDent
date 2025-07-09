@@ -47,6 +47,7 @@ export const TreatmentPlanPage: React.FC = () => {
   
   const [patientCPF, setPatientCPF] = useState('');
   const [description, setDescription] = useState('');
+  const [proceduresPerformed, setProceduresPerformed] = useState('');
   const [dentistSignature, setDentistSignature] = useState('');
   
   const [currentFiles, setCurrentFiles] = useState<{ name: string; url: string; }[]>([]);
@@ -100,6 +101,7 @@ export const TreatmentPlanPage: React.FC = () => {
             setPatientCPF(data.patient_cpf);
             setOriginalPatientCpf(data.patient_cpf); 
             setDescription(data.description);
+            setProceduresPerformed(data.procedures_performed || '');
             setDentistSignature(data.dentist_signature || '');
             setCurrentFiles(data.files || []);
             setNewlySelectedFiles([]); 
@@ -158,6 +160,7 @@ export const TreatmentPlanPage: React.FC = () => {
   const clearForm = (clearCpf = true) => {
     if (clearCpf || !isEditMode) setPatientCPF(''); 
     setDescription('');
+    setProceduresPerformed('');
     setDentistSignature('');
     setNewlySelectedFiles([]);
     setCurrentFiles([]);
@@ -268,6 +271,7 @@ export const TreatmentPlanPage: React.FC = () => {
     const planDataPayload: Partial<SupabaseTreatmentPlanData> = {
         patient_cpf: patientCPF, 
         description: description,
+        procedures_performed: proceduresPerformed.trim() || null,
         files: finalFiles.length > 0 ? finalFiles : null,
         dentist_signature: dentistSignature.trim() || null,
         prescribed_medication: prescribedMedication.trim() || null,
@@ -361,7 +365,7 @@ export const TreatmentPlanPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-8">
           
           <div className="relative" ref={patientDropdownRef}>
-            <label htmlFor="patientCPF" className="block text-sm font-medium text-[#b0b0b0] mb-1">CPF do Paciente {!cameFromDentistDashboard && '*'}</label>
+            <label htmlFor="patientCPF" className="block text-sm font-medium text-[#b0b0b0] mb-1">CPF do Paciente *</label>
             <div className="flex">
                 <Input 
                     id="patientCPF" name="patientCPF" 
@@ -387,6 +391,8 @@ export const TreatmentPlanPage: React.FC = () => {
 
           <Textarea label="Descrição Detalhada do Plano de Tratamento e Observações *" value={description} onChange={(e) => setDescription(e.target.value)} rows={6} placeholder="Descreva o tratamento proposto, observações, etc." required disabled={isLoading} />
           
+          <Textarea label="Procedimentos Realizados" value={proceduresPerformed} onChange={(e) => setProceduresPerformed(e.target.value)} rows={4} placeholder="Liste os procedimentos que já foram concluídos para este plano." disabled={isLoading} />
+
           <Textarea label="Medicação Prescrita" value={prescribedMedication} onChange={(e) => setPrescribedMedication(e.target.value)} rows={3} placeholder="Liste as medicações prescritas, dosagens e instruções." disabled={isLoading} />
 
           <div className="space-y-4">

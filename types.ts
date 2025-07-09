@@ -1,4 +1,3 @@
-
 export interface Patient {
   id: string; // Should be unique, CPF can serve this role for now
   fullName: string;
@@ -96,6 +95,7 @@ export interface SupabaseTreatmentPlanData {
     created_at?: string;
     patient_cpf: string;
     description: string;
+    procedures_performed?: string | null;
     files?: { name: string; url: string; }[] | null;
     dentist_signature?: string | null;
     prescribed_medication?: string | null;

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -410,6 +409,9 @@ export const ViewRecordPage: React.FC = () => {
                   <div key={plan.id} className="p-3 bg-[#1f1f1f] rounded-md">
                     <p className="text-sm text-[#b0b0b0]">Criado em: {plan.created_at ? isoToDdMmYyyy(plan.created_at.split('T')[0]) : 'N/A'}</p>
                     <p className="font-medium text-white mt-1">Descrição: <span className="font-normal whitespace-pre-wrap">{plan.description}</span></p>
+                    {plan.procedures_performed && (
+                        <p className="font-medium text-white mt-1">Procedimentos Realizados: <span className="font-normal whitespace-pre-wrap">{plan.procedures_performed}</span></p>
+                    )}
                     {plan.files && plan.files.length > 0 && (
                       <div className="mt-2">
                         <h4 className="text-sm font-medium text-[#b0b0b0] mb-1">Arquivos Anexados:</h4>

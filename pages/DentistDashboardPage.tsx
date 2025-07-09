@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -71,76 +73,84 @@ const statusColors: Record<Appointment['status'], string> = {
   Cancelled: 'border-red-500 bg-red-500/10 text-red-300',   
 };
 
-const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ appointment, onUpdateStatus, isUpdatingStatus, dentistId, showDate }) => {
-  const currentStatusLabel = statusLabelMap[appointment.status] || appointment.status;
-  const colors = statusColors[appointment.status] || statusColors.Scheduled;
-  const isCancelled = appointment.status === 'Cancelled';
-  const isCompleted = appointment.status === 'Completed';
-
-  return (
-    <div className={`p-4 rounded-lg border ${colors} shadow-md mb-3 bg-[#2a2a2a]/50`}>
-      <div className="flex justify-between items-start mb-2">
-        <span className={`text-sm font-semibold px-2 py-0.5 rounded-full ${colors.replace('border-', 'bg-').replace('/10', '/30')}`}>{currentStatusLabel}</span>
-        <div className="text-right">
-          {showDate && (
-            <span className="block text-xs text-gray-400">{isoToDdMmYyyy(appointment.appointment_date).slice(0, 5)}</span>
-          )}
-          <span className="text-xl font-bold text-teal-400">{formatToHHMM(appointment.appointment_time)}</span>
-        </div>
-      </div>
-      <p className="text-md font-semibold text-white truncate" title={appointment.patient_name}>{appointment.patient_name}</p>
-      <p className="text-xs text-gray-400 truncate" title={appointment.procedure}>{appointment.procedure}</p>
-      <div className="mt-3 flex justify-end space-x-2">
-        <Link
-          to={appointment.patient_cpf ? `/patient/${appointment.patient_cpf}` : '#'}
-          onClick={(e) => !appointment.patient_cpf && e.preventDefault()}
-          className={!appointment.patient_cpf ? 'cursor-not-allowed' : ''}
-          state={{ from: NavigationPath.Home, dentistIdContext: dentistId }}
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            className="p-2 border-gray-600 hover:border-teal-500 text-gray-300 hover:text-teal-400"
-            title={appointment.patient_cpf ? "Ver Prontuário" : "Paciente não cadastrado"}
-            disabled={isUpdatingStatus || !appointment.patient_cpf}
-          >
-            <EyeIcon className="w-4 h-4" />
-          </Button>
-        </Link>
-        <Button
-          onClick={() => onUpdateStatus(appointment, 'Cancelled')}
-          disabled={isUpdatingStatus || isCancelled || isCompleted}
-          size="sm"
-          variant="danger"
-          className={`p-2 ${isUpdatingStatus || isCancelled || isCompleted ? 'opacity-50 cursor-not-allowed' : ''}`}
-          title="Cancelar Agendamento"
-        >
-          <XMarkIcon className="w-4 h-4" />
-        </Button>
-        <Button
-          onClick={() => onUpdateStatus(appointment, 'Completed')}
-          disabled={isUpdatingStatus || isCompleted || isCancelled}
-          size="sm"
-          variant="primary" 
-          className={`p-2 bg-green-600 hover:bg-green-500 ${isUpdatingStatus || isCompleted || isCancelled ? 'opacity-50 cursor-not-allowed' : ''}`}
-          title="Concluir Agendamento"
-        >
-          <CheckIcon className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  );
-};
-
 interface AppointmentActionSubcardProps {
   appointment: Appointment;
   onUpdateStatus: (appointment: Appointment, newStatus: Appointment['status']) => void;
   isUpdatingStatus: boolean;
   dentistId: string;
   showDate: boolean;
+  onViewPatient: (patientCpf: string) => void;
 }
 
-const VerticalAgendaCard: React.FC<VerticalAgendaCardProps> = ({ title, icon, appointments, isLoading, error, onUpdateStatus, isUpdatingStatus, dentistId, showDate }) => {
+const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ appointment, onUpdateStatus, isUpdatingStatus, dentistId, showDate, onViewPatient }) => {
+    const currentStatusLabel = statusLabelMap[appointment.status] || appointment.status;
+    const colors = statusColors[appointment.status] || statusColors.Scheduled;
+    const isCancelled = appointment.status === 'Cancelled';
+    const isCompleted = appointment.status === 'Completed';
+
+    return (
+        <div className={`p-4 rounded-lg border ${colors} shadow-md mb-3 bg-[#2a2a2a]/50`}>
+            <div className="flex justify-between items-start mb-2">
+                <span className={`text-sm font-semibold px-2 py-0.5 rounded-full ${colors.replace('border-', 'bg-').replace('/10', '/30')}`}>{currentStatusLabel}</span>
+                <div className="text-right">
+                {showDate && (
+                    <span className="block text-xs text-gray-400">{isoToDdMmYyyy(appointment.appointment_date).slice(0, 5)}</span>
+                )}
+                <span className="text-xl font-bold text-teal-400">{formatToHHMM(appointment.appointment_time)}</span>
+                </div>
+            </div>
+            <p className="text-md font-semibold text-white truncate" title={appointment.patient_name}>{appointment.patient_name}</p>
+            <p className="text-xs text-gray-400 truncate" title={appointment.procedure}>{appointment.procedure}</p>
+            <div className="mt-3 flex justify-end space-x-2">
+                <Button
+                    onClick={() => onViewPatient(appointment.patient_cpf || '')}
+                    variant="ghost"
+                    size="sm"
+                    className="p-2 border-gray-600 hover:border-teal-500 text-gray-300 hover:text-teal-400"
+                    title={appointment.patient_cpf ? "Ver Prontuário" : "Paciente não cadastrado"}
+                    disabled={isUpdatingStatus || !appointment.patient_cpf}
+                    >
+                    <EyeIcon className="w-4 h-4" />
+                </Button>
+                <Button
+                    onClick={() => onUpdateStatus(appointment, 'Cancelled')}
+                    disabled={isUpdatingStatus || isCancelled || isCompleted}
+                    size="sm"
+                    variant="danger"
+                    className={`p-2 ${isUpdatingStatus || isCancelled || isCompleted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title="Cancelar Agendamento"
+                >
+                    <XMarkIcon className="w-4 h-4" />
+                </Button>
+                <Button
+                    onClick={() => onUpdateStatus(appointment, 'Completed')}
+                    disabled={isUpdatingStatus || isCompleted || isCancelled}
+                    size="sm"
+                    variant="primary" 
+                    className={`p-2 bg-green-600 hover:bg-green-500 ${isUpdatingStatus || isCompleted || isCancelled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title="Concluir Agendamento"
+                >
+                    <CheckIcon className="w-4 h-4" />
+                </Button>
+            </div>
+        </div>
+    );
+};
+
+interface VerticalAgendaCardProps {
+  title: string;
+  icon: React.ReactElement<HeroIconProps>;
+  appointments: Appointment[];
+  isLoading: boolean;
+  error: string | null;
+  onUpdateStatus: (appointment: Appointment, newStatus: Appointment['status']) => void; 
+  isUpdatingStatus: boolean;
+  dentistId: string;
+  showDate: boolean;
+  onViewPatient: (patientCpf: string) => void;
+}
+
+const VerticalAgendaCard: React.FC<VerticalAgendaCardProps> = ({ title, icon, appointments, isLoading, error, onUpdateStatus, isUpdatingStatus, dentistId, showDate, onViewPatient }) => {
   return (
     <Card className="bg-[#1f1f1f] shadow-xl flex-1 min-w-[300px]">
       <div className="flex items-center text-xl font-semibold text-teal-400 mb-4 p-4 border-b border-gray-700">
@@ -161,6 +171,7 @@ const VerticalAgendaCard: React.FC<VerticalAgendaCardProps> = ({ title, icon, ap
                 isUpdatingStatus={isUpdatingStatus}
                 dentistId={dentistId}
                 showDate={showDate}
+                onViewPatient={onViewPatient}
             />
           ))
         ) : (
@@ -171,16 +182,12 @@ const VerticalAgendaCard: React.FC<VerticalAgendaCardProps> = ({ title, icon, ap
   );
 };
 
-interface VerticalAgendaCardProps {
+interface ShortcutCardProps {
   title: string;
   icon: React.ReactElement<HeroIconProps>;
-  appointments: Appointment[];
-  isLoading: boolean;
-  error: string | null;
-  onUpdateStatus: (appointment: Appointment, newStatus: Appointment['status']) => void; 
-  isUpdatingStatus: boolean;
-  dentistId: string;
-  showDate: boolean;
+  to?: NavigationPath | string; 
+  onClick?: () => void; 
+  color?: string; 
 }
 
 const ShortcutCard: React.FC<ShortcutCardProps> = ({ title, icon, to, onClick, color = 'bg-gray-700' }) => {
@@ -202,15 +209,6 @@ const ShortcutCard: React.FC<ShortcutCardProps> = ({ title, icon, to, onClick, c
 
   return to ? <Link to={to} {...buttonProps}>{content}</Link> : <button {...buttonProps}>{content}</button>;
 };
-
-interface ShortcutCardProps {
-  title: string;
-  icon: React.ReactElement<HeroIconProps>;
-  to?: NavigationPath | string; 
-  onClick?: () => void; 
-  color?: string; 
-}
-
 
 export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dentistId, dentistUsername, dentistDisplayFullName, onLogout }) => {
   const { showToast } = useToast();
@@ -502,6 +500,14 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     setIsSendingMessage(false);
   };
 
+  const handleViewPatient = (patientCpf: string) => {
+    if (patientCpf) {
+      navigate(`/patient/${patientCpf}`, { 
+        state: { fromDentistDashboard: true }
+      });
+    }
+  };
+
   const shortcuts: ShortcutCardProps[] = [
     { title: "Buscar Prontuário", icon: <MagnifyingGlassIcon />, onClick: () => navigate(NavigationPath.ViewRecord, { state: { fromDentistDashboard: true, dentistIdContext: dentistId } }), color: "bg-sky-600" },
     { title: "Adicionar Tratamento", icon: <DocumentPlusIcon />, onClick: () => navigate(NavigationPath.TreatmentPlan, { state: { fromDentistDashboard: true, dentistIdContext: dentistId, dentistUsernameContext: dentistUsername } }), color: "bg-emerald-600" },
@@ -547,9 +553,9 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
       <section className="mt-8">
         <div className="flex flex-col lg:flex-row gap-6">
-          <VerticalAgendaCard title="Agenda Hoje" icon={<ClockIcon />} appointments={todayAppointments} isLoading={isLoading} error={error} onUpdateStatus={handleUpdateStatus} isUpdatingStatus={isUpdatingStatus} dentistId={dentistId} showDate={false}/>
-          <VerticalAgendaCard title="Agenda da Semana" icon={<CalendarDaysIcon />} appointments={weekAppointments} isLoading={isLoading} error={error} onUpdateStatus={handleUpdateStatus} isUpdatingStatus={isUpdatingStatus} dentistId={dentistId} showDate={true}/>
-          <VerticalAgendaCard title="Agenda Completa" icon={<CalendarDaysIcon />} appointments={allAppointmentsData} isLoading={isLoading} error={error} onUpdateStatus={handleUpdateStatus} isUpdatingStatus={isUpdatingStatus} dentistId={dentistId} showDate={true}/>
+          <VerticalAgendaCard title="Agenda Hoje" icon={<ClockIcon />} appointments={todayAppointments} isLoading={isLoading} error={error} onUpdateStatus={handleUpdateStatus} isUpdatingStatus={isUpdatingStatus} dentistId={dentistId} showDate={false} onViewPatient={handleViewPatient}/>
+          <VerticalAgendaCard title="Agenda da Semana" icon={<CalendarDaysIcon />} appointments={weekAppointments} isLoading={isLoading} error={error} onUpdateStatus={handleUpdateStatus} isUpdatingStatus={isUpdatingStatus} dentistId={dentistId} showDate={true} onViewPatient={handleViewPatient}/>
+          <VerticalAgendaCard title="Agenda Completa" icon={<CalendarDaysIcon />} appointments={allAppointmentsData} isLoading={isLoading} error={error} onUpdateStatus={handleUpdateStatus} isUpdatingStatus={isUpdatingStatus} dentistId={dentistId} showDate={true} onViewPatient={handleViewPatient}/>
         </div>
       </section>
 

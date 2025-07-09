@@ -25,29 +25,19 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
           setError('Não foi possível carregar as atualizações.');
         } else {
           const hardcodedEntries: ChangelogEntry[] = [
-             {
-              id: 'manual-entry-7',
-              created_at: new Date('2025-07-11T10:00:00Z').toISOString(),
-              release_date: '2025-07-11',
+            {
+              id: 'manual-entry-6',
+              created_at: new Date('2025-07-09T18:00:00Z').toISOString(),
+              release_date: '2025-07-09',
               version: 'v4.8.0',
               changes: [
                 'Melhorada a notificação de chegada de paciente para o dentista.',
                 'Agora, um pop-up com alerta sonoro é exibido imediatamente na tela do dentista.',
                 'O modal de notificação de chegada de paciente agora tem um design mais impactante e informativo.',
                 'O pop-up de chegada deve ser dispensado manualmente, garantindo que a notificação seja vista.',
-              ]
-            },
-            {
-              id: 'manual-entry-6',
-              created_at: new Date('2025-07-09T18:00:00Z').toISOString(),
-              release_date: '2025-07-09',
-              version: 'v4.7.0',
-              changes: [
                 'Adicionado campo para "Plano de Saúde" ou "Particular" no cadastro de pacientes.',
                 'Notificação de chegada do paciente agora informa o tipo de convênio.',
                 'Ícone flutuante de chat para dentistas agora exibe um contador para mensagens não lidas.',
-                'Implementado pop-up de notificação para chegada de paciente.',
-                'O alerta permanece visível até que seja dispensado manually pelo médico.',
                 'Adicionada contagem de notificações não lidas no ícone de notificações.',
                 'Implementada a funcionalidade de dispensar notificações individuais.',
               ]

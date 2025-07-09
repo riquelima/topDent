@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -314,6 +313,7 @@ export const AllTreatmentPlansPage: React.FC = () => {
                 </div>
                 <DetailItem label="Criado em" value={plan.created_at ? isoToDdMmYyyy(plan.created_at.split('T')[0]) : 'N/A'} />
                 <DetailItem label="Descrição" value={plan.description} />
+                <DetailItem label="Procedimentos Realizados" value={plan.procedures_performed} />
                 <DetailItem label="Medicação Prescrita" value={plan.prescribed_medication} />
                 {plan.payments && plan.payments.length > 0 ? (
                   <div className="mt-2"><h4 className="text-sm font-medium text-[#b0b0b0]">Pagamentos:</h4>
@@ -350,6 +350,7 @@ export const AllTreatmentPlansPage: React.FC = () => {
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Paciente</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Data Criação</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Descrição</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Procedimentos Realizados</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Arquivos</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Dentista</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Ações</th>
@@ -365,6 +366,7 @@ export const AllTreatmentPlansPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">{plan.created_at ? isoToDdMmYyyy(plan.created_at.split('T')[0]) : 'N/A'}</td>
                   <td className="px-4 py-3 text-sm text-[#b0b0b0] max-w-xs truncate" title={plan.description}>{plan.description}</td>
+                  <td className="px-4 py-3 text-sm text-[#b0b0b0] max-w-xs truncate" title={plan.procedures_performed || undefined}>{plan.procedures_performed || 'N/A'}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm">
                     {plan.files && plan.files.length > 0 ? (
                       <div className="flex items-center gap-1">

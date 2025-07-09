@@ -233,19 +233,26 @@ export const NewPatientPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.fullName || !formData.cpf || !formData.dob) {
-        showToast("Nome completo, CPF e Data de Nascimento são obrigatórios.", "error");
-        return;
-    }
     setIsLoading(true);
 
     const patientDataPayload = { ...formData };
+
+    if (!isEditMode) {
+      if (!patientDataPayload.cpf.trim()) {
+        patientDataPayload.cpf = `ID-${Date.now()}`;
+        showToast(`ID único gerado: ${patientDataPayload.cpf}`, "info", 4000);
+      }
+      if (!patientDataPayload.fullName.trim()) {
+        patientDataPayload.fullName = `Paciente ${patientDataPayload.cpf.slice(-6)}`;
+      }
+    }
+
     let patientSavedSuccessfully = false;
-    let savedPatientCpf = patientDataPayload.cpf;
+    let savedPatientCpf = isEditMode && patientId ? patientId : patientDataPayload.cpf;
 
     try {
       if (isEditMode && patientId) {
-        const { cpf, ...updateData } = patientDataPayload; 
+        const { cpf, ...updateData } = patientDataPayload;
         const { error } = await updatePatient(patientId, updateData);
         if (error) {
           console.error('Supabase update patient error:', error);
@@ -253,9 +260,8 @@ export const NewPatientPage: React.FC = () => {
         } else {
           showToast('Paciente atualizado com sucesso!', 'success');
           patientSavedSuccessfully = true;
-          savedPatientCpf = patientId; 
         }
-      } else { 
+      } else {
         const { error: addPatientError } = await addPatient(patientDataPayload);
         if (addPatientError) {
           console.error('Supabase add patient error:', addPatientError);
@@ -267,7 +273,7 @@ export const NewPatientPage: React.FC = () => {
         } else {
           showToast('Paciente salvo com sucesso!', 'success');
           patientSavedSuccessfully = true;
-          
+
           if (anamnesisFilled) {
             const anamnesisDataToSave: Omit<SupabaseAnamnesisData, 'id' | 'created_at'> = {
                 patient_cpf: savedPatientCpf,
@@ -318,7 +324,7 @@ export const NewPatientPage: React.FC = () => {
       if (patientSavedSuccessfully && isEditMode && savedPatientCpf) {
         navigate(NavigationPath.PatientDetail.replace(':patientId', savedPatientCpf));
       } else if (patientSavedSuccessfully && !isEditMode) {
-        navigate(NavigationPath.PatientsList); // Redirect to patient list after new patient creation
+        navigate(NavigationPath.PatientsList);
       }
     } catch (error: any) {
       console.error('Unexpected error in handleSubmit:', error);
@@ -353,11 +359,11 @@ export const NewPatientPage: React.FC = () => {
       <Card title={<span className="text-white">{pageTitle}</span>} className="bg-[#1a1a1a]">
         <form onSubmit={handleSubmit} className="space-y-6">
           <h3 className="text-lg font-medium text-[#00bcd4] border-b border-gray-700 pb-2 mb-4">Dados Pessoais</h3>
-          <Input label="Nome Completo" name="fullName" value={formData.fullName} onChange={handleChange} required disabled={isLoading} />
+          <Input label="Nome Completo" name="fullName" value={formData.fullName} onChange={handleChange} disabled={isLoading} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <DatePicker 
               label="Data de Nascimento" name="dob" value={formData.dob} onChange={handleChange} 
-              required disabled={isLoading}
+              disabled={isLoading}
               description="O navegador exibirá a data no formato dia/mês/ano (ex: 31/12/2000). Use o calendário para selecionar."
             />
             <Input label="Responsável (se menor)" name="guardian" value={formData.guardian} onChange={handleChange} disabled={isLoading} />
@@ -365,7 +371,7 @@ export const NewPatientPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Input label="RG" name="rg" value={formData.rg} onChange={handleChange} disabled={isLoading} />
             <Input label="CPF (Será usado como ID do Paciente)" name="cpf" value={formData.cpf} onChange={handleChange} 
-                   required disabled={isLoading || isEditMode} 
+                   disabled={isLoading || isEditMode} 
             />
             <Input label="Telefone" name="phone" type="tel" value={formData.phone} onChange={handleChange} disabled={isLoading} />
           </div>

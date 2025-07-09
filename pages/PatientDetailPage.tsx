@@ -60,7 +60,7 @@ export const PatientDetailPage: React.FC = () => {
   }, [patientId]);
 
   // Determine back navigation based on location state or default
-  const cameFromDentistDashboard = location.state?.from === NavigationPath.Home && location.state?.dentistIdContext;
+  const cameFromDentistDashboard = location.state?.fromDentistDashboard;
   const backButtonPath = cameFromDentistDashboard ? NavigationPath.Home : NavigationPath.PatientsList;
   const backButtonText = cameFromDentistDashboard ? "Voltar ao Dashboard Dentista" : "Voltar para Lista de Pacientes";
 
