@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { getUpcomingReturns, getConfigurationValue, updateConfigurationValue } from '../services/supabaseService';
+import { getUpcomingReturns, getConfigurationValue, updateConfigurationValue, clearAppointmentReturnDate } from '../services/supabaseService';
 import { AppointmentReturnInfo, NavigationPath } from '../types';
 import { isoToDdMmYyyy } from '../src/utils/formatDate';
 import { Link } from 'react-router-dom';
 import { Textarea } from '../components/ui/Textarea';
 import { useToast } from '../contexts/ToastContext';
+import { TrashIcon } from '../components/icons/HeroIcons';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 
 const WHATSAPP_TEMPLATE_KEY = 'whatsapp_return_message';
 const DEFAULT_WHATSAPP_TEMPLATE = 'Olá, {patientName}! Seu retorno na Top Dent está agendado para o dia {returnDate}. Confirma sua presença?';
@@ -23,6 +25,10 @@ export const ReturnsPage: React.FC = () => {
   const [isEditingMessage, setIsEditingMessage] = useState(false);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] = useState(false);
+  const [returnToDelete, setReturnToDelete] = useState<AppointmentReturnInfo | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
 
   const fetchReturns = useCallback(async () => {
@@ -93,6 +99,32 @@ export const ReturnsPage: React.FC = () => {
     setMessageTemplate(originalMessageTemplate);
     setIsEditingMessage(false);
   };
+  
+  const requestDeleteReturn = (ret: AppointmentReturnInfo) => {
+    setReturnToDelete(ret);
+    setIsConfirmDeleteModalOpen(true);
+  };
+  
+  const closeConfirmDeleteModal = () => {
+      setIsConfirmDeleteModalOpen(false);
+      setReturnToDelete(null);
+  };
+
+  const executeDeleteReturn = async () => {
+      if (!returnToDelete) return;
+      setIsDeleting(true);
+      const { error: deleteError } = await clearAppointmentReturnDate(returnToDelete.id);
+
+      if (deleteError) {
+          showToast('Erro ao excluir lembrete de retorno.', 'error');
+          console.error("Delete return reminder error:", deleteError);
+      } else {
+          showToast('Lembrete de retorno excluído com sucesso!', 'success');
+          fetchReturns(); // refetch data
+      }
+      setIsDeleting(false);
+      closeConfirmDeleteModal();
+  };
 
   const renderContent = () => {
     if (isLoading) {
@@ -112,28 +144,45 @@ export const ReturnsPage: React.FC = () => {
             <tr>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider align-middle">Data do Retorno</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider align-middle">Paciente</th>
-              <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-[#b0b0b0] uppercase tracking-wider align-middle">Lembrete WhatsApp</th>
+              <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-[#b0b0b0] uppercase tracking-wider align-middle">Lembrete Whatsapp</th>
+              <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-[#b0b0b0] uppercase tracking-wider align-middle">Ações</th>
             </tr>
           </thead>
           <tbody className="bg-[#1a1a1a] divide-y divide-gray-700">
             {returns.map((ret) => (
               <tr key={ret.id} className="hover:bg-[#1f1f1f] transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-semibold">{isoToDdMmYyyy(ret.return_date)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-semibold align-middle">{isoToDdMmYyyy(ret.return_date)}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-white align-middle">
                   <Link to={NavigationPath.PatientDetail.replace(':patientId', ret.patient_cpf)} className="hover:text-[#00bcd4] transition-colors">
                     {ret.patient_name}
                   </Link>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap flex justify-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleWhatsAppClick(ret.patient_phone, ret.patient_name, ret.return_date)}
-                    className="p-2 rounded-full hover:bg-green-500/20"
-                    title="Enviar lembrete via WhatsApp"
-                  >
-                    <img src="https://raw.githubusercontent.com/riquelima/topDent/refs/heads/main/368d6855-50b1-41da-9d0b-c10e5d2b1e19.png" alt="WhatsApp Icon" className="w-6 h-6" />
-                  </Button>
+                <td className="px-6 py-4 whitespace-nowrap align-middle">
+                    <div className="flex justify-center">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleWhatsAppClick(ret.patient_phone, ret.patient_name, ret.return_date)}
+                            className="p-2 rounded-full hover:bg-green-500/20"
+                            title="Enviar lembrete via WhatsApp"
+                        >
+                            <img src="https://raw.githubusercontent.com/riquelima/topDent/refs/heads/main/368d6855-50b1-41da-9d0b-c10e5d2b1e19.png" alt="WhatsApp Icon" className="w-6 h-6" />
+                        </Button>
+                    </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap align-middle">
+                    <div className="flex justify-center">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => requestDeleteReturn(ret)}
+                            className="p-2 rounded-full hover:bg-red-500/20"
+                            title="Excluir lembrete de retorno"
+                            disabled={isDeleting}
+                        >
+                            <TrashIcon className="w-5 h-5 text-red-400 hover:text-red-300" />
+                        </Button>
+                    </div>
                 </td>
               </tr>
             ))}
@@ -216,6 +265,18 @@ export const ReturnsPage: React.FC = () => {
       <Card className="bg-[#1a1a1a]">
         {renderContent()}
       </Card>
+
+      {returnToDelete && (
+        <ConfirmationModal
+            isOpen={isConfirmDeleteModalOpen}
+            onClose={closeConfirmDeleteModal}
+            onConfirm={executeDeleteReturn}
+            title="Confirmar Exclusão de Lembrete"
+            message={<>Tem certeza que deseja excluir o lembrete de retorno para <strong className="text-[#00bcd4]">{returnToDelete.patient_name}</strong> no dia <strong className="text-[#00bcd4]">{isoToDdMmYyyy(returnToDelete.return_date)}</strong>? Esta ação não pode ser desfeita.</>}
+            confirmButtonText="Excluir Lembrete"
+            isLoading={isDeleting}
+        />
+      )}
     </div>
   );
 };

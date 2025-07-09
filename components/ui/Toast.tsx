@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { XMarkIcon, CheckIcon, ExclamationTriangleIcon } from '../icons/HeroIcons'; // Added ExclamationTriangleIcon
 
@@ -14,13 +13,16 @@ export const Toast: React.FC<ToastProps> = ({ id, message, type, onClose, durati
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsVisible(false);
-      // Call onClose after the fade-out animation would complete
-      setTimeout(() => onClose(id), 300); // Adjust timing based on animation
-    }, duration);
+    // Only set a timeout if the duration is greater than 0
+    if (duration > 0) {
+      const timer = setTimeout(() => {
+        setIsVisible(false);
+        // Call onClose after the fade-out animation would complete
+        setTimeout(() => onClose(id), 300); // Adjust timing based on animation
+      }, duration);
 
-    return () => clearTimeout(timer);
+      return () => clearTimeout(timer);
+    }
   }, [id, duration, onClose]);
 
   const baseStyle = "fixed bottom-5 right-5 md:bottom-10 md:right-10 p-4 rounded-lg shadow-xl text-white transition-all duration-300 ease-in-out transform";

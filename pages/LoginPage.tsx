@@ -161,7 +161,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       showToast('Erro ao tentar fazer login.', 'error', 4000);
     } else if (dentist && dentist.password === pass && dentist.id) { // SECURITY: Plain text password check
       showToast(`Login de ${dentist.full_name} realizado com sucesso!`, 'success', 3000);
-      onLoginSuccess('dentist', dentist.id, dentist.full_name, dentist.show_changelog);
+      onLoginSuccess('dentist', dentist.username, dentist.full_name, dentist.show_changelog);
       navigate(NavigationPath.Home);
     } else {
       setErrorMessage('Usuário ou senha inválidos.');

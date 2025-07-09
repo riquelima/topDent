@@ -159,9 +159,9 @@ export interface ConsultationHistoryEntry {
   id: string; // UUID from Supabase
   appointment_id: string | null; // UUID of the original appointment
   patient_cpf: string | null;
-  patient_name: string;
   dentist_id?: string | null; // Username of the dentist
   dentist_name?: string | null; // Denormalized
+  patient_name: string;
   procedure_details: string; // The procedure string from appointment
   consultation_date: string; // YYYY-MM-DD from appointment
   completion_timestamp: string; // ISO timestamp string for when it was marked complete/cancelled
@@ -170,6 +170,14 @@ export interface ConsultationHistoryEntry {
   created_at?: string; // ISO timestamp string
 }
 
+export interface Notification {
+  id: string;
+  created_at: string;
+  dentist_id: string;
+  message: string;
+  is_read: boolean;
+  appointment_id?: string | null;
+}
 
 export enum NavigationPath {
   Home = "/",

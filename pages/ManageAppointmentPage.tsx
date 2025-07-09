@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, FormEvent, useRef, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -7,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { DatePicker } from '../components/ui/DatePicker';
 import { Textarea } from '../components/ui/Textarea';
 import { Select } from '../components/ui/Select';
-import { ChevronUpDownIcon, MagnifyingGlassIcon, CalendarDaysIcon, ClockIcon, ArrowUturnLeftIcon } from '../components/icons/HeroIcons';
+import { ChevronUpDownIcon, MagnifyingGlassIcon, ClockIcon, ArrowUturnLeftIcon } from '../components/icons/HeroIcons';
 import { Appointment, Patient, DentistUser, NavigationPath, Procedure } from '../types';
 import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getAppointmentById, getProcedures } from '../services/supabaseService';
 import type { SupabaseAppointmentData } from '../services/supabaseService';
@@ -383,9 +382,9 @@ export const ManageAppointmentPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <DatePicker label="Data da Consulta *" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} required disabled={isLoading} prefixIcon={<CalendarDaysIcon className="w-5 h-5 text-gray-400" />} />
+            <DatePicker label="Data da Consulta *" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} required disabled={isLoading} />
             <Input label="Hora da Consulta (HH:MM) *" value={appointmentTime} onChange={handleTimeInputChange} placeholder="Ex: 14:30" required maxLength={5} disabled={isLoading} prefixIcon={<ClockIcon className="w-5 h-5 text-gray-400" />} />
-            <DatePicker label="Data de Retorno (Opcional)" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} disabled={isLoading} prefixIcon={<CalendarDaysIcon className="w-5 h-5 text-gray-400" />} />
+            <DatePicker label="Data de Retorno (Opcional)" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} disabled={isLoading} />
           </div>
           
           <div>

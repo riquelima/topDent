@@ -13,7 +13,8 @@ import {
     Procedure,
     ConsultationHistoryEntry,
     AppointmentReturnInfo,
-    ChangelogEntry
+    ChangelogEntry,
+    Notification
 } from '../types'; 
 
 const SUPABASE_URL: string = 'https://wbxjsqixqxdcagiorccx.supabase.co';
@@ -765,6 +766,21 @@ export const getUpcomingReturns = async (): Promise<{ data: AppointmentReturnInf
   return { data: transformedData, error: null };
 };
 
+export const clearAppointmentReturnDate = async (appointmentId: string): Promise<{ error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { error: { message: "Supabase client not initialized." } };
+
+  const { error } = await client
+    .from('appointments')
+    .update({ return_date: null, updated_at: new Date().toISOString() })
+    .eq('id', appointmentId);
+
+  if (error) {
+    console.error(`Error clearing return date for appointment ${appointmentId}:`, error);
+  }
+  return { error };
+};
+
 
 // --- DENTIST FUNCTIONS ---
 export const addDentist = async (dentistData: Omit<Dentist, 'id' | 'created_at' | 'updated_at'>) => {
@@ -915,6 +931,72 @@ export const deleteReminderById = async (id: string): Promise<{ error: any }> =>
   if (error) console.error('Error deleting reminder:', error);
   return { error };
 };
+
+// --- NOTIFICATION FUNCTIONS ---
+export const addNotification = async (
+  notificationData: Pick<Notification, 'dentist_id' | 'message' | 'appointment_id'>
+): Promise<{ data: Notification | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const payload = {
+    ...notificationData,
+    is_read: false,
+    created_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await client
+    .from('notifications')
+    .insert([payload])
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error adding notification:', error);
+  }
+  return { data: data as Notification | null, error };
+};
+
+export const getUnreadNotificationsForDentist = async (
+  dentistId: string
+): Promise<{ data: Notification[] | null; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+  const { data, error } = await client
+    .from('notifications')
+    .select('*')
+    .eq('dentist_id', dentistId)
+    .eq('is_read', false)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error(`Error fetching unread notifications for dentist ${dentistId}:`, error.message, JSON.stringify(error, null, 2));
+  }
+  return { data: data as Notification[] | null, error };
+};
+
+export const markNotificationsAsRead = async (
+  notificationIds: string[]
+): Promise<{ error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { error: { message: "Supabase client not initialized." } };
+
+  if (notificationIds.length === 0) {
+    return { error: null };
+  }
+
+  const { error } = await client
+    .from('notifications')
+    .update({ is_read: true })
+    .in('id', notificationIds);
+  
+  if (error) {
+    console.error('Error marking notifications as read:', error);
+  }
+  return { error };
+};
+
 
 // --- CUSTOM PROCEDURE FUNCTIONS ---
 export const getProcedures = async (fetchInactive: boolean = false): Promise<{ data: Procedure[] | null; error: any }> => {

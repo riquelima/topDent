@@ -1,6 +1,4 @@
-
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -13,16 +11,20 @@ import {
     CheckIcon,
     CalendarDaysIcon, 
     EyeIcon,
-    ListBulletIcon // Added for history shortcut
+    ListBulletIcon,
+    BellIcon,
+    XCircleIcon
 } from '../components/icons/HeroIcons';
 import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
-import { NavigationPath, Appointment, ConsultationHistoryEntry } from '../types';
+import { NavigationPath, Appointment, ConsultationHistoryEntry, Notification } from '../types';
 import { 
     getAppointmentsByDate, 
     updateAppointmentStatus,
     getAppointmentsByDateRangeForDentist,
     getAllAppointmentsForDentist,
-    addConsultationHistoryEntry
+    addConsultationHistoryEntry,
+    getUnreadNotificationsForDentist,
+    markNotificationsAsRead
 } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
 import { formatToHHMM, isoToDdMmYyyy } from '../src/utils/formatDate';
@@ -67,9 +69,10 @@ interface AppointmentActionSubcardProps {
   onUpdateStatus: (appointment: Appointment, newStatus: Appointment['status']) => void;
   isUpdatingStatus: boolean;
   dentistUsername: string;
+  showDate: boolean;
 }
 
-const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ appointment, onUpdateStatus, isUpdatingStatus, dentistUsername }) => {
+const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ appointment, onUpdateStatus, isUpdatingStatus, dentistUsername, showDate }) => {
   const currentStatusLabel = statusLabelMap[appointment.status] || appointment.status;
   const colors = statusColors[appointment.status] || statusColors.Scheduled;
   const isCancelled = appointment.status === 'Cancelled';
@@ -79,7 +82,12 @@ const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ app
     <div className={`p-4 rounded-lg border ${colors} shadow-md mb-3 bg-gray-800/50`}>
       <div className="flex justify-between items-start mb-2">
         <span className={`text-sm font-semibold px-2 py-0.5 rounded-full ${colors.replace('border-', 'bg-').replace('/10', '/30')}`}>{currentStatusLabel}</span>
-        <span className="text-xl font-bold text-teal-400">{formatToHHMM(appointment.appointment_time)}</span>
+        <div className="text-right">
+          {showDate && (
+            <span className="block text-xs text-gray-400">{isoToDdMmYyyy(appointment.appointment_date).slice(0, 5)}</span>
+          )}
+          <span className="text-xl font-bold text-teal-400">{formatToHHMM(appointment.appointment_time)}</span>
+        </div>
       </div>
       <p className="text-md font-semibold text-white truncate" title={appointment.patient_name}>{appointment.patient_name}</p>
       <p className="text-xs text-gray-400 truncate" title={appointment.procedure}>{appointment.procedure}</p>
@@ -135,9 +143,10 @@ interface VerticalAgendaCardProps {
   onUpdateStatus: (appointment: Appointment, newStatus: Appointment['status']) => void; 
   isUpdatingStatus: boolean;
   dentistUsername: string;
+  showDate: boolean;
 }
 
-const VerticalAgendaCard: React.FC<VerticalAgendaCardProps> = ({ title, icon, appointments, isLoading, error, onUpdateStatus, isUpdatingStatus, dentistUsername }) => {
+const VerticalAgendaCard: React.FC<VerticalAgendaCardProps> = ({ title, icon, appointments, isLoading, error, onUpdateStatus, isUpdatingStatus, dentistUsername, showDate }) => {
   return (
     <Card className="bg-gray-800 shadow-xl flex-1 min-w-[300px]">
       <div className="flex items-center text-xl font-semibold text-teal-400 mb-4 p-4 border-b border-gray-700">
@@ -157,6 +166,7 @@ const VerticalAgendaCard: React.FC<VerticalAgendaCardProps> = ({ title, icon, ap
                 onUpdateStatus={onUpdateStatus} 
                 isUpdatingStatus={isUpdatingStatus}
                 dentistUsername={dentistUsername}
+                showDate={showDate}
             />
           ))
         ) : (
@@ -218,6 +228,9 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const [errorAll, setErrorAll] = useState<string | null>(null);
   
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false); 
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const notificationIdsRef = useRef<Set<string>>(new Set());
 
   const todayDateString = new Date().toISOString().split('T')[0];
   const weekDateRange = getWeekDateRange(new Date());
@@ -287,11 +300,61 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   }, [todayDateString, dentistUsername, weekDateRange.start, weekDateRange.end]);
 
-  useEffect(() => {
-    if(dentistUsername) {
-        fetchAllDashboardData();
+  const fetchAndProcessNotifications = useCallback(async (isInitialLoad = false) => {
+    if (!dentistUsername) return;
+    
+    const { data, error } = await getUnreadNotificationsForDentist(dentistUsername);
+
+    if (error) {
+        console.error("Error polling for notifications:", error.message || JSON.stringify(error));
+        return;
     }
-  }, [fetchAllDashboardData, dentistUsername]);
+    
+    const fetchedNotifications = data || [];
+    const newIds = new Set(fetchedNotifications.map(n => n.id));
+
+    if (!isInitialLoad) {
+        fetchedNotifications.forEach(notification => {
+            if (!notificationIdsRef.current.has(notification.id)) {
+                showToast(notification.message, 'warning', 0);
+            }
+        });
+    }
+
+    setNotifications(fetchedNotifications);
+    notificationIdsRef.current = newIds;
+  }, [dentistUsername, showToast]);
+
+  useEffect(() => {
+    if (dentistUsername) {
+      fetchAllDashboardData();
+      fetchAndProcessNotifications(true); // Initial fetch, don't show toasts
+      
+      const intervalId = setInterval(() => fetchAndProcessNotifications(false), 15000); // Poll every 15 seconds
+      
+      return () => clearInterval(intervalId);
+    }
+  }, [dentistUsername, fetchAllDashboardData, fetchAndProcessNotifications]);
+
+  const handleToggleNotificationPanel = () => {
+    setIsNotificationPanelOpen(prev => !prev);
+  };
+
+  const handleDismissNotification = async (notificationIdToDismiss: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    const originalNotifications = [...notifications];
+    setNotifications(prev => prev.filter(n => n.id !== notificationIdToDismiss));
+    notificationIdsRef.current.delete(notificationIdToDismiss);
+
+    const { error } = await markNotificationsAsRead([notificationIdToDismiss]);
+
+    if (error) {
+        showToast("Erro ao remover notificação.", "error");
+        setNotifications(originalNotifications); 
+        notificationIdsRef.current.add(notificationIdToDismiss);
+    }
+  };
 
   const handleLogoutClick = () => {
     onLogout();
@@ -309,29 +372,31 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         showToast(`Agendamento marcado como ${statusLabelMap[newStatus].toLowerCase()}!`, 'success');
         
         if (newStatus === 'Completed' || newStatus === 'Cancelled') {
-            // Use the original appointment data as a base, then potentially override with updatedAppointmentData if available
-            // This ensures that even if updatedAppointmentData is null (but no error occurred), we can still log to history.
             const baseAppointmentDataForHistory: Appointment = {
-                ...appointment, // Start with original data
-                ...(updatedAppointmentData || {}), // Override with updated data if it exists
-                status: newStatus // Ensure the new status is set correctly
+                ...appointment,
+                ...(updatedAppointmentData || {}),
+                status: newStatus 
             };
-
-            const historyEntry: Omit<ConsultationHistoryEntry, 'id' | 'completion_timestamp' | 'created_at'> = {
-                appointment_id: baseAppointmentDataForHistory.id,
-                patient_cpf: baseAppointmentDataForHistory.patient_cpf,
-                patient_name: baseAppointmentDataForHistory.patient_name,
-                dentist_id: baseAppointmentDataForHistory.dentist_id,
-                dentist_name: baseAppointmentDataForHistory.dentist_name,
-                procedure_details: baseAppointmentDataForHistory.procedure,
-                consultation_date: baseAppointmentDataForHistory.appointment_date,
-                notes: baseAppointmentDataForHistory.notes,
-                status: newStatus,
-            };
-            const { error: historyError } = await addConsultationHistoryEntry(historyEntry);
-            if (historyError) {
-                showToast('Status atualizado, mas falha ao registrar no histórico: ' + historyError.message, 'warning');
-                console.error("Error adding to consultation history:", historyError);
+            
+            if (baseAppointmentDataForHistory.patient_cpf) {
+                const historyEntry: Omit<ConsultationHistoryEntry, 'id' | 'completion_timestamp' | 'created_at'> = {
+                    appointment_id: baseAppointmentDataForHistory.id,
+                    patient_cpf: baseAppointmentDataForHistory.patient_cpf,
+                    patient_name: baseAppointmentDataForHistory.patient_name,
+                    dentist_id: baseAppointmentDataForHistory.dentist_id,
+                    dentist_name: baseAppointmentDataForHistory.dentist_name,
+                    procedure_details: baseAppointmentDataForHistory.procedure,
+                    consultation_date: baseAppointmentDataForHistory.appointment_date,
+                    notes: baseAppointmentDataForHistory.notes,
+                    status: newStatus,
+                };
+                const { error: historyError } = await addConsultationHistoryEntry(historyEntry);
+                if (historyError) {
+                    showToast('Status atualizado, mas falha ao registrar no histórico: ' + historyError.message, 'warning');
+                    console.error("Error adding to consultation history:", historyError);
+                }
+            } else {
+                 showToast('Status atualizado. O histórico não é salvo para pacientes não cadastrados.', 'warning', 6000);
             }
         }
         fetchAllDashboardData(); 
@@ -368,9 +433,61 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   return (
     <div className="space-y-10 text-white bg-[#121212] min-h-full">
-      <h1 className="text-3xl md:text-4xl font-bold text-center">
-        Olá, {dentistDisplayFullName}
-      </h1>
+       <div className="relative text-center">
+         <h1 className="text-3xl md:text-4xl font-bold">
+            Olá, {dentistDisplayFullName}
+         </h1>
+         <div className="absolute top-0 right-0">
+            <button onClick={handleToggleNotificationPanel} className="relative p-2 rounded-full text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                <BellIcon className="w-7 h-7" />
+                {notifications.length > 0 && (
+                    <span className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#121212]">
+                      {notifications.length}
+                    </span>
+                )}
+            </button>
+         </div>
+       </div>
+
+        {isNotificationPanelOpen && (
+            <div className="fixed top-24 right-8 w-80 bg-gray-800 rounded-lg shadow-2xl z-50 border border-gray-700 animate-fade-in-down">
+                <div className="flex justify-between items-center p-3 border-b border-gray-700">
+                    <h3 className="font-semibold text-white">Notificações</h3>
+                    <button onClick={() => setIsNotificationPanelOpen(false)} className="p-1 rounded-full hover:bg-gray-600">
+                        <XMarkIcon className="w-5 h-5 text-gray-400"/>
+                    </button>
+                </div>
+                <div className="p-2 max-h-80 overflow-y-auto">
+                    {notifications.length > 0 ? (
+                        notifications.map(notification => (
+                          <div key={notification.id} className="relative p-3 rounded-md hover:bg-gray-700/50 group">
+                            <p className="text-sm text-gray-200 pr-6">{notification.message}</p>
+                            <p className="text-xs text-gray-500 text-right mt-1">
+                                {formatToHHMM(new Date(notification.created_at).toTimeString())}
+                            </p>
+                            <button 
+                                onClick={(e) => handleDismissNotification(notification.id, e)} 
+                                className="absolute top-2 right-2 p-1 rounded-full text-gray-500 hover:text-white hover:bg-red-500/50 opacity-0 group-hover:opacity-100 transition-all duration-150"
+                                aria-label="Remover notificação"
+                            >
+                                <XMarkIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))
+                    ) : (
+                        <p className="text-sm text-gray-400 text-center p-4">Nenhuma nova notificação.</p>
+                    )}
+                </div>
+            </div>
+        )}
+        <style>{`
+            @keyframes fade-in-down {
+                from { opacity: 0; transform: translateY(-10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .animate-fade-in-down { animation: fade-in-down 0.3s ease-out forwards; }
+        `}</style>
+
       <p className="text-center text-lg text-gray-400 -mt-8">
         Aqui está sua agenda ({isoToDdMmYyyy(todayDateString)})
       </p>
@@ -386,6 +503,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             onUpdateStatus={handleUpdateStatus}
             isUpdatingStatus={isUpdatingStatus}
             dentistUsername={dentistUsername}
+            showDate={false}
           />
           <VerticalAgendaCard 
             title="Agenda da Semana" 
@@ -396,6 +514,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             onUpdateStatus={handleUpdateStatus}
             isUpdatingStatus={isUpdatingStatus}
             dentistUsername={dentistUsername}
+            showDate={true}
           />
           <VerticalAgendaCard 
             title="Agenda Completa" 
@@ -406,6 +525,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             onUpdateStatus={handleUpdateStatus}
             isUpdatingStatus={isUpdatingStatus}
             dentistUsername={dentistUsername}
+            showDate={true}
           />
         </div>
       </section>

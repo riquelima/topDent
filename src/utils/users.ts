@@ -1,4 +1,3 @@
-
 // src/utils/users.ts
 import type { DentistUser } from '../../types';
 import { getSupabaseClient } from '../../services/supabaseService';
@@ -19,7 +18,7 @@ export const getKnownDentists = async (): Promise<DentistUser[]> => {
 
   const { data, error } = await client
     .from('dentists')
-    .select('username, full_name') // Fetch username as the ID and full_name for display
+    .select('username, full_name') // Fetch username to use as ID
     .order('full_name', { ascending: true });
 
   if (error) {
@@ -31,7 +30,7 @@ export const getKnownDentists = async (): Promise<DentistUser[]> => {
 
   if (data && data.length > 0) {
     return data.map(dentist => ({
-      id: dentist.username, // Use username as the ID (dentist_id in appointments)
+      id: dentist.username, // Use username as the ID, as per type definition
       full_name: dentist.full_name,
     }));
   }

@@ -24,24 +24,58 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
         if (error) {
           setError('Não foi possível carregar as atualizações.');
         } else {
-           const todayISOString = new Date().toISOString().split('T')[0];
-           const newEntry: ChangelogEntry = {
-            id: 'manual-entry-1',
-            created_at: new Date().toISOString(),
-            release_date: todayISOString,
-            version: 'v4.2.0',
-            changes: [
+          const hardcodedEntries: ChangelogEntry[] = [
+             {
+              id: 'manual-entry-6',
+              created_at: new Date('2025-07-09T18:00:00Z').toISOString(),
+              release_date: '2025-07-09',
+              version: 'v4.6.0',
+              changes: [
+                'Implementado pop-up de notificação para chegada de paciente.',
+                'O alerta permanece visível até que seja dispensado manualmente pelo médico.',
+                'Adicionada contagem de notificações não lidas no ícone de notificações.',
+                'Implementada a funcionalidade de dispensar notificações individuais.',
+              ]
+            },
+            {
+              id: 'manual-entry-4',
+              created_at: new Date('2025-07-08T12:00:00Z').toISOString(),
+              release_date: '2025-07-08',
+              version: 'v4.4.0',
+              changes: [
+                'Implementado sistema de notificação de chegada de paciente. O administrador pode notificar o dentista com um clique.',
+                'Adicionado painel de notificações em tempo real para dentistas.',
+              ]
+            },
+            {
+              id: 'manual-entry-3',
+              created_at: new Date('2025-07-07T12:00:00Z').toISOString(),
+              release_date: '2025-07-07',
+              version: 'v4.3.0',
+              changes: [
+                'Adicionada a funcionalidade de excluir lembretes de retorno na página de Retornos.',
+                'Melhorias visuais e de alinhamento na tabela de retornos.',
+              ]
+            },
+            {
+              id: 'manual-entry-2',
+              created_at: new Date('2025-07-06T12:00:00Z').toISOString(),
+              release_date: '2025-07-06',
+              version: 'v4.2.0',
+              changes: [
                 'Permitido agendamento para pacientes não cadastrados diretamente na tela de agendamento.',
                 'Adicionado ícone (favicon) da Top Dent na aba do navegador.',
-            ]
-          };
+              ]
+            }
+          ];
+
           const existingData = data || [];
-          // Prepend the new entry if it doesn't already exist in the list
-          if (!existingData.some(entry => entry.version === newEntry.version)) {
-             setChangelog([newEntry, ...existingData]);
-          } else {
-             setChangelog(existingData);
-          }
+          const existingVersions = new Set(existingData.map(entry => entry.version));
+          const entriesToPrepend = hardcodedEntries.filter(entry => !existingVersions.has(entry.version));
+          const combinedChangelog = [...entriesToPrepend, ...existingData];
+          
+          combinedChangelog.sort((a, b) => new Date(b.release_date).getTime() - new Date(a.release_date).getTime());
+          setChangelog(combinedChangelog);
         }
         setIsLoading(false);
       });
@@ -104,7 +138,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
               onChange={e => setDontShowAgain(e.target.checked)}
               className="h-4 w-4 text-[#00bcd4] bg-gray-700 border-gray-600 rounded focus:ring-[#00bcd4]"
             />
-            <span className="ml-2 text-sm">✅ Não mostrar novamente</span>
+            <span className="ml-2 text-sm">Não mostrar novamente</span>
           </label>
           <Button variant="primary" onClick={handleClose}>
             Fechar

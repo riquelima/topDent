@@ -4,9 +4,9 @@ import { Link, useNavigate } from 'react-router-dom'; // Added useNavigate
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select'; 
-import { PlusIcon, PencilIcon, TrashIcon } from '../components/icons/HeroIcons'; 
+import { PlusIcon, PencilIcon, TrashIcon, BellIcon } from '../components/icons/HeroIcons'; 
 import { Appointment, DentistUser, NavigationPath } from '../types'; 
-import { getAppointments, deleteAppointment } from '../services/supabaseService'; 
+import { getAppointments, deleteAppointment, addNotification } from '../services/supabaseService'; 
 import { isoToDdMmYyyy, formatToHHMM } from '../src/utils/formatDate';
 // import { AppointmentModal } from '../components/AppointmentModal'; // Removed
 import { ConfirmationModal } from '../components/ui/ConfirmationModal'; 
@@ -57,6 +57,8 @@ export const AppointmentsPage: React.FC = () => {
   const [isLoadingDentists, setIsLoadingDentists] = useState(true);
   const [selectedDentistId, setSelectedDentistId] = useState<string>(''); 
   const [activeSortFilter, setActiveSortFilter] = useState<ActiveSortFilter>('upcoming'); 
+  const [notifiedAppointments, setNotifiedAppointments] = useState<Set<string>>(new Set());
+
 
   const fetchAppointmentsAndDentists = useCallback(async () => {
     setIsLoading(true);
@@ -146,11 +148,34 @@ export const AppointmentsPage: React.FC = () => {
     navigate(NavigationPath.EditAppointment.replace(':appointmentId', appointment.id));
   };
 
-  // handleAppointmentSaved is no longer needed here as modal is replaced by a page
-  // const handleAppointmentSaved = (savedAppointment: Appointment) => {
-  //   fetchAppointmentsAndDentists(); 
-  //   // handleCloseModal(); // Modal state removed
-  // };
+  const handleNotifyArrival = async (appointment: Appointment) => {
+    if (!appointment.dentist_id || !appointment.dentist_name) {
+        showToast('Este agendamento não possui um dentista responsável definido.', 'error');
+        return;
+    }
+
+    const notificationMessage = `Paciente ${appointment.patient_name} chegou para a consulta.`;
+    
+    setNotifiedAppointments(prev => new Set(prev).add(appointment.id));
+
+    const { error } = await addNotification({
+        dentist_id: appointment.dentist_id,
+        message: notificationMessage,
+        appointment_id: appointment.id,
+    });
+
+    if (error) {
+        showToast('Falha ao enviar notificação.', 'error');
+        console.error("Error sending notification:", error);
+        setNotifiedAppointments(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(appointment.id);
+            return newSet;
+        });
+    } else {
+        showToast(`Notificação enviada para ${appointment.dentist_name}!`, 'success');
+    }
+  };
   
   const requestDeleteAppointment = (id: string, details: string) => {
     setAppointmentToDelete({ id, details });
@@ -281,6 +306,21 @@ export const AppointmentsPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleNotifyArrival(appt)}
+                          className="text-yellow-400 hover:text-yellow-300 p-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                          title="Notificar chegada do paciente"
+                          disabled={
+                              isLoading || 
+                              isDeleting || 
+                              !appt.dentist_id || 
+                              notifiedAppointments.has(appt.id) ||
+                              appt.status === 'Completed' ||
+                              appt.status === 'Cancelled'
+                          }
+                        >
+                          <BellIcon className="w-5 h-5" />
+                        </button>
                         <button 
                             onClick={() => handleOpenEditAppointmentPage(appt)} 
                             className="text-[#00bcd4] hover:text-[#00a5b8] p-1"
