@@ -1,3 +1,4 @@
+
 // services/supabaseService.ts
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { 
@@ -833,12 +834,39 @@ export const markNotificationsAsRead = async (notificationIds: string[]): Promis
 export const subscribeToNotificationsForDentist = (dentistId: string, callback: (payload: Notification) => void): RealtimeChannel | null => {
   const client = getSupabaseClient();
   if (!client) return null;
-  const channel = client.channel(`dentist-notifications-${dentistId}`);
+  
+  const channelName = `dentist-notifications-${dentistId}`;
+  
+  // To prevent issues from hot-reloading or component remounts, remove any existing channel with the same name before creating a new one.
+  const existingChannel = client.getChannels().find(c => c.topic === `realtime:${channelName}`);
+  if (existingChannel) {
+      client.removeChannel(existingChannel);
+      console.log(`[Realtime] Removed existing stale channel: ${channelName}`);
+  }
+
+  const channel = client.channel(channelName);
+  
   channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `dentist_id=eq.${dentistId}` }, (payload) => {
+    console.log(`[Realtime] Received new notification payload for dentist ${dentistId}:`, payload);
     callback(payload.new as Notification);
-  }).subscribe();
+  }).subscribe((status, err) => {
+    if (status === 'SUBSCRIBED') {
+      console.log(`[Realtime] Successfully subscribed to channel: ${channelName}`);
+    }
+    if (status === 'CHANNEL_ERROR') {
+      console.error(`[Realtime] Subscription error on channel ${channelName}:`, err);
+    }
+    if (status === 'TIMED_OUT') {
+        console.warn(`[Realtime] Subscription timed out on channel ${channelName}. Will attempt to reconnect.`);
+    }
+    if (err) {
+        console.error(`[Realtime] An error occurred in subscription for ${channelName}:`, err);
+    }
+  });
+
   return channel;
 };
+
 
 // --- CHAT FUNCTIONS ---
 export const getMessagesBetweenUsers = async (userId1: string, userId2: string): Promise<{ data: ChatMessage[] | null, error: any }> => {
@@ -867,10 +895,33 @@ export const sendMessage = async (message: Omit<ChatMessage, 'id' | 'created_at'
 export const subscribeToMessages = (userId: string, callback: (payload: ChatMessage) => void): RealtimeChannel | null => {
   const client = getSupabaseClient();
   if (!client) return null;
-  const channel = client.channel(`chat-${userId}`);
+
+  const channelName = `chat-${userId}`;
+  
+  const existingChannel = client.getChannels().find(c => c.topic === `realtime:${channelName}`);
+  if (existingChannel) {
+      client.removeChannel(existingChannel);
+      console.log(`[Realtime] Removed existing stale chat channel: ${channelName}`);
+  }
+
+  const channel = client.channel(channelName);
   channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${userId}` }, (payload) => {
+    console.log(`[Realtime] Received new chat message payload for user ${userId}:`, payload);
     callback(payload.new as ChatMessage);
-  }).subscribe();
+  }).subscribe((status, err) => {
+     if (status === 'SUBSCRIBED') {
+      console.log(`[Realtime] Successfully subscribed to chat channel: ${channelName}`);
+    }
+    if (status === 'CHANNEL_ERROR') {
+      console.error(`[Realtime] Chat subscription error on channel ${channelName}:`, err);
+    }
+    if (status === 'TIMED_OUT') {
+        console.warn(`[Realtime] Chat subscription timed out on channel ${channelName}.`);
+    }
+    if (err) {
+        console.error(`[Realtime] An error occurred in chat subscription for ${channelName}:`, err);
+    }
+  });
   return channel;
 };
 
