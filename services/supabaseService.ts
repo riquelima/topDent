@@ -44,31 +44,6 @@ export const getSupabaseClient = (): SupabaseClient | null => {
   return supabase;
 };
 
-// --- Helper for Plan Transformation ---
-const transformDbPlanToUiPlan = (dbPlan: any) => {
-    const { file_names, file_url, ...rest } = dbPlan;
-    let files: { name: string; url: string; }[] = [];
-
-    if (file_url && typeof file_url === 'string' && file_url.startsWith('[') && file_url.endsWith(']')) {
-        try {
-            const parsed = JSON.parse(file_url);
-            if (Array.isArray(parsed)) {
-                files = parsed;
-            }
-        } catch (e) {
-            console.warn(`Could not parse file_url as JSON for plan ${dbPlan.id}. It may be a single URL.`, e);
-             if (file_names && file_url) {
-                files = [{ name: file_names, url: file_url }];
-            }
-        }
-    } else if (file_names && file_url) { 
-        files = [{ name: file_names, url: file_url }];
-    }
-
-    return { ...rest, files: files.length > 0 ? files : null };
-};
-
-
 // --- PATIENT FUNCTIONS ---
 export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
   const client = getSupabaseClient();
@@ -303,6 +278,44 @@ export const getBloodPressureReadingsByPatientCpf = async (patientCpf: string): 
 
 
 // --- TREATMENT PLAN FUNCTIONS ---
+
+// Helper to transform a DB record into a UI object with a 'files' array
+const transformPlanFiles = (dbPlan: any): any => {
+    if (!dbPlan) return dbPlan;
+
+    // Destructure `file_url` (could be JSON string or single URL) and `file_names` (legacy)
+    const { file_url, file_names, ...rest } = dbPlan;
+    let files: { name: string; url: string; }[] | null = null;
+
+    if (file_url && typeof file_url === 'string') {
+        // Case 1: It's a JSON array string
+        if (file_url.trim().startsWith('[')) {
+            try {
+                const parsed = JSON.parse(file_url);
+                if (Array.isArray(parsed)) {
+                    files = parsed;
+                }
+            } catch (e) {
+                console.warn("Failed to parse file_url that looked like JSON:", file_url, e);
+                // The string starts with '[' but is not valid JSON. Treat as error.
+                files = null;
+            }
+        }
+        // Case 2: It's a single URL string (legacy data)
+        else {
+            const name = file_names || file_url.substring(file_url.lastIndexOf('/') + 1);
+            files = [{ name: name, url: file_url }];
+        }
+    } else if (dbPlan.files && Array.isArray(dbPlan.files)) {
+        // For future compatibility if the column is ever named `files` and is an array
+        return dbPlan;
+    }
+    
+    // Ensure we return the 'files' property, even if it's null
+    return { ...rest, files };
+};
+
+
 export const addTreatmentPlan = async (planData: Omit<SupabaseTreatmentPlanData, 'id' | 'created_at'>) => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
@@ -310,7 +323,8 @@ export const addTreatmentPlan = async (planData: Omit<SupabaseTreatmentPlanData,
   const dataToInsert = {
       patient_cpf: planData.patient_cpf,
       description: planData.description,
-      files: planData.files && planData.files.length > 0 ? planData.files : null,
+      // Stringify the files array and save to file_url column
+      file_url: planData.files && planData.files.length > 0 ? JSON.stringify(planData.files) : null,
       dentist_signature: planData.dentist_signature ? planData.dentist_signature.trim() : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(), 
@@ -327,7 +341,7 @@ export const addTreatmentPlan = async (planData: Omit<SupabaseTreatmentPlanData,
   if (supabaseError) {
     console.error('Error adding treatment plan to Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
   }
-  return { data, error: supabaseError };
+  return { data: transformPlanFiles(data), error: supabaseError };
 };
 
 export const getTreatmentPlanById = async (planId: string): Promise<{ data: SupabaseTreatmentPlanData | null, error: any }> => {
@@ -336,7 +350,7 @@ export const getTreatmentPlanById = async (planId: string): Promise<{ data: Supa
   
   const { data: dbData, error: supabaseError } = await client
     .from('treatment_plans')
-    .select('id, created_at, patient_cpf, description, files, dentist_signature, prescribed_medication, payments') 
+    .select('id, created_at, patient_cpf, description, file_url, file_names, dentist_signature, prescribed_medication, payments') 
     .eq('id', planId)
     .single();
 
@@ -345,7 +359,7 @@ export const getTreatmentPlanById = async (planId: string): Promise<{ data: Supa
     return { data: null, error: supabaseError };
   }
 
-  return { data: dbData, error: null };
+  return { data: transformPlanFiles(dbData), error: null };
 };
 
 export const updateTreatmentPlan = async (planId: string, planData: Partial<Omit<SupabaseTreatmentPlanData, 'id' | 'created_at' | 'patient_cpf'>>) => {
@@ -362,7 +376,8 @@ export const updateTreatmentPlan = async (planId: string, planData: Partial<Omit
   if (planData.payments !== undefined) updatePayload.payments = planData.payments && planData.payments.length > 0 ? planData.payments : null;
   
   if (planData.files !== undefined) {
-    updatePayload.files = planData.files && planData.files.length > 0 ? planData.files : null;
+    // Stringify files array and save to file_url
+    updatePayload.file_url = planData.files && planData.files.length > 0 ? JSON.stringify(planData.files) : null;
   }
 
   const { data, error: supabaseError } = await client
@@ -375,7 +390,7 @@ export const updateTreatmentPlan = async (planId: string, planData: Partial<Omit
   if (supabaseError) {
     console.error(`Error updating treatment plan ID ${planId}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
   }
-  return { data, error: supabaseError };
+  return { data: transformPlanFiles(data), error: supabaseError };
 };
 
 export const deleteTreatmentPlan = async (planId: string): Promise<{ error: any }> => {
@@ -399,7 +414,7 @@ export const getTreatmentPlansByPatientCpf = async (patientCpf: string): Promise
 
   const { data: dbData, error: supabaseError } = await client
     .from('treatment_plans')
-    .select('id, created_at, patient_cpf, description, files, dentist_signature, prescribed_medication, payments') 
+    .select('id, created_at, patient_cpf, description, file_url, file_names, dentist_signature, prescribed_medication, payments') 
     .eq('patient_cpf', patientCpf)
     .order('created_at', { ascending: false });
 
@@ -407,8 +422,9 @@ export const getTreatmentPlansByPatientCpf = async (patientCpf: string): Promise
     console.error(`Error fetching treatment plans for CPF ${patientCpf} from Supabase:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
     return { data: null, error: supabaseError };
   }
-
-  return { data: dbData, error: null };
+  
+  const transformedData = dbData ? dbData.map(transformPlanFiles) : [];
+  return { data: transformedData, error: null };
 };
 
 export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithPatientInfo[] | null, error: any }> => {
@@ -418,7 +434,7 @@ export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithP
   const { data, error: supabaseError } = await client
     .from('treatment_plans')
     .select(`
-      id, created_at, patient_cpf, description, files, dentist_signature, prescribed_medication, payments,
+      id, created_at, patient_cpf, description, file_url, file_names, dentist_signature, prescribed_medication, payments,
       patients (
         full_name,
         cpf
@@ -438,8 +454,9 @@ export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithP
       patientFullName = (patientsField as { full_name: string })?.full_name || null;
     }
     const { patients, ...planFields } = item;
+    const transformedPlan = transformPlanFiles(planFields);
     return {
-      ...planFields, 
+      ...transformedPlan, 
       patient_full_name: patientFullName || 'Paciente Desconhecido',
     } as TreatmentPlanWithPatientInfo; 
   }) : [];

@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+
+import React, { useState, useCallback, useEffect } from 'react';
 import { HashRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
@@ -65,12 +66,41 @@ const App: React.FC = () => {
   const [userIdForApi, setUserIdForApi] = useState<string | null>(null); 
   const [userUsername, setUserUsername] = useState<string | null>(null);
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  useEffect(() => {
+    try {
+      const persistedSession = localStorage.getItem('topDentUserSession');
+      if (persistedSession) {
+        const sessionData = JSON.parse(persistedSession);
+        if (sessionData && sessionData.userRole && sessionData.userIdForApi) {
+          setUserRole(sessionData.userRole);
+          setUserIdForApi(sessionData.userIdForApi);
+          setUserUsername(sessionData.userUsername);
+          setUserDisplayFullName(sessionData.userDisplayFullName);
+        }
+      }
+    } catch (error) {
+      console.error("Could not load user session from localStorage", error);
+      localStorage.removeItem('topDentUserSession');
+    } finally {
+      setIsInitializing(false);
+    }
+  }, []);
 
   const handleLoginSuccess = useCallback((role: UserRole, idForApi: string, username: string, displayFullName: string, showChangelog?: boolean) => {
     setUserRole(role);
     setUserIdForApi(idForApi);
     setUserUsername(username);
     setUserDisplayFullName(displayFullName);
+    
+    try {
+      const sessionData = { userRole: role, userIdForApi: idForApi, userUsername: username, userDisplayFullName: displayFullName };
+      localStorage.setItem('topDentUserSession', JSON.stringify(sessionData));
+    } catch (error) {
+      console.error("Could not save user session to localStorage", error);
+    }
+
     if (role === 'admin' && showChangelog !== false) {
         setIsChangelogModalOpen(true);
     }
@@ -82,6 +112,11 @@ const App: React.FC = () => {
     setUserUsername(null);
     setUserDisplayFullName(null);
     setIsChangelogModalOpen(false);
+    try {
+      localStorage.removeItem('topDentUserSession');
+    } catch (error) {
+      console.error("Could not remove user session from localStorage", error);
+    }
   }, []);
 
   const handleCloseChangelogModal = async (dontShowAgain: boolean) => {
@@ -100,7 +135,7 @@ const App: React.FC = () => {
     }
     return children;
   };
-
+  
   const renderDashboard = () => {
     if (userRole === 'admin') {
       return <DashboardPage />;
@@ -110,6 +145,14 @@ const App: React.FC = () => {
     }
     return <Navigate to="/login" replace />; 
   };
+
+  if (isInitializing) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#0e0e0e] text-white">
+        Carregando...
+      </div>
+    );
+  }
 
   return (
     <ToastProvider>
