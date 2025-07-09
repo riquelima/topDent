@@ -52,7 +52,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId }) => {
 
     const { data, error } = await getMessagesBetweenUsers(adminId, dentist.id!);
     if (error) {
-      showToast(`Erro ao carregar mensagens: ${error.message || 'Erro desconhecido'}.`, 'error');
+      const typedError = error as any;
+      const errorMessage = `Erro ao carregar mensagens: ${typedError.message || 'Erro desconhecido'}` + (typedError.code ? `. Código: ${typedError.code}` : '');
+      showToast(errorMessage, 'error', 7000);
     } else {
       setMessages(data || []);
     }
@@ -100,7 +102,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId }) => {
     });
 
     if (error) {
-      showToast(`Falha ao enviar mensagem: ${error.message || 'Erro desconhecido'}.`, 'error');
+       const typedError = error as any;
+       const errorMessage = `Falha ao enviar mensagem: ${typedError.message || 'Erro desconhecido'}` + (typedError.code ? `. Código: ${typedError.code}` : '');
+      showToast(errorMessage, 'error', 7000);
       setMessages(prev => prev.filter(m => m.id !== sentMessage.id)); // Remove optimistic message
       setNewMessage(content); // Restore input
     }

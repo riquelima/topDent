@@ -10,7 +10,7 @@ import type { UserRole } from '../App';
 import { getDentistByUsername, addDentist } from '../services/supabaseService'; // Import addDentist
 
 interface LoginPageProps {
-  onLoginSuccess: (role: UserRole, idForApi: string, displayFullName: string, showChangelog?: boolean) => void;
+  onLoginSuccess: (role: UserRole, idForApi: string, username: string, displayFullName: string, showChangelog?: boolean) => void;
 }
 
 const LoginForm: React.FC<{
@@ -146,7 +146,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         }
 
         showToast('Login de Admin realizado com sucesso!', 'success', 3000);
-        onLoginSuccess('admin', adminData.id, adminData.full_name, adminData.show_changelog);
+        onLoginSuccess('admin', adminData.id, adminData.username, adminData.full_name, adminData.show_changelog);
         navigate(NavigationPath.Home);
         setIsLoading(false);
         return;
@@ -161,7 +161,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       showToast('Erro ao tentar fazer login.', 'error', 4000);
     } else if (dentist && dentist.password === pass && dentist.id) { // SECURITY: Plain text password check
       showToast(`Login de ${dentist.full_name} realizado com sucesso!`, 'success', 3000);
-      onLoginSuccess('dentist', dentist.id, dentist.full_name, dentist.show_changelog);
+      onLoginSuccess('dentist', dentist.id, dentist.username, dentist.full_name, dentist.show_changelog);
       navigate(NavigationPath.Home);
     } else {
       setErrorMessage('Usuário ou senha inválidos.');

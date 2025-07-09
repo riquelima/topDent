@@ -1,3 +1,4 @@
+
 // src/utils/users.ts
 import type { DentistUser } from '../../types';
 import { getSupabaseClient } from '../../services/supabaseService';
@@ -5,7 +6,7 @@ import { getSupabaseClient } from '../../services/supabaseService';
 /**
  * Fetches a list of dentists from the Supabase 'dentists' table.
  * This function is now asynchronous.
- * Returns an array of DentistUser, where 'id' is the dentist's username.
+ * Returns an array of DentistUser, where 'id' is the dentist's UUID, which is crucial for correct appointment assignment.
  */
 export const getKnownDentists = async (): Promise<DentistUser[]> => {
   const client = getSupabaseClient();
@@ -16,9 +17,10 @@ export const getKnownDentists = async (): Promise<DentistUser[]> => {
     ];
   }
 
+  // Explicitly select 'id' (UUID) and 'full_name'. This is the source of the dentist list for appointments.
   const { data, error } = await client
     .from('dentists')
-    .select('username, full_name') // Fetch username to use as ID
+    .select('id, full_name') 
     .order('full_name', { ascending: true });
 
   if (error) {
@@ -29,8 +31,9 @@ export const getKnownDentists = async (): Promise<DentistUser[]> => {
   }
 
   if (data && data.length > 0) {
+    // Map the fetched 'id' (which is the UUID) to the 'id' field of the DentistUser object.
     return data.map(dentist => ({
-      id: dentist.username, // Use username as the ID, as per type definition
+      id: dentist.id, 
       full_name: dentist.full_name,
     }));
   }

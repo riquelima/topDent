@@ -213,7 +213,7 @@ export enum NavigationPath {
 
 // Updated DentistUser for dropdowns, aligns with 'dentists' table structure
 export interface DentistUser {
-  id: string; // Corresponds to dentist's username (which is unique and used as ID in dentist_id column)
+  id: string; // MUST be the dentist's UUID from the 'id' column in the dentists table.
   full_name: string; // Display name, e.g., 'Dr. Fulano'
 }
 

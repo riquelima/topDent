@@ -32,13 +32,15 @@ import {
     getAdminUserId,
     getMessagesBetweenUsers,
     sendMessage,
-    subscribeToMessages
+    subscribeToMessages,
+    subscribeToNotificationsForDentist
 } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
 import { formatToHHMM, isoToDdMmYyyy } from '../src/utils/formatDate';
 
 interface DentistDashboardPageProps {
   dentistId: string;
+  dentistUsername: string;
   dentistDisplayFullName: string; 
   onLogout: () => void;
 }
@@ -217,7 +219,7 @@ interface ShortcutCardProps {
 }
 
 
-export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dentistId, dentistDisplayFullName, onLogout }) => {
+export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dentistId, dentistUsername, dentistDisplayFullName, onLogout }) => {
   const { showToast } = useToast();
   const navigate = useNavigate();
   
@@ -240,6 +242,8 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   const [arrivalNotificationQueue, setArrivalNotificationQueue] = useState<Notification[]>([]);
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
+  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+
 
   // Chat state
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -254,11 +258,23 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const todayDateString = new Date().toISOString().split('T')[0];
   const weekDateRange = getWeekDateRange(new Date());
 
+  // Initialize the audio element once.
+  useEffect(() => {
+    notificationSoundRef.current = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_2c8a3063cf.mp3');
+    notificationSoundRef.current.load(); // Preload the audio
+  }, []);
+
   useEffect(() => {
     if (arrivalNotificationQueue.length > 0 && !isArrivalModalOpen) {
       setIsArrivalModalOpen(true);
+      // Play sound for the new notification
+      notificationSoundRef.current?.play().catch(error => {
+        console.error("Audio playback failed:", error);
+        // Autoplay is often restricted by browsers.
+        showToast('Nova notificação de chegada!', 'success', 6000);
+      });
     }
-  }, [arrivalNotificationQueue, isArrivalModalOpen]);
+  }, [arrivalNotificationQueue, isArrivalModalOpen, showToast]);
 
   const handleCloseArrivalModal = () => {
     setIsArrivalModalOpen(false);
@@ -279,7 +295,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     let fetchedTodayAppointments: Appointment[] = [];
 
     try {
-        const { data: todayData, error: todayError } = await getAppointmentsByDate(todayDateString, dentistId);
+        const { data: todayData, error: todayError } = await getAppointmentsByDate(todayDateString, dentistId, dentistUsername);
         if (todayError) { 
             setErrorToday("Falha ao carregar agenda de hoje."); 
             console.error(todayError); 
@@ -294,7 +310,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     }
 
     try {
-        const { data: weekData, error: weekError } = await getAppointmentsByDateRangeForDentist(weekDateRange.start, weekDateRange.end, dentistId);
+        const { data: weekData, error: weekError } = await getAppointmentsByDateRangeForDentist(weekDateRange.start, weekDateRange.end, dentistId, dentistUsername);
         if (weekError) { 
             setErrorWeek("Falha ao carregar agenda da semana."); 
             console.error(weekError); 
@@ -312,7 +328,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     }
     
     try {
-        const {data: allData, error: allError} = await getAllAppointmentsForDentist(dentistId, 50);
+        const {data: allData, error: allError} = await getAllAppointmentsForDentist(dentistId, 50, undefined, dentistUsername);
         if (allError) { 
             setErrorAll("Falha ao carregar agenda completa."); 
             console.error(allError); 
@@ -328,31 +344,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         setIsLoadingAll(false);
     }
 
-  }, [todayDateString, dentistId, weekDateRange.start, weekDateRange.end]);
-
-  const pollForNotifications = useCallback(async (isInitialLoad = false) => {
-    if (!dentistId) return;
-    
-    const { data, error } = await getUnreadNotificationsForDentist(dentistId);
-
-    if (error) {
-        console.error("Error polling for notifications:", error.message || JSON.stringify(error));
-        return;
-    }
-    
-    const fetchedNotifications = data || [];
-    const newIds = new Set(fetchedNotifications.map(n => n.id));
-
-    if (!isInitialLoad) {
-        const newArrivals = fetchedNotifications.filter(notification => !notificationIdsRef.current.has(notification.id));
-        if (newArrivals.length > 0) {
-            setArrivalNotificationQueue(prev => [...prev, ...newArrivals]);
-        }
-    }
-
-    setNotifications(fetchedNotifications);
-    notificationIdsRef.current = newIds;
-  }, [dentistId]);
+  }, [todayDateString, dentistId, dentistUsername, weekDateRange.start, weekDateRange.end]);
   
   // Chat UseEffects
   useEffect(() => {
@@ -401,13 +393,35 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   useEffect(() => {
     if (dentistId) {
       fetchAllDashboardData();
-      pollForNotifications(true); 
-      
-      const intervalId = setInterval(() => pollForNotifications(false), 15000); 
-      
-      return () => clearInterval(intervalId);
     }
-  }, [dentistId, fetchAllDashboardData, pollForNotifications]);
+  }, [dentistId, fetchAllDashboardData]);
+
+   // Real-time notifications
+  useEffect(() => {
+    if (!dentistId) return;
+
+    // Fetch initial unread notifications on component mount
+    getUnreadNotificationsForDentist(dentistId).then(({ data }) => {
+      if (data) {
+        setNotifications(data);
+        notificationIdsRef.current = new Set(data.map(n => n.id));
+      }
+    });
+
+    const notificationSubscription = subscribeToNotificationsForDentist(dentistId, (newNotification) => {
+      if (!notificationIdsRef.current.has(newNotification.id)) {
+        notificationIdsRef.current.add(newNotification.id);
+        setNotifications(prev => [newNotification, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        setArrivalNotificationQueue(prev => [...prev, newNotification]);
+      }
+    });
+
+    return () => {
+      if (notificationSubscription) {
+        notificationSubscription.unsubscribe();
+      }
+    };
+  }, [dentistId]);
 
   const handleToggleNotificationPanel = () => {
     setIsNotificationPanelOpen(prev => !prev);

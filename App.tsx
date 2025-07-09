@@ -63,11 +63,13 @@ const App: React.FC = () => {
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [userDisplayFullName, setUserDisplayFullName] = useState<string | null>(null); 
   const [userIdForApi, setUserIdForApi] = useState<string | null>(null); 
+  const [userUsername, setUserUsername] = useState<string | null>(null);
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
 
-  const handleLoginSuccess = useCallback((role: UserRole, idForApi: string, displayFullName: string, showChangelog?: boolean) => {
+  const handleLoginSuccess = useCallback((role: UserRole, idForApi: string, username: string, displayFullName: string, showChangelog?: boolean) => {
     setUserRole(role);
-    setUserIdForApi(idForApi); 
+    setUserIdForApi(idForApi);
+    setUserUsername(username);
     setUserDisplayFullName(displayFullName);
     if (role === 'admin' && showChangelog !== false) {
         setIsChangelogModalOpen(true);
@@ -77,6 +79,7 @@ const App: React.FC = () => {
   const handleLogout = useCallback(() => {
     setUserRole(null);
     setUserIdForApi(null);
+    setUserUsername(null);
     setUserDisplayFullName(null);
     setIsChangelogModalOpen(false);
   }, []);
@@ -102,8 +105,8 @@ const App: React.FC = () => {
     if (userRole === 'admin') {
       return <DashboardPage />;
     }
-    if (userRole === 'dentist' && userIdForApi && userDisplayFullName) {
-      return <DentistDashboardPage dentistId={userIdForApi} dentistDisplayFullName={userDisplayFullName} onLogout={handleLogout} />;
+    if (userRole === 'dentist' && userIdForApi && userUsername && userDisplayFullName) {
+      return <DentistDashboardPage dentistId={userIdForApi} dentistUsername={userUsername} dentistDisplayFullName={userDisplayFullName} onLogout={handleLogout} />;
     }
     return <Navigate to="/login" replace />; 
   };
