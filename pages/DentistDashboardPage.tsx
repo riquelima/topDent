@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { 
     ClockIcon, 
     MagnifyingGlassIcon, 
@@ -232,8 +233,25 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const notificationIdsRef = useRef<Set<string>>(new Set());
 
+  const [arrivalNotificationQueue, setArrivalNotificationQueue] = useState<Notification[]>([]);
+  const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
+
   const todayDateString = new Date().toISOString().split('T')[0];
   const weekDateRange = getWeekDateRange(new Date());
+
+  useEffect(() => {
+    if (arrivalNotificationQueue.length > 0 && !isArrivalModalOpen) {
+      setIsArrivalModalOpen(true);
+    }
+  }, [arrivalNotificationQueue, isArrivalModalOpen]);
+
+  const handleCloseArrivalModal = () => {
+    setIsArrivalModalOpen(false);
+    setTimeout(() => {
+      setArrivalNotificationQueue(prev => prev.slice(1));
+    }, 300);
+  };
+
 
   const fetchAllDashboardData = useCallback(async () => {
     setIsLoadingToday(true);
@@ -245,7 +263,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
     let fetchedTodayAppointments: Appointment[] = [];
 
-    // Fetch Today's Appointments
     try {
         const { data: todayData, error: todayError } = await getAppointmentsByDate(todayDateString, dentistUsername);
         if (todayError) { 
@@ -261,7 +278,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         setIsLoadingToday(false);
     }
 
-    // Fetch Week's Appointments
     try {
         const { data: weekData, error: weekError } = await getAppointmentsByDateRangeForDentist(weekDateRange.start, weekDateRange.end, dentistUsername);
         if (weekError) { 
@@ -280,7 +296,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         setIsLoadingWeek(false);
     }
     
-    // Fetch All Appointments (for "Agenda Completa")
     try {
         const {data: allData, error: allError} = await getAllAppointmentsForDentist(dentistUsername, 50);
         if (allError) { 
@@ -300,7 +315,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   }, [todayDateString, dentistUsername, weekDateRange.start, weekDateRange.end]);
 
-  const fetchAndProcessNotifications = useCallback(async (isInitialLoad = false) => {
+  const pollForNotifications = useCallback(async (isInitialLoad = false) => {
     if (!dentistUsername) return;
     
     const { data, error } = await getUnreadNotificationsForDentist(dentistUsername);
@@ -314,27 +329,26 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     const newIds = new Set(fetchedNotifications.map(n => n.id));
 
     if (!isInitialLoad) {
-        fetchedNotifications.forEach(notification => {
-            if (!notificationIdsRef.current.has(notification.id)) {
-                showToast(notification.message, 'warning', 0);
-            }
-        });
+        const newArrivals = fetchedNotifications.filter(notification => !notificationIdsRef.current.has(notification.id));
+        if (newArrivals.length > 0) {
+            setArrivalNotificationQueue(prev => [...prev, ...newArrivals]);
+        }
     }
 
     setNotifications(fetchedNotifications);
     notificationIdsRef.current = newIds;
-  }, [dentistUsername, showToast]);
+  }, [dentistUsername]);
 
   useEffect(() => {
     if (dentistUsername) {
       fetchAllDashboardData();
-      fetchAndProcessNotifications(true); // Initial fetch, don't show toasts
+      pollForNotifications(true); 
       
-      const intervalId = setInterval(() => fetchAndProcessNotifications(false), 15000); // Poll every 15 seconds
+      const intervalId = setInterval(() => pollForNotifications(false), 15000); 
       
       return () => clearInterval(intervalId);
     }
-  }, [dentistUsername, fetchAllDashboardData, fetchAndProcessNotifications]);
+  }, [dentistUsername, fetchAllDashboardData, pollForNotifications]);
 
   const handleToggleNotificationPanel = () => {
     setIsNotificationPanelOpen(prev => !prev);
@@ -538,6 +552,30 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
           ))}
         </div>
       </section>
+
+      {isArrivalModalOpen && arrivalNotificationQueue.length > 0 && (
+        <Modal
+          isOpen={isArrivalModalOpen}
+          onClose={handleCloseArrivalModal}
+          title="Aviso de Chegada de Paciente"
+          size="md"
+          footer={
+            <div className="w-full flex justify-center">
+              <Button variant="primary" onClick={handleCloseArrivalModal} className="px-8 py-2.5 text-lg">
+                OK, Entendido
+              </Button>
+            </div>
+          }
+        >
+          <div className="text-center py-6 px-4">
+            <BellIcon className="w-20 h-20 text-yellow-400 mx-auto mb-5 animate-pulse" />
+            <p className="text-xl font-semibold text-white">
+              {arrivalNotificationQueue[0].message}
+            </p>
+          </div>
+        </Modal>
+      )}
+
     </div>
   );
 };
