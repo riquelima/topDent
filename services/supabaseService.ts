@@ -498,9 +498,10 @@ export const getAdminUserId = async (): Promise<{ data: Dentist | null, error: a
 export const getMessagesBetweenUsers = async (userId1: string, userId2: string) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+    const filterString = `or(and(sender_id.eq.${userId1},recipient_id.eq.${userId2}),and(sender_id.eq.${userId2},recipient_id.eq.${userId1}))`;
     return client.from('chat_messages')
         .select('*')
-        .or(`(sender_id.eq.${userId1},recipient_id.eq.${userId2}),(sender_id.eq.${userId2},recipient_id.eq.${userId1})`)
+        .or(filterString)
         .order('created_at');
 };
 
