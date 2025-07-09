@@ -46,7 +46,6 @@ interface DentistDashboardPageProps {
   onLogout: () => void;
 }
 
-// ... (other components like AppointmentActionSubcard remain the same)
 const getWeekDateRange = (date: Date): { start: string, end: string } => {
     const d = new Date(date);
     const day = d.getDay(); 
@@ -244,9 +243,8 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const [arrivalNotificationQueue, setArrivalNotificationQueue] = useState<Notification[]>([]);
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+  const isAudioUnlocked = useRef(false);
 
-
-  // Chat state
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [adminUser, setAdminUser] = useState<Dentist | null>(null);
@@ -259,23 +257,47 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const todayDateString = new Date().toISOString().split('T')[0];
   const weekDateRange = getWeekDateRange(new Date());
 
-  // Initialize the audio element once.
-  useEffect(() => {
-    notificationSoundRef.current = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_2c8a3063cf.mp3');
-    notificationSoundRef.current.load(); // Preload the audio
-  }, []);
+  const playNotificationSound = useCallback(() => {
+    if (notificationSoundRef.current && isAudioUnlocked.current) {
+        notificationSoundRef.current.play().catch(e => console.error("Error playing notification sound:", e));
+    } else if (notificationSoundRef.current) {
+        // Fallback for when audio is not unlocked, try to play anyway. Might work on some browsers.
+        // It's better than nothing.
+        notificationSoundRef.current.play().catch(e => {
+            console.error("Audio playback failed (possibly not unlocked):", e);
+            showToast('Nova notificação de chegada!', 'success', 6000);
+        });
+    }
+  }, [showToast]);
 
   useEffect(() => {
-    if (arrivalNotificationQueue.length > 0 && !isArrivalModalOpen) {
-      setIsArrivalModalOpen(true);
-      // Play sound for the new notification
-      notificationSoundRef.current?.play().catch(error => {
-        console.error("Audio playback failed:", error);
-        // Autoplay is often restricted by browsers.
-        showToast('Nova notificação de chegada!', 'success', 6000);
-      });
-    }
-  }, [arrivalNotificationQueue, isArrivalModalOpen, showToast]);
+    notificationSoundRef.current = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_2c8a3063cf.mp3');
+    notificationSoundRef.current.load();
+
+    const unlockAudio = () => {
+        if (notificationSoundRef.current && !isAudioUnlocked.current) {
+            const promise = notificationSoundRef.current.play();
+            if (promise !== undefined) {
+                promise.then(() => {
+                    notificationSoundRef.current?.pause();
+                    notificationSoundRef.current!.currentTime = 0;
+                    isAudioUnlocked.current = true;
+                    window.removeEventListener('click', unlockAudio);
+                    window.removeEventListener('keydown', unlockAudio);
+                }).catch(() => {
+                    // This can fail if the user hasn't interacted yet.
+                });
+            }
+        }
+    };
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('keydown', unlockAudio);
+
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
 
   const handleCloseArrivalModal = () => {
     setIsArrivalModalOpen(false);
@@ -283,6 +305,13 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
       setArrivalNotificationQueue(prev => prev.slice(1));
     }, 300);
   };
+  
+  useEffect(() => {
+    if (arrivalNotificationQueue.length > 0 && !isArrivalModalOpen) {
+      setIsArrivalModalOpen(true);
+      playNotificationSound();
+    }
+  }, [arrivalNotificationQueue, isArrivalModalOpen, playNotificationSound]);
 
 
   const fetchAllDashboardData = useCallback(async () => {
@@ -347,7 +376,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   }, [todayDateString, dentistId, dentistUsername, weekDateRange.start, weekDateRange.end]);
   
-  // Chat UseEffects
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
@@ -397,11 +425,18 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     }
   }, [dentistId, fetchAllDashboardData]);
 
+  const handleNewNotification = useCallback((newNotification: Notification) => {
+    if (!notificationIdsRef.current.has(newNotification.id)) {
+      notificationIdsRef.current.add(newNotification.id);
+      setNotifications(prev => [newNotification, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+      setArrivalNotificationQueue(prev => [...prev, newNotification]);
+    }
+  }, []);
+
    // Real-time notifications
   useEffect(() => {
     if (!dentistId) return;
 
-    // Fetch initial unread notifications on component mount
     getUnreadNotificationsForDentist(dentistId).then(({ data }) => {
       if (data) {
         setNotifications(data);
@@ -409,20 +444,14 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
       }
     });
 
-    const notificationSubscription = subscribeToNotificationsForDentist(dentistId, (newNotification) => {
-      if (!notificationIdsRef.current.has(newNotification.id)) {
-        notificationIdsRef.current.add(newNotification.id);
-        setNotifications(prev => [newNotification, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-        setArrivalNotificationQueue(prev => [...prev, newNotification]);
-      }
-    });
+    const notificationSubscription = subscribeToNotificationsForDentist(dentistId, handleNewNotification);
 
     return () => {
       if (notificationSubscription) {
         notificationSubscription.unsubscribe();
       }
     };
-  }, [dentistId]);
+  }, [dentistId, handleNewNotification]);
 
   const handleToggleNotificationPanel = () => {
     setIsNotificationPanelOpen(prev => !prev);
@@ -593,13 +622,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
                 </div>
             </div>
         )}
-        <style>{`
-            @keyframes fade-in-down {
-                from { opacity: 0; transform: translateY(-10px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            .animate-fade-in-down { animation: fade-in-down 0.3s ease-out forwards; }
-        `}</style>
 
       <p className="text-center text-lg text-gray-400 -mt-8">
         Aqui está sua agenda ({isoToDdMmYyyy(todayDateString)})
@@ -666,8 +688,8 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             </div>
           }
         >
-          <div className="text-center py-6 px-4">
-            <BellIcon className="w-20 h-20 text-yellow-400 mx-auto mb-5 animate-pulse" />
+          <div className="text-center py-6 px-4 animate-pulse-once">
+            <BellIcon className="w-20 h-20 text-yellow-400 mx-auto mb-5" />
             <p className="text-xl font-semibold text-white">
               {arrivalNotificationQueue[0].message}
             </p>
@@ -715,6 +737,20 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             </div>
         </Modal>
 
+      <style>{`
+          @keyframes pulse-once {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+          }
+          .animate-pulse-once {
+            animation: pulse-once 1.5s ease-in-out;
+          }
+          @keyframes fade-in-down {
+              from { opacity: 0; transform: translateY(-10px); }
+              to { opacity: 1; transform: translateY(0); }
+          }
+          .animate-fade-in-down { animation: fade-in-down 0.3s ease-out forwards; }
+      `}</style>
     </div>
   );
 };

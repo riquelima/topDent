@@ -127,6 +127,14 @@ const App: React.FC = () => {
   };
 
   const ProtectedRoute: React.FC<{children: JSX.Element; adminOnly?: boolean}> = ({ children, adminOnly = false }) => {
+    if (isInitializing) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-[#0e0e0e] text-white">
+                Verificando sessão...
+            </div>
+        );
+    }
+
     if (!userRole) {
       return <Navigate to="/login" replace />;
     }
@@ -161,7 +169,7 @@ const App: React.FC = () => {
         <Routes>
           <Route
             path="/login"
-            element={userRole ? <Navigate to="/" replace /> : <LoginPage onLoginSuccess={handleLoginSuccess} />}
+            element={userRole && !isInitializing ? <Navigate to="/" replace /> : <LoginPage onLoginSuccess={handleLoginSuccess} />}
           />
           <Route
             path="/*"
