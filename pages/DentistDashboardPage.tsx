@@ -345,13 +345,11 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         const handleNewNotification = (newNotification: Notification) => {
             console.log("[Realtime] Received new notification, processing...", newNotification);
 
-            // Add to the general notification list (for the panel)
             if (!notificationIdsRef.current.has(newNotification.id)) {
                 notificationIdsRef.current.add(newNotification.id);
                 setNotifications(prev => [newNotification, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
             }
 
-            // Set the notification for the pop-up modal and open it
             setArrivalNotification(newNotification);
             setIsArrivalModalOpen(true);
             playNotificationSound();

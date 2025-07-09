@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, ChangeEvent, FormEvent, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -12,8 +11,8 @@ import {
     BloodPressureReading, 
     AnamnesisFormUIData, 
     Patient,
-    SupabaseAnamnesisData, // Imported from types.ts
-    SupabaseBloodPressureReading // Imported from types.ts
+    SupabaseAnamnesisData, 
+    SupabaseBloodPressureReading
 } from '../types';
 import { 
     getPatientByCpf,
@@ -21,9 +20,8 @@ import {
     getBloodPressureReadingsByPatientCpf,
     addAnamnesisForm, 
     addBloodPressureReadings,
-    // SupabaseAnamnesisData, // No longer from here
-    // SupabaseBloodPressureReading // No longer from here
 } from '../services/supabaseService';
+import { useToast } from '../contexts/ToastContext'; // Added useToast
 
 // Helper component for Yes/No/Details fields
 interface YesNoDetailsProps {
@@ -101,8 +99,9 @@ const diseaseOptionsList = [
 
 
 export const PatientAnamnesisPage: React.FC = () => {
-  const { patientId } = useParams<{ patientId: string }>(); // This is the CPF
+  const { patientId } = useParams<{ patientId: string }>(); 
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [existingAnamnesis, setExistingAnamnesis] = useState<SupabaseAnamnesisData | null>(null);
@@ -110,9 +109,8 @@ export const PatientAnamnesisPage: React.FC = () => {
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false); // To switch between view and form
+  const [isEditMode, setIsEditMode] = useState(false); 
 
-  // Form state (used for new or when editing existing)
   const [formData, setFormData] = useState<AnamnesisFormUIData>({
     medications_taken: null, medications_details: '',
     is_smoker: null, is_pregnant: null,
@@ -147,7 +145,7 @@ export const PatientAnamnesisPage: React.FC = () => {
             surgeries_had: anamnesis.surgeries_had,
             surgeries_details: anamnesis.surgeries_details || '',
         });
-    } else { // Reset form if no existing anamnesis data
+    } else { 
         setFormData({
             medications_taken: null, medications_details: '',
             is_smoker: null, is_pregnant: null,
@@ -177,6 +175,7 @@ export const PatientAnamnesisPage: React.FC = () => {
         const patientRes = await getPatientByCpf(patientId);
         if (patientRes.error || !patientRes.data) {
           setError("Paciente não encontrado ou erro ao buscar paciente.");
+          showToast("Paciente não encontrado ou erro ao buscar paciente.", "error");
           setPatient(null);
           setIsLoading(false);
           return;
@@ -186,8 +185,14 @@ export const PatientAnamnesisPage: React.FC = () => {
         const anamnesisRes = await getAnamnesisFormByPatientCpf(patientId);
         const bpRes = await getBloodPressureReadingsByPatientCpf(patientId);
 
-        if (anamnesisRes.error) console.warn("Erro ao buscar anamnese:", anamnesisRes.error.message);
-        if (bpRes.error) console.warn("Erro ao buscar pressão arterial:", bpRes.error.message);
+        if (anamnesisRes.error) {
+            console.warn("Erro ao buscar anamnese:", anamnesisRes.error.message);
+            showToast("Erro ao buscar dados de anamnese.", "warning");
+        }
+        if (bpRes.error) {
+            console.warn("Erro ao buscar pressão arterial:", bpRes.error.message);
+            showToast("Erro ao buscar dados de pressão arterial.", "warning");
+        }
         
         const currentAnamnesis = anamnesisRes.data || null;
         const currentBPs = bpRes.data || [];
@@ -197,21 +202,22 @@ export const PatientAnamnesisPage: React.FC = () => {
         
         if (currentAnamnesis) {
             populateFormFromExistingData(currentAnamnesis, currentBPs);
-            setIsEditMode(false); // Start in view mode if data exists
+            setIsEditMode(false); 
         } else {
-            setIsEditMode(true); // Start in form mode if no data
-            populateFormFromExistingData(null, []); // Reset form fields for new entry
+            setIsEditMode(true); 
+            populateFormFromExistingData(null, []); 
         }
 
       } catch (e: any) {
         setError("Erro ao carregar dados: " + e.message);
+        showToast("Erro crítico ao carregar dados: " + e.message, "error");
         console.error(e);
       } finally {
         setIsLoading(false);
       }
     };
     loadData();
-  }, [patientId, populateFormFromExistingData]);
+  }, [patientId, populateFormFromExistingData, showToast]);
 
   const handleFormChange = (field: keyof AnamnesisFormUIData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -235,7 +241,6 @@ export const PatientAnamnesisPage: React.FC = () => {
     if (formBPReadings.length > 1) {
       setFormBPReadings(formBPReadings.filter((_, i) => i !== index));
     } else {
-      // If only one left, clear it instead of removing
       setFormBPReadings([{ date: '', value: '' }]);
     }
   };
@@ -243,12 +248,11 @@ export const PatientAnamnesisPage: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!patientId) {
-        alert("CPF do paciente é necessário.");
+        showToast("CPF do paciente é necessário.", "error");
         return;
     }
     setIsLoading(true);
 
-    // Map UI form data to SupabaseAnamnesisData
     const anamnesisToSave: Omit<SupabaseAnamnesisData, 'id' | 'created_at'> = {
         patient_cpf: patientId,
         medications_taken: formData.medications_taken,
@@ -272,10 +276,12 @@ export const PatientAnamnesisPage: React.FC = () => {
     };
 
     try {
-        // For simplicity, this example will always insert. 
-        // A real app might update if existingAnamnesis.id exists.
+        // This will always insert a new anamnesis record. 
+        // If an update mechanism is needed, getAnamnesisFormByPatientCpf would need to check existingAnamnesis.id
+        // and then call an updateAnamnesisForm function (not currently implemented).
         const anamnesisRes = await addAnamnesisForm(anamnesisToSave);
         if (anamnesisRes.error) throw anamnesisRes.error;
+        showToast("Anamnese salva com sucesso!", "success");
 
         const validBPReadings = formBPReadings.filter(bp => bp.date && bp.value);
         if (validBPReadings.length > 0) {
@@ -284,14 +290,15 @@ export const PatientAnamnesisPage: React.FC = () => {
                 reading_date: bp.date,
                 reading_value: bp.value
             }));
-            // Here, you might want to delete old BP readings and add new ones, or add to existing.
-            // For simplicity, we'll just add them. A more robust solution would handle updates.
             const bpRes = await addBloodPressureReadings(bpDataToSave);
-            if (bpRes.error) throw bpRes.error;
+            if (bpRes.error) {
+                showToast("Anamnese salva, mas erro ao salvar P.A.: " + bpRes.error.message, "warning");
+            } else {
+                showToast("Aferições de P.A. salvas com sucesso!", "success");
+            }
         }
         
-        alert("Anamnese salva com sucesso!");
-        // Refresh data
+        // Refresh data on page
         const updatedAnamnesisRes = await getAnamnesisFormByPatientCpf(patientId);
         const updatedBpRes = await getBloodPressureReadingsByPatientCpf(patientId);
         setExistingAnamnesis(updatedAnamnesisRes.data || null);
@@ -300,16 +307,16 @@ export const PatientAnamnesisPage: React.FC = () => {
         setIsEditMode(false);
 
     } catch (err: any) {
-        alert("Erro ao salvar anamnese: " + err.message);
+        showToast("Erro ao salvar anamnese: " + err.message, "error");
         console.error(err);
     } finally {
         setIsLoading(false);
     }
   };
 
-  if (isLoading) return <div className="text-center py-10">Carregando...</div>;
-  if (error) return <div className="text-center py-10 text-red-500">{error}</div>;
-  if (!patient) return <div className="text-center py-10 text-red-500">Paciente não encontrado.</div>;
+  if (isLoading && !patient) return <div className="text-center py-10 text-gray-400">Carregando dados do paciente e anamnese...</div>;
+  if (error) return <div className="text-center py-10 text-red-400">{error}</div>;
+  if (!patient && !isLoading) return <div className="text-center py-10 text-red-500">Paciente não encontrado. Verifique o CPF.</div>;
 
 
   const renderReadOnlyView = () => (
@@ -452,7 +459,6 @@ export const PatientAnamnesisPage: React.FC = () => {
                     onClick={() => { 
                         setIsEditMode(false); 
                         populateFormFromExistingData(existingAnamnesis, existingBPReadings); 
-                        alert("Edição cancelada. Dados restaurados.");
                     }} 
                     disabled={isLoading}
                 >
@@ -480,13 +486,14 @@ export const PatientAnamnesisPage: React.FC = () => {
                     if (existingAnamnesis) { // Had existing data, so "Cancel Edit"
                         populateFormFromExistingData(existingAnamnesis, existingBPReadings);
                         setIsEditMode(false);
-                        alert("Edição cancelada. Dados restaurados.");
+                        showToast("Edição cancelada. Dados restaurados.", "warning", 2000);
                     } else { // No existing data, was a new form
                         populateFormFromExistingData(null, []); // Clear form
-                        alert("Formulário limpo.");
+                        showToast("Formulário limpo.", "warning", 2000);
                     }
                   } else { // Currently in read-only mode
                     setIsEditMode(true); // Switch to form mode
+                    // Form data is already populated by populateFormFromExistingData or reset if new
                   }
                 }}
               >
