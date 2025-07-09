@@ -100,7 +100,15 @@ export const AppointmentsPage: React.FC = () => {
     let processedAppointments = [...allAppointments];
 
     if (selectedDentistId) {
-      processedAppointments = processedAppointments.filter(appt => appt.dentist_id === selectedDentistId);
+      const selectedDentistObject = dentists.find(d => d.id === selectedDentistId);
+      if (selectedDentistObject) {
+          processedAppointments = processedAppointments.filter(appt => {
+          // Handle data inconsistency where dentist_id could be either UUID or username
+          return appt.dentist_id === selectedDentistId || appt.dentist_id === selectedDentistObject.username;
+        });
+      } else {
+         processedAppointments = [];
+      }
     }
 
     const today = new Date().toISOString().split('T')[0];
@@ -138,7 +146,7 @@ export const AppointmentsPage: React.FC = () => {
         break;
     }
     setFilteredAndSortedAppointments(processedAppointments);
-  }, [allAppointments, selectedDentistId, activeSortFilter]);
+  }, [allAppointments, selectedDentistId, activeSortFilter, dentists]);
 
   const handleOpenNewAppointmentPage = () => {
     navigate(NavigationPath.NewAppointment);

@@ -215,6 +215,7 @@ export enum NavigationPath {
 export interface DentistUser {
   id: string; // MUST be the dentist's UUID from the 'id' column in the dentists table.
   full_name: string; // Display name, e.g., 'Dr. Fulano'
+  username: string;
 }
 
 // Interface for custom procedures
