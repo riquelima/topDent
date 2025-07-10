@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom'; 
 import { Card } from '../components/ui/Card';
@@ -17,16 +18,19 @@ import {
     EyeIcon,
     PencilIcon, 
     TrashIcon,
-    ClockIcon // Added ClockIcon for history
+    ClockIcon,
+    PlusIcon // Added PlusIcon
 } from '../components/icons/HeroIcons';
 import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
 import { NavigationPath, Appointment, Reminder } from '../types';
 import { 
-    getUpcomingAppointments, 
+    getAppointments, // Changed from getUpcomingAppointments
     getActiveReminders,
     updateReminder,      
     deleteReminderById,
-    getPatients // Added getPatients
+    addReminder,
+    getPatients,
+    getAllTreatmentPlans
 } from '../services/supabaseService'; 
 import { isoToDdMmYyyy, formatToHHMM } from '../src/utils/formatDate';
 import { useToast } from '../contexts/ToastContext';
@@ -99,6 +103,7 @@ interface QuickStats {
   patientsRegistered: number;
   consultationsToday: number;
   activeTreatments: number;
+  totalConsultations: number; // Added total consultations
 }
 
 interface ReminderFormData {
@@ -116,14 +121,23 @@ export const DashboardPage: React.FC = () => {
   const [quickStats, setQuickStats] = useState<QuickStats>({
     patientsRegistered: 0,
     consultationsToday: 0,
-    activeTreatments: 0, // Remains 0 or could be fetched if needed
+    activeTreatments: 0,
+    totalConsultations: 0, // Initialized
   });
 
   // Reminder states
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isLoadingReminders, setIsLoadingReminders] = useState(true);
+  
+  // States for Adding a Reminder
+  const [isAddReminderModalOpen, setIsAddReminderModalOpen] = useState(false);
+  const [newReminderFormData, setNewReminderFormData] = useState({ title: '', content: '' });
+  
+  // States for Editing a Reminder
   const [isEditReminderModalOpen, setIsEditReminderModalOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<ReminderFormData | null>(null);
+  
+  // Common states for reminder actions
   const [isSubmittingReminder, setIsSubmittingReminder] = useState(false);
   const [isDeleteReminderConfirmModalOpen, setIsDeleteReminderConfirmModalOpen] = useState(false);
   const [reminderToDelete, setReminderToDelete] = useState<Reminder | null>(null);
@@ -131,44 +145,78 @@ export const DashboardPage: React.FC = () => {
 
   const fetchDashboardData = useCallback(async (limit: number = 4) => {
     setIsLoadingUpcomingAppointments(true);
-    setIsLoadingReminders(true); // Assuming reminders are part of dashboard data load
+    setIsLoadingReminders(true);
 
     const todayString = new Date().toISOString().split('T')[0];
 
-    // Fetch upcoming appointments
-    const { data: appointmentsData, error: appointmentsError } = await getUpcomingAppointments(limit);
+    // Fetch ALL appointments once
+    const { data: allAppointments, error: appointmentsError } = await getAppointments();
     if (appointmentsError) {
-      console.error("Error fetching upcoming appointments:", appointmentsError.message ? appointmentsError.message : 'Unknown error');
-      showToast("Falha ao carregar próximos agendamentos.", "error");
+      console.error("Error fetching appointments:", appointmentsError.message ? appointmentsError.message : 'Unknown error');
+      showToast("Falha ao carregar agendamentos.", "error");
       setUpcomingAppointments([]);
-      setQuickStats(prev => ({ ...prev, consultationsToday: 0 }));
+      setQuickStats(prev => ({ ...prev, consultationsToday: 0, totalConsultations: 0 }));
     } else {
-      setUpcomingAppointments(appointmentsData || []);
-      const todayAppointmentsCount = (appointmentsData || []).filter(
-        (appt: Appointment) => appt.appointment_date === todayString
-      ).length;
-      setQuickStats(prev => ({ ...prev, consultationsToday: todayAppointmentsCount }));
+      const appointmentsData = allAppointments || [];
+      
+      // Stats calculation
+      const todayAppointmentsCount = appointmentsData.filter(appt => appt.appointment_date === todayString).length;
+      const totalAppointmentsCount = appointmentsData.length;
+      
+      // Upcoming list calculation
+      const upcoming = appointmentsData
+        .filter(appt => {
+          const isUpcomingDate = new Date(appt.appointment_date + 'T00:00:00') >= new Date(todayString);
+          const isPendingStatus = appt.status === 'Scheduled' || appt.status === 'Confirmed';
+          return isUpcomingDate && isPendingStatus;
+        })
+        .sort((a, b) => {
+            if (a.appointment_date < b.appointment_date) return -1;
+            if (a.appointment_date > b.appointment_date) return 1;
+            if (a.appointment_time < b.appointment_time) return -1;
+            if (a.appointment_time > b.appointment_time) return 1;
+            return 0;
+        })
+        .slice(0, limit);
+      setUpcomingAppointments(upcoming);
+
+      // Update stats state
+      setQuickStats(prev => ({ 
+        ...prev, 
+        consultationsToday: todayAppointmentsCount,
+        totalConsultations: totalAppointmentsCount
+      }));
     }
     setIsLoadingUpcomingAppointments(false);
-
-    // Fetch active reminders
-    const { data: remindersData, error: remindersError } = await getActiveReminders();
-    if (remindersError) {
-        console.error("Error fetching reminders:", remindersError.message ? remindersError.message : 'Unknown error');
+    
+    // Parallel fetch for other data
+    const [remindersRes, patientsRes, treatmentsRes] = await Promise.all([
+      getActiveReminders(),
+      getPatients(),
+      getAllTreatmentPlans()
+    ]);
+    
+    if (remindersRes.error) {
+        console.error("Error fetching reminders:", remindersRes.error.message ? remindersRes.error.message : 'Unknown error');
         showToast("Falha ao carregar lembretes.", "error");
         setReminders([]);
     } else {
-        setReminders(remindersData || []);
+        setReminders(remindersRes.data || []);
     }
     setIsLoadingReminders(false);
 
-    // Fetch total patients for stats
-    const { data: patientsData, error: patientsListError } = await getPatients();
-    if (patientsListError) {
-      console.error("Error fetching patients list for stats:", patientsListError.message);
+    if (patientsRes.error) {
+      console.error("Error fetching patients list for stats:", patientsRes.error.message);
       setQuickStats(prev => ({ ...prev, patientsRegistered: 0 }));
     } else {
-      setQuickStats(prev => ({ ...prev, patientsRegistered: (patientsData || []).length }));
+      setQuickStats(prev => ({ ...prev, patientsRegistered: (patientsRes.data || []).length }));
+    }
+    
+    if (treatmentsRes.error) {
+      console.error("Error fetching treatment plans stats:", treatmentsRes.error.message);
+      setQuickStats(prev => ({ ...prev, activeTreatments: 0 }));
+    } else {
+      setQuickStats(prev => ({ ...prev, activeTreatments: (treatmentsRes.data || []).length }));
     }
 
   }, [showToast]);
@@ -187,6 +235,40 @@ export const DashboardPage: React.FC = () => {
   const handleCloseEditReminderModal = () => {
     setIsEditReminderModalOpen(false);
     setEditingReminder(null);
+  };
+  
+  const handleOpenAddReminderModal = () => {
+    setIsAddReminderModalOpen(true);
+  };
+  
+  const handleCloseAddReminderModal = () => {
+    setIsAddReminderModalOpen(false);
+    setNewReminderFormData({ title: '', content: '' });
+  };
+  
+  const handleNewReminderFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setNewReminderFormData({ ...newReminderFormData, [e.target.name]: e.target.value });
+  };
+  
+  const handleAddReminder = async (e: FormEvent) => {
+      e.preventDefault();
+      if (!newReminderFormData.title.trim() || !newReminderFormData.content.trim()) {
+          showToast('Título e Conteúdo são obrigatórios.', 'error');
+          return;
+      }
+      setIsSubmittingReminder(true);
+      const { error } = await addReminder({
+          title: newReminderFormData.title,
+          content: newReminderFormData.content,
+      });
+      if (error) {
+          showToast('Erro ao adicionar lembrete: ' + error.message, 'error');
+      } else {
+          showToast('Lembrete adicionado com sucesso!', 'success');
+          fetchDashboardData();
+          handleCloseAddReminderModal();
+      }
+      setIsSubmittingReminder(false);
   };
 
   const handleReminderFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -337,10 +419,18 @@ export const DashboardPage: React.FC = () => {
           <section>
              <Card 
                 className="bg-[#1a1a1a]" 
-                titleClassName="flex items-center" 
                 title={
                     <div className="flex justify-between items-center w-full">
-                        <span className="flex items-center text-white"><BellIcon className="w-6 h-6 mr-3 text-yellow-400" /> Lembretes</span>
+                        <span className="flex items-center text-xl text-white"><BellIcon className="w-6 h-6 mr-3 text-yellow-400" />Lembretes</span>
+                        <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="p-1.5 rounded-full hover:bg-gray-700" 
+                            onClick={handleOpenAddReminderModal}
+                            title="Adicionar Lembrete"
+                        >
+                            <PlusIcon className="w-5 h-5 text-[#00bcd4]" />
+                        </Button>
                     </div>
                 }
             >
@@ -403,11 +493,52 @@ export const DashboardPage: React.FC = () => {
                   <span className="text-[#b0b0b0]">Tratamentos ativos</span>
                   <span className="font-bold text-2xl text-white">{quickStats.activeTreatments}</span>
                 </li>
+                <li className="flex justify-between items-center text-md py-1">
+                  <span className="text-[#b0b0b0]">Total de Consultas</span>
+                  <span className="font-bold text-2xl text-white">{quickStats.totalConsultations}</span>
+                </li>
               </ul>
             </Card>
           </section>
         </div>
       </div>
+
+       {/* Add Reminder Modal */}
+        <Modal
+            isOpen={isAddReminderModalOpen}
+            onClose={handleCloseAddReminderModal}
+            title="Adicionar Novo Lembrete"
+            footer={
+                <div className="flex justify-end space-x-3">
+                    <Button variant="ghost" onClick={handleCloseAddReminderModal} disabled={isSubmittingReminder}>Cancelar</Button>
+                    <Button variant="primary" type="submit" form="addReminderForm" disabled={isSubmittingReminder}>
+                        {isSubmittingReminder ? 'Salvando...' : 'Salvar Lembrete'}
+                    </Button>
+                </div>
+            }
+        >
+            <form id="addReminderForm" onSubmit={handleAddReminder} className="space-y-4">
+                <Input
+                    label="Título"
+                    name="title"
+                    value={newReminderFormData.title}
+                    onChange={handleNewReminderFormChange}
+                    required
+                    disabled={isSubmittingReminder}
+                    autoFocus
+                />
+                <Textarea
+                    label="Conteúdo"
+                    name="content"
+                    value={newReminderFormData.content}
+                    onChange={handleNewReminderFormChange}
+                    required
+                    rows={4}
+                    disabled={isSubmittingReminder}
+                />
+            </form>
+        </Modal>
+
 
       {/* Edit Reminder Modal */}
       {editingReminder && (

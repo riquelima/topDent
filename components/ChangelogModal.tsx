@@ -26,11 +26,16 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
         } else {
           const hardcodedEntries: ChangelogEntry[] = [
             {
-              id: 'manual-entry-7',
-              created_at: new Date('2025-07-10T12:00:00Z').toISOString(),
+              id: 'manual-entry-consolidated-10-07-2025',
+              created_at: new Date('2025-07-10T15:00:00Z').toISOString(),
               release_date: '2025-07-10',
-              version: 'v4.9.0',
+              version: 'v4.9.3',
               changes: [
+                'Na tela de Agendamentos, agora é possível alterar o status de uma consulta (Agendado, Concluído, etc.) com apenas um clique no status.',
+                'O card "Próximos Agendamentos" no Dashboard agora exibe apenas agendamentos com status "Agendado" ou "Confirmado", ocultando os concluídos.',
+                'O card "Estatísticas Rápidas" foi aprimorado para exibir dinamicamente o total de tratamentos e o total de consultas.',
+                'Adicionada funcionalidade de adicionar lembretes diretamente do Dashboard.',
+                'Corrigido o posicionamento do botão de adicionar lembretes.',
                 'Adicionados filtros por status e data (Hoje, Próximos) na tela de Agendamentos.',
                 'A visualização padrão da tela de Pacientes agora é em modo "Lista".',
                 'A visualização padrão da tela de Tratamentos agora é em modo "Lista".',
@@ -45,7 +50,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
                 'Melhorada a notificação de chegada de paciente para o dentista.',
                 'Agora, um pop-up com alerta sonoro é exibido imediatamente na tela do dentista.',
                 'O modal de notificação de chegada de paciente agora tem um design mais impactante e informativo.',
-                'O pop-up de chegada deve ser dispensado manualmente, garantindo que a notificação seja vista.',
+                'O pop-up de chegada deve ser dispensado manually, garantindo que a notificação seja vista.',
                 'Adicionado campo para "Plano de Saúde" ou "Particular" no cadastro de pacientes.',
                 'Notificação de chegada do paciente agora informa o tipo de convênio.',
                 'Ícone flutuante de chat para dentistas agora exibe um contador para mensagens não lidas.',

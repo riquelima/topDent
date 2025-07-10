@@ -1,12 +1,13 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom'; // Added useNavigate
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select'; 
 import { PlusIcon, PencilIcon, TrashIcon, BellIcon } from '../components/icons/HeroIcons'; 
-import { Appointment, DentistUser, NavigationPath } from '../types'; 
-import { getAppointments, deleteAppointment, addNotification, getPatientByCpf } from '../services/supabaseService'; 
+import { Appointment, DentistUser, NavigationPath, ConsultationHistoryEntry } from '../types'; 
+import { getAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry } from '../services/supabaseService'; 
 import { isoToDdMmYyyy, formatToHHMM } from '../src/utils/formatDate';
 // import { AppointmentModal } from '../components/AppointmentModal'; // Removed
 import { ConfirmationModal } from '../components/ui/ConfirmationModal'; 
@@ -58,6 +59,8 @@ export const AppointmentsPage: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   
   const [notifiedAppointments, setNotifiedAppointments] = useState<Set<string>>(new Set());
+
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
 
 
   const fetchAppointmentsAndDentists = useCallback(async () => {
@@ -164,6 +167,58 @@ export const AppointmentsPage: React.FC = () => {
     }
     setFilteredAndSortedAppointments(processedAppointments);
   }, [allAppointments, selectedDentistId, statusFilter, dateFilter, dentists]);
+  
+  const handleStatusChange = async (appointment: Appointment) => {
+    if (isUpdatingStatus) return;
+
+    setIsUpdatingStatus(appointment.id);
+
+    let newStatus: Appointment['status'];
+    switch (appointment.status) {
+        case 'Scheduled':
+            newStatus = 'Confirmed';
+            break;
+        case 'Confirmed':
+            newStatus = 'Completed';
+            break;
+        case 'Completed':
+            newStatus = 'Cancelled';
+            break;
+        case 'Cancelled':
+            newStatus = 'Scheduled';
+            break;
+        default:
+            newStatus = 'Scheduled';
+    }
+
+    const { data: updatedAppointment, error } = await updateAppointmentStatus(appointment.id, newStatus);
+    
+    if (error) {
+        showToast(`Erro ao atualizar status: ${error.message}`, 'error');
+    } else if (updatedAppointment) {
+        showToast(`Status atualizado para "${statusLabelMap[newStatus]}"`, 'success');
+        
+        if ((newStatus === 'Completed' || newStatus === 'Cancelled') && appointment.patient_cpf) {
+            const historyEntry: Omit<ConsultationHistoryEntry, 'id' | 'completion_timestamp' | 'created_at'> = {
+                appointment_id: appointment.id,
+                patient_cpf: appointment.patient_cpf,
+                patient_name: appointment.patient_name,
+                dentist_id: appointment.dentist_id,
+                dentist_name: appointment.dentist_name,
+                procedure_details: appointment.procedure,
+                consultation_date: appointment.appointment_date,
+                notes: appointment.notes,
+                status: newStatus,
+            };
+            await addConsultationHistoryEntry(historyEntry);
+        }
+
+        setAllAppointments(prev => prev.map(appt => appt.id === appointment.id ? { ...appt, status: newStatus } : appt));
+    }
+
+    setIsUpdatingStatus(null);
+  };
+
 
   const handleOpenNewAppointmentPage = () => {
     navigate(NavigationPath.NewAppointment);
@@ -367,9 +422,14 @@ export const AppointmentsPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{appointment.dentist_name || 'Não definido'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColorMap[appointment.status]} ${statusTextClassMap[appointment.status]}`}>
-                      {statusLabelMap[appointment.status] || appointment.status}
-                    </span>
+                    <button
+                      onClick={() => handleStatusChange(appointment)}
+                      disabled={!!isUpdatingStatus}
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-wait ${statusColorMap[appointment.status]} ${statusTextClassMap[appointment.status]}`}
+                      title={`Mudar status de ${statusLabelMap[appointment.status]}`}
+                    >
+                      {isUpdatingStatus === appointment.id ? '...' : (statusLabelMap[appointment.status] || appointment.status)}
+                    </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-center space-x-1">
