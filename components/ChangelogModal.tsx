@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { XMarkIcon, CheckIcon } from './icons/HeroIcons';
@@ -34,7 +35,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
                 'O menu de Chat foi removido e substituído por um botão flutuante, proporcionando acesso rápido ao chat de qualquer tela.',
                 'O layout do chat foi corrigido para que a lista de conversas permaneça visível ao abrir um chat.',
                 'Agora é possível editar o ID de pacientes que foram cadastrados sem CPF para adicionar o documento posteriormente.',
-                'Corrigido um erro que impedia o salvamento de novos agendamentos ao remover uma integração obsoleta.',
+                'Corrigido um erro que impedira o salvamento de novos agendamentos ao remover uma integração obsoleta.',
                 'Na tela de Agendamentos, agora é possível alterar o status de uma consulta (Agendado, Concluído, etc.) com apenas um clique no status.',
                 'O card "Próximos Agendamentos" no Dashboard agora exibe apenas agendamentos com status "Agendado" ou "Confirmado", ocultando os concluídos.',
                 'O card "Estatísticas Rápidas" foi aprimorado para exibir dinamicamente o total de tratamentos e o total de consultas.',

@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import { Input } from '../components/ui/Input';
 import { 
     ClockIcon, 
     MagnifyingGlassIcon, 
@@ -16,12 +15,9 @@ import {
     EyeIcon,
     ListBulletIcon,
     BellIcon,
-    PaperAirplaneIcon,
-    FaceSmileIcon,
-    CheckDoubleIcon,
 } from '../components/icons/HeroIcons';
 import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
-import { NavigationPath, Appointment, ConsultationHistoryEntry, Notification, ChatMessage, Dentist } from '../types';
+import { NavigationPath, Appointment, ConsultationHistoryEntry, Notification } from '../types';
 import { 
     getAppointmentsByDate, 
     updateAppointmentStatus,
@@ -30,11 +26,7 @@ import {
     addConsultationHistoryEntry,
     getUnreadNotificationsForDentist,
     markNotificationsAsRead,
-    getAdminUserId,
-    getMessagesBetweenUsers,
-    sendMessage,
     subscribeToNotificationsForDentist,
-    markMessagesAsRead
 } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
 import { formatIsoToSaoPauloTime, isoToDdMmYyyy, formatToHHMM } from '../src/utils/formatDate';
@@ -43,9 +35,6 @@ interface DentistDashboardPageProps {
   dentistId: string;
   dentistUsername: string;
   dentistDisplayFullName: string; 
-  onLogout: () => void;
-  unreadMessages: ChatMessage[];
-  setUnreadMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
 
 const getWeekDateRange = (date: Date): { start: string, end: string } => {
@@ -68,12 +57,13 @@ const statusLabelMap: Record<Appointment['status'], string> = {
     Cancelled: 'Cancelado',
 };
 
-const statusColors: Record<Appointment['status'], string> = {
-  Scheduled: 'border-yellow-500 bg-yellow-500/10 text-yellow-300', 
-  Confirmed: 'border-teal-500 bg-teal-500/10 text-teal-300',
-  Completed: 'border-green-500 bg-green-500/10 text-green-300', 
-  Cancelled: 'border-red-500 bg-red-500/10 text-red-300',   
+const statusColors: Record<Appointment['status'], { border: string; bg: string; text: string; time: string; }> = {
+  Scheduled: { border: 'border-yellow-600', bg: 'bg-yellow-900/40', text: 'text-yellow-300', time: 'text-gray-300' },
+  Confirmed: { border: 'border-cyan-600', bg: 'bg-cyan-900/40', text: 'text-cyan-300', time: 'text-gray-300' },
+  Completed: { border: 'border-green-600', bg: 'bg-green-900/40', text: 'text-green-300', time: 'text-gray-300' },
+  Cancelled: { border: 'border-red-600', bg: 'bg-red-900/40', text: 'text-red-300', time: 'text-gray-300' },
 };
+
 
 interface AppointmentActionSubcardProps {
   appointment: Appointment;
@@ -91,14 +81,14 @@ const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ app
     const isCompleted = appointment.status === 'Completed';
 
     return (
-        <div className={`p-4 rounded-lg border ${colors} shadow-md mb-3 bg-[#2a2a2a]/50`}>
+        <div className={`p-4 rounded-lg border ${colors.border} ${colors.bg} shadow-md mb-3`}>
             <div className="flex justify-between items-start mb-2">
-                <span className={`text-sm font-semibold px-2 py-0.5 rounded-full ${colors.replace('border-', 'bg-').replace('/10', '/30')}`}>{currentStatusLabel}</span>
+                <span className={`text-sm font-semibold px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>{currentStatusLabel}</span>
                 <div className="text-right">
                 {showDate && (
                     <span className="block text-xs text-gray-400">{isoToDdMmYyyy(appointment.appointment_date).slice(0, 5)}</span>
                 )}
-                <span className="text-xl font-bold text-teal-400">{formatToHHMM(appointment.appointment_time)}</span>
+                <span className={`text-xl font-bold ${colors.time}`}>{formatToHHMM(appointment.appointment_time)}</span>
                 </div>
             </div>
             <p className="text-md font-semibold text-white truncate" title={appointment.patient_name}>{appointment.patient_name}</p>
@@ -212,7 +202,7 @@ const ShortcutCard: React.FC<ShortcutCardProps> = ({ title, icon, to, onClick, c
   return to ? <Link to={to} {...buttonProps}>{content}</Link> : <button {...buttonProps}>{content}</button>;
 };
 
-export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dentistId, dentistUsername, dentistDisplayFullName, onLogout, unreadMessages, setUnreadMessages }) => {
+export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dentistId, dentistUsername, dentistDisplayFullName }) => {
   const { showToast } = useToast();
   const navigate = useNavigate();
   
@@ -229,23 +219,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   const [arrivalNotification, setArrivalNotification] = useState<Notification | null>(null);
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
-  
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [adminUser, setAdminUser] = useState<Dentist | null>(null);
-  const [newMessage, setNewMessage] = useState('');
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [isChatLoading, setIsChatLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const todayDateString = new Date().toISOString().split('T')[0];
-
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
-  
-  const unreadChatMessagesCount = useMemo(() => {
-    return unreadMessages.filter(m => m.recipient_id === dentistId).length;
-  }, [unreadMessages, dentistId]);
-
 
   const handleNewNotification = useCallback((newNotification: Notification) => {
     if (!notificationIdsRef.current.has(newNotification.id)) {
@@ -254,7 +228,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     }
     setArrivalNotification(newNotification);
     setIsArrivalModalOpen(true);
-    // Sound is now played globally from App.tsx
   }, []);
 
   useEffect(() => {
@@ -265,18 +238,16 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         setError(null);
 
         const todayStr = new Date().toISOString().split('T')[0];
-        const weekDateRange = getWeekDateRange(new Date());
 
         try {
             const [
                 todayRes, weekRes, allRes, 
-                initialNotificationsRes, adminUserRes
+                initialNotificationsRes
             ] = await Promise.all([
                 getAppointmentsByDate(todayStr, dentistId, dentistUsername),
-                getAppointmentsByDateRangeForDentist(weekDateRange.start, weekDateRange.end, dentistId, dentistUsername),
-                getAllAppointmentsForDentist(dentistId, 50, undefined, dentistUsername),
+                getAppointmentsByDateRangeForDentist(getWeekDateRange(new Date()).start, getWeekDateRange(new Date()).end, dentistId, dentistUsername),
+                getAllAppointmentsForDentist(dentistId, 50, 1, dentistUsername),
                 getUnreadNotificationsForDentist(dentistId),
-                getAdminUserId(),
             ]);
 
             if (todayRes.error) throw new Error("Falha ao carregar agenda de hoje.");
@@ -300,10 +271,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
                 setArrivalNotification(unreadNotifs[0]);
                 setIsArrivalModalOpen(true);
             }
-
-            if (adminUserRes.data) {
-                setAdminUser(adminUserRes.data);
-            }
         } catch (e: any) {
             setError(e.message);
             showToast(e.message, 'error');
@@ -320,23 +287,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         notificationSub?.unsubscribe();
     };
   }, [dentistId, dentistUsername, showToast, handleNewNotification]);
-
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-        if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
-            setIsPickerOpen(false);
-        }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [pickerRef]);
   
   const handleDismissArrivalModal = async () => {
     if (!arrivalNotification) return;
@@ -383,7 +333,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             const [todayRes, weekRes, allRes] = await Promise.all([
                 getAppointmentsByDate(todayStr, dentistId, dentistUsername),
                 getAppointmentsByDateRangeForDentist(weekDateRange.start, weekDateRange.end, dentistId, dentistUsername),
-                getAllAppointmentsForDentist(dentistId, 50, undefined, dentistUsername)
+                getAllAppointmentsForDentist(dentistId, 50, 1, dentistUsername)
             ]);
             
             if (todayRes.error) throw new Error("Falha ao recarregar agenda de hoje.");
@@ -434,91 +384,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     setIsUpdatingStatus(false);
   };
   
-  const fetchChatMessages = useCallback(async () => {
-    if (!adminUser || !dentistId) return;
-
-    setIsChatLoading(true);
-    const { data, error } = await getMessagesBetweenUsers(dentistId, adminUser.id!);
-    
-    if (error) {
-        showToast('Erro ao carregar mensagens.', 'error');
-        setChatMessages([]);
-    } else {
-        const receivedMessages = data || [];
-        setChatMessages(receivedMessages);
-
-        const unreadMessageIds = unreadMessages
-            .filter(msg => msg.recipient_id === dentistId)
-            .map(msg => msg.id);
-
-        if (unreadMessageIds.length > 0) {
-            const { error: markError } = await markMessagesAsRead(unreadMessageIds, dentistId);
-            if (!markError) {
-                setUnreadMessages(prev => prev.filter(msg => !unreadMessageIds.includes(msg.id)));
-            }
-        }
-    }
-    setIsChatLoading(false);
-  }, [adminUser, dentistId, showToast, unreadMessages, setUnreadMessages]);
-
-  const handleOpenChat = useCallback(() => {
-    setIsChatOpen(true);
-    document.body.classList.add('chat-modal-open');
-    fetchChatMessages();
-  }, [fetchChatMessages]);
-  
-  useEffect(() => {
-    if (isChatOpen) {
-        const newIncomingMessages = unreadMessages.filter(
-            (msg) => msg.sender_id === adminUser?.id
-        );
-        if (newIncomingMessages.length > 0) {
-            setChatMessages(prev => [...prev, ...newIncomingMessages]);
-            
-            const idsToMark = newIncomingMessages.map(m => m.id);
-            markMessagesAsRead(idsToMark, dentistId).then(({ error }) => {
-                if (!error) {
-                    setUnreadMessages(prev => prev.filter(msg => !idsToMark.includes(msg.id)));
-                } else {
-                    showToast('Erro ao marcar novas mensagens como lidas.', 'error');
-                }
-            });
-        }
-    }
-  }, [isChatOpen, unreadMessages, adminUser, dentistId, setUnreadMessages, showToast]);
-
-  const handleCloseChat = () => {
-    setIsChatOpen(false);
-    setIsPickerOpen(false);
-    document.body.classList.remove('chat-modal-open');
-  }
-  
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !adminUser || !dentistId) return;
-    setIsSendingMessage(true);
-    const content = newMessage;
-    setNewMessage('');
-
-    const sentMessage: ChatMessage = {
-      id: `temp-${Date.now()}`,
-      sender_id: dentistId,
-      recipient_id: adminUser.id!,
-      content: content,
-      created_at: new Date().toISOString(),
-      is_read: false,
-    };
-    setChatMessages(prev => [...prev, sentMessage]);
-
-    const { error } = await sendMessage({ sender_id: dentistId, recipient_id: adminUser.id!, content: content });
-    
-    if (error) {
-        showToast(`Falha ao enviar mensagem: ${error.message}`, 'error');
-        setNewMessage(content);
-        setChatMessages(prev => prev.filter(m => m.id !== sentMessage.id));
-    }
-    setIsSendingMessage(false);
-  };
-
   const handleViewPatient = (patientCpf: string) => {
     if (patientCpf) {
       navigate(`/patient/${patientCpf}`, { 
@@ -527,16 +392,10 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     }
   };
 
-  const handleEmojiClick = (emojiData: EmojiClickData) => {
-    setNewMessage(prevMessage => prevMessage + emojiData.emoji);
-    setIsPickerOpen(false);
-  };
-
   const shortcuts: ShortcutCardProps[] = [
     { title: "Buscar Prontuário", icon: <MagnifyingGlassIcon />, onClick: () => navigate(NavigationPath.ViewRecord, { state: { fromDentistDashboard: true, dentistIdContext: dentistId } }), color: "bg-sky-600" },
     { title: "Adicionar Tratamento", icon: <DocumentPlusIcon />, onClick: () => navigate(NavigationPath.TreatmentPlan, { state: { fromDentistDashboard: true, dentistIdContext: dentistId, dentistUsernameContext: dentistUsername } }), color: "bg-emerald-600" },
     { title: "Histórico de Consultas", icon: <ListBulletIcon />, to: NavigationPath.ConsultationHistory, color: "bg-purple-600" },
-    { title: "Sair", icon: <ArrowRightOnRectangleIcon className="transform scale-x-[-1]" />, onClick: onLogout, color: "bg-red-600" },
   ];
 
   return (
@@ -611,58 +470,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
           </div>
         </Modal>
       )}
-
-      <button onClick={handleOpenChat} className="fixed bottom-8 right-8 bg-[#00bcd4] hover:bg-[#00a5b8] text-black w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#121212] focus:ring-[#00bcd4] z-40">
-          <img src="https://cdn-icons-png.flaticon.com/512/1078/1078011.png" alt="Chat" className="w-8 h-8" />
-          {unreadChatMessagesCount > 0 && (<span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#00bcd4]">{unreadChatMessagesCount}</span>)}
-      </button>
-
-      <Modal isOpen={isChatOpen} onClose={handleCloseChat} title={`Chat com ${adminUser?.full_name || 'Admin'}`} size="fill">
-        <div className="flex flex-col h-full">
-            <div className="flex-grow p-4 space-y-4 overflow-y-auto bg-[#181818] rounded-t-md">
-                {isChatLoading ? (
-                    <p className="text-center text-gray-400">Carregando mensagens...</p>
-                ) : chatMessages.length === 0 ? (
-                    <p className="text-center text-gray-400">Inicie uma conversa com o Admin.</p>
-                ) : (
-                  chatMessages.map(msg => (
-                  <div key={msg.id} className={`flex items-end ${msg.sender_id === dentistId ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-xs md:max-w-md lg:max-w-2xl px-4 py-2 rounded-xl shadow-md ${msg.sender_id === dentistId ? 'bg-[#007b8b] text-white rounded-br-none' : 'bg-[#2a2a2a] text-gray-200 rounded-bl-none'}`}>
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                          <div className="flex items-center justify-end text-right mt-1 opacity-60">
-                              <p className="text-xs">{formatIsoToSaoPauloTime(msg.created_at)}</p>
-                              {msg.sender_id === dentistId && (
-                                  <span className="ml-2">
-                                      {msg.is_read ? (
-                                          <CheckDoubleIcon className="w-4 h-4 text-cyan-300" />
-                                      ) : (
-                                          <CheckIcon className="w-4 h-4 text-gray-400" />
-                                      )}
-                                  </span>
-                              )}
-                          </div>
-                      </div>
-                  </div>
-                  ))
-                )}
-                <div ref={messagesEndRef} />
-            </div>
-            <div className="p-4 bg-[#1f1f1f] rounded-b-md border-t border-gray-700 relative">
-                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-3">
-                    <Button type="button" variant="ghost" className="h-12 w-12 p-0 flex-shrink-0 text-gray-400 hover:text-white" onClick={() => setIsPickerOpen(!isPickerOpen)}>
-                      <FaceSmileIcon className="w-6 h-6"/>
-                    </Button>
-                    <Input containerClassName="flex-grow" className="bg-[#2a2a2a] border-gray-600 focus:border-[#00bcd4] h-12" placeholder="Digite sua mensagem..." value={newMessage} onChange={e => setNewMessage(e.target.value)} disabled={isSendingMessage || isChatLoading} />
-                    <Button type="submit" variant="primary" className="h-12 w-12 p-0 flex-shrink-0" disabled={isSendingMessage || !newMessage.trim() || isChatLoading}><PaperAirplaneIcon className="w-6 h-6" /></Button>
-                </form>
-                {isPickerOpen && (
-                  <div ref={pickerRef} className="absolute bottom-full left-4 z-20">
-                      <EmojiPicker onEmojiClick={handleEmojiClick} theme={Theme.DARK} />
-                  </div>
-                )}
-            </div>
-        </div>
-      </Modal>
 
       <style>{`@keyframes pulse-once { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } } .animate-pulse-once { animation: pulse-once 1.5s ease-in-out; } @keyframes fade-in-down { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } } .animate-fade-in-down { animation: fade-in-down 0.3s ease-out forwards; }`}</style>
     </div>

@@ -241,7 +241,7 @@ export const PatientListPage: React.FC = () => {
           ))}
         </div>
       ) : ( // List View
-        <Card className="overflow-x-auto bg-[#1a1a1a]">
+        <div className="bg-[#1a1a1a] shadow-lg rounded-lg overflow-x-auto border border-gray-700/50">
           <table className="min-w-full divide-y divide-gray-700">
             <thead className="bg-[#1f1f1f]">
               <tr>
@@ -264,7 +264,7 @@ export const PatientListPage: React.FC = () => {
               ))}
             </tbody>
           </table>
-        </Card>
+        </div>
       )}
       {patientToDelete && (
         <ConfirmationModal

@@ -20,14 +20,14 @@ import { ConfigurationsPage } from './pages/ConfigurationsPage';
 import { ManageAppointmentPage } from './pages/ManageAppointmentPage'; 
 import { ConsultationHistoryPage } from './pages/ConsultationHistoryPage';
 import { ReturnsPage } from './pages/ReturnsPage'; 
-import { ChatPage } from './pages/ChatPage';
 import { NavigationPath, ChatMessage } from './types';
 import { Button } from './components/ui/Button';
 import { ToastProvider } from './contexts/ToastContext';
 import { ChangelogModal } from './components/ChangelogModal';
-import { Modal } from './components/ui/Modal';
-import { updateUserPreferences, getUnreadMessages, subscribeToMessages } from './services/supabaseService';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { ChatWidget } from './components/ChatWidget';
+import { DentistChatWidget } from './components/DentistChatWidget';
+import { updateUserPreferences } from './services/supabaseService';
+
 
 export type UserRole = 'admin' | 'dentist' | null;
 
@@ -36,14 +36,17 @@ interface AppLayoutProps {
   userRole: UserRole;
   userName: string | null;
   children: React.ReactNode;
-  unreadChatCount?: number;
 }
 
-const AppLayout: React.FC<AppLayoutProps> = ({ onLogout, userRole, userName, children, unreadChatCount }) => {
+const AppLayout: React.FC<AppLayoutProps> = ({ onLogout, userRole, userName, children }) => {
+  const mainPadding = userRole === 'dentist' 
+    ? "px-2 sm:px-4 lg:px-4" 
+    : "px-4 sm:px-6 lg:px-8"; 
+
   return (
     <div className="flex flex-col min-h-screen bg-[#0e0e0e] text-white selection:bg-[#00bcd4] selection:text-black">
-      <Header onLogout={onLogout} userRole={userRole} userName={userName} unreadChatCount={unreadChatCount} />
-      <main className="flex-grow pt-28 pb-12 px-4 sm:px-6 lg:px-8">
+      <Header onLogout={onLogout} userRole={userRole} userName={userName} />
+      <main className={`flex-grow pt-28 pb-12 ${mainPadding}`}>
         <div className="max-w-screen-2xl mx-auto"> 
            {children}
         </div>
@@ -73,108 +76,28 @@ const App: React.FC = () => {
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // State for unread chat messages
-  const [unreadMessages, setUnreadMessages] = useState<ChatMessage[]>([]);
-  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
-  const isAudioUnlocked = useRef(false);
-
-  // State for the new admin chat modal
-  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
-
   useEffect(() => {
-    // This effect runs only once on initial app load to restore the session.
     try {
       const persistedSession = localStorage.getItem(SESSION_STORAGE_KEY);
       if (persistedSession) {
         const sessionData = JSON.parse(persistedSession);
-        // Basic validation of the stored session data
         if (sessionData && sessionData.userRole && sessionData.userIdForApi && sessionData.userDisplayFullName) {
           setUserRole(sessionData.userRole);
           setUserIdForApi(sessionData.userIdForApi);
           setUserUsername(sessionData.userUsername);
           setUserDisplayFullName(sessionData.userDisplayFullName);
         } else {
-          // Clear invalid session data
           localStorage.removeItem(SESSION_STORAGE_KEY);
         }
       }
     } catch (error) {
       console.error("Could not load user session from localStorage", error);
-      // Ensure corrupted data is cleared
       localStorage.removeItem(SESSION_STORAGE_KEY);
     } finally {
-      // Finished attempting to load session, allow rendering
       setIsInitializing(false);
     }
   }, []);
   
-  // Effect for chat notifications, now for all roles
-  useEffect(() => {
-    notificationSoundRef.current = new Audio('https://www.soundjay.com/buttons/sounds/button-1.mp3');
-    notificationSoundRef.current.load();
-
-    const unlockAudio = () => {
-      if (notificationSoundRef.current && !isAudioUnlocked.current) {
-        notificationSoundRef.current.muted = true;
-        notificationSoundRef.current.play().then(() => {
-          notificationSoundRef.current?.pause();
-          if (notificationSoundRef.current) {
-            notificationSoundRef.current.currentTime = 0;
-            notificationSoundRef.current.muted = false;
-          }
-          isAudioUnlocked.current = true;
-        }).catch(() => {});
-      }
-    };
-    window.addEventListener('click', unlockAudio, { once: true });
-
-    let chatSub: RealtimeChannel | null = null;
-    
-    if (userIdForApi) {
-      const handleNewMessage = (newMessagePayload: ChatMessage) => {
-        setUnreadMessages(prev => {
-            if (prev.some(msg => msg.id === newMessagePayload.id)) {
-                return prev;
-            }
-            if (notificationSoundRef.current && isAudioUnlocked.current) {
-                notificationSoundRef.current.play().catch(e => console.error("Error playing sound", e));
-            }
-            return [...prev, newMessagePayload];
-        });
-      };
-
-      chatSub = subscribeToMessages(userIdForApi, handleNewMessage);
-      
-      if (chatSub) {
-        chatSub.subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-                // Now that we are subscribed, fetch the initial unread messages to fill the gap.
-                getUnreadMessages(userIdForApi).then(({ data: initialData }) => {
-                    if (initialData && initialData.length > 0) {
-                        setUnreadMessages(currentMessages => {
-                            const messageMap = new Map<string, ChatMessage>();
-                            // Add messages already in state from real-time events
-                            currentMessages.forEach(msg => messageMap.set(msg.id, msg));
-                            // Add initial unread messages, overwriting duplicates (which is fine and handles race conditions)
-                            initialData.forEach(msg => messageMap.set(msg.id, msg));
-                            // Return the unique messages as an array
-                            return Array.from(messageMap.values());
-                        });
-                    }
-                });
-            }
-        });
-      }
-    }
-
-    return () => {
-      window.removeEventListener('click', unlockAudio);
-      if (chatSub) {
-        chatSub.unsubscribe();
-      }
-    };
-  }, [userIdForApi]);
-
   const handleLoginSuccess = useCallback((role: UserRole, idForApi: string, username: string, displayFullName: string, showChangelog?: boolean) => {
     const sessionData = { 
       userRole: role, 
@@ -182,7 +105,6 @@ const App: React.FC = () => {
       userUsername: username, 
       userDisplayFullName: displayFullName 
     };
-
     setUserRole(role);
     setUserIdForApi(idForApi);
     setUserUsername(username);
@@ -193,7 +115,6 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Could not save user session to localStorage", error);
     }
-
     if (role === 'admin' && showChangelog !== false) {
         setIsChangelogModalOpen(true);
     }
@@ -205,8 +126,6 @@ const App: React.FC = () => {
     setUserUsername(null);
     setUserDisplayFullName(null);
     setIsChangelogModalOpen(false);
-    setUnreadMessages([]); // Explicitly clear unread messages on logout
-    setIsChatModalOpen(false); // Close chat modal on logout
     try {
       localStorage.removeItem(SESSION_STORAGE_KEY);
     } catch (error) {
@@ -223,20 +142,16 @@ const App: React.FC = () => {
 
   const ProtectedRoute: React.FC<{children: JSX.Element; adminOnly?: boolean}> = ({ children, adminOnly = false }) => {
     if (isInitializing) {
-      // While checking for session, show a loading indicator to prevent flicker.
       return (
         <div className="flex items-center justify-center min-h-screen bg-[#0e0e0e] text-white">
             Carregando sessão...
         </div>
       );
     }
-
     if (!userRole) {
-      // If not logged in after checking, redirect to login.
       return <Navigate to="/login" replace />;
     }
     if (adminOnly && userRole !== 'admin') {
-      // If route is admin-only and user is not admin, redirect to home.
       return <Navigate to="/" replace />; 
     }
     return children;
@@ -252,13 +167,9 @@ const App: React.FC = () => {
             dentistId={userIdForApi}
             dentistUsername={userUsername}
             dentistDisplayFullName={userDisplayFullName}
-            onLogout={handleLogout}
-            unreadMessages={unreadMessages}
-            setUnreadMessages={setUnreadMessages}
         />
       );
     }
-    // If userRole is somehow set but other data is missing, redirect to login as a failsafe.
     return <Navigate to="/login" replace />; 
   };
 
@@ -284,10 +195,9 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <>
-                  <AppLayout onLogout={handleLogout} userRole={userRole} userName={userDisplayFullName} unreadChatCount={unreadMessages.length}>
+                  <AppLayout onLogout={handleLogout} userRole={userRole} userName={userDisplayFullName}>
                     <Routes>
                       <Route index element={renderDashboard()} />
-                      
                       <Route path={NavigationPath.NewPatient.substring(1)} element={<ProtectedRoute adminOnly>{<NewPatientPage />}</ProtectedRoute>} />
                       <Route path={NavigationPath.EditPatient.substring(1)} element={<ProtectedRoute adminOnly>{<NewPatientPage />}</ProtectedRoute>} />
                       <Route path={NavigationPath.PatientsList.substring(1)} element={<ProtectedRoute adminOnly>{<PatientListPage />}</ProtectedRoute>} />
@@ -298,52 +208,23 @@ const App: React.FC = () => {
                       <Route path={NavigationPath.NewAppointment.substring(1)} element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} />
                       <Route path={NavigationPath.EditAppointment.substring(1)} element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} />
                       <Route path={NavigationPath.Return.substring(1)} element={<ProtectedRoute adminOnly><ReturnsPage /></ProtectedRoute>} />
-
-                      {/* Route for /chat is removed */}
-                      <Route path={NavigationPath.Chat.substring(1)} element={<Navigate to="/" />} />
-
                       <Route path={NavigationPath.TreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
                       <Route path={NavigationPath.EditTreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
                       <Route path={NavigationPath.ConsultationHistory.substring(1)} element={<ConsultationHistoryPage />} />
-                      
                       <Route path={NavigationPath.PatientDetail.substring(1)} element={<PatientDetailPage />} />
                       <Route path={NavigationPath.PatientAnamnesis.substring(1)} element={<PatientAnamnesisPage />} />
                       <Route path={NavigationPath.PatientTreatmentPlans.substring(1)} element={<PatientTreatmentPlansPage />} />
-                    
                       <Route path={NavigationPath.ViewRecord.substring(1)} element={<ViewRecordPage />} />
-                      
                       <Route path="*" element={<PlaceholderPage title="Página não encontrada" />} />
                     </Routes>
                   </AppLayout>
 
-                  {/* Admin Chat FAB and Modal */}
                   {userRole === 'admin' && userIdForApi && (
-                    <>
-                      <button
-                        onClick={() => setIsChatModalOpen(true)}
-                        className="fixed bottom-8 right-8 bg-[#00bcd4] hover:bg-[#00a5b8] text-black w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0e0e0e] focus:ring-[#00bcd4] z-40"
-                      >
-                        <img src="https://cdn-icons-png.flaticon.com/512/1078/1078011.png" alt="Chat" className="w-8 h-8" />
-                        {unreadMessages.length > 0 && (
-                          <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#00bcd4]">
-                            {unreadMessages.length > 9 ? '9+' : unreadMessages.length}
-                          </span>
-                        )}
-                      </button>
-
-                      <Modal
-                        isOpen={isChatModalOpen}
-                        onClose={() => setIsChatModalOpen(false)}
-                        title="Chat com Dentistas"
-                        size="fill"
-                      >
-                        <ChatPage
-                          adminId={userIdForApi}
-                          unreadMessages={unreadMessages}
-                          setUnreadMessages={setUnreadMessages}
-                        />
-                      </Modal>
-                    </>
+                     <ChatWidget adminId={userIdForApi} />
+                  )}
+                  
+                  {userRole === 'dentist' && userIdForApi && (
+                     <DentistChatWidget dentistId={userIdForApi} />
                   )}
                 </>
               </ProtectedRoute>
