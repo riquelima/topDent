@@ -224,6 +224,7 @@ export const PatientListPage: React.FC = () => {
                 </div>
                 <p className="text-sm text-[#b0b0b0]">CPF: {patient.cpf}</p>
                 <p className="text-sm text-[#b0b0b0]">Nascimento: {isoToDdMmYyyy(patient.dob)}</p>
+                <p className="text-sm text-[#b0b0b0]">Telefone: {patient.phone || 'N/A'}</p>
                 {patient.guardian && <p className="text-sm text-gray-500 italic">Responsável: {patient.guardian}</p>}
               </div>
               <div className="mt-6">
@@ -248,6 +249,7 @@ export const PatientListPage: React.FC = () => {
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Nome Completo</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">CPF</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Nascimento</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Telefone</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
@@ -257,6 +259,7 @@ export const PatientListPage: React.FC = () => {
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-white font-medium">{patient.fullName}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">{patient.cpf}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">{isoToDdMmYyyy(patient.dob)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">{patient.phone || 'N/A'}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">
                     {renderPatientActions(patient)}
                   </td>

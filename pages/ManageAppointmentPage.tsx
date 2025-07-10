@@ -1,6 +1,7 @@
 
+
 import React, { useState, useEffect, FormEvent, useRef, useCallback } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -33,6 +34,7 @@ const OTHER_PROCEDURE_PREFIX = "Outro(s): ";
 export const ManageAppointmentPage: React.FC = () => {
   const navigate = useNavigate();
   const { appointmentId } = useParams<{ appointmentId?: string }>();
+  const location = useLocation();
   const isEditMode = !!appointmentId;
   const { showToast } = useToast();
 
@@ -122,6 +124,8 @@ export const ManageAppointmentPage: React.FC = () => {
         const uniqueCombinedProcedures = Array.from(new Set([...PREDEFINED_PROCEDURES, ...customProcedureNames])).sort();
         setAllSelectableProcedures(uniqueCombinedProcedures);
         
+        const navigationState = location.state as { patientCpf?: string; patientName?: string; } | null;
+
         if (isEditMode && appointmentId) {
           const { data: existingAppt, error: apptError } = await getAppointmentById(appointmentId);
           if (apptError || !existingAppt) {
@@ -143,7 +147,27 @@ export const ManageAppointmentPage: React.FC = () => {
             const currentDentist = dentistsRes.find(d => d.id === existingAppt.dentist_id);
             setDentistSearchTerm(currentDentist ? currentDentist.full_name : '');
           }
+        } else if (navigationState?.patientCpf && navigationState?.patientName) {
+            // This is a rebook action
+            showToast(`Criando novo agendamento para: ${navigationState.patientName}`, 'info', 3000);
+            
+            const existingPatient = (patientsRes.data || []).find(p => p.cpf === navigationState.patientCpf);
+            
+            setPatientCpf(navigationState.patientCpf);
+            setPatientName(navigationState.patientName);
+            setPatientSearchTerm(navigationState.patientName);
+            setPatientPhone(existingPatient?.phone || '');
+            
+            const today = new Date().toISOString().split('T')[0];
+            setAppointmentDate(today);
+            setAppointmentTime('');
+            setReturnDate('');
+            setNotes('');
+            setStatus('Scheduled');
+            setSelectedDentistId(null);
+            setDentistSearchTerm('');
         } else {
+          // Standard new appointment
           const today = new Date().toISOString().split('T')[0];
           setAppointmentDate(today);
           setPatientCpf(null);
@@ -165,7 +189,7 @@ export const ManageAppointmentPage: React.FC = () => {
       }
     };
     fetchInitialData();
-  }, [appointmentId, isEditMode, showToast]);
+  }, [appointmentId, isEditMode, showToast, location.state]);
 
   // Effect 2: Parse procedures when loadedAppointmentData or allSelectableProcedures changes, or when switching to new mode
   useEffect(() => {
