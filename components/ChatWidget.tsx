@@ -153,7 +153,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   return (
     <>
       {isOpen && (
-        <div className="fixed bottom-24 right-8 w-full max-w-3xl h-[80vh] max-h-[700px] bg-[#1a1a1a] rounded-xl shadow-2xl flex flex-col z-50 border border-gray-700/50 animate-slide-up-widget">
+        <div className="fixed bottom-24 right-8 w-full max-w-[1060px] h-[700px] bg-[#1a1a1a] rounded-xl shadow-2xl flex flex-col z-50 border border-gray-700/50 animate-slide-up-widget">
           <header className="p-4 border-b border-gray-700/50 flex justify-between items-center bg-[#1f1f1f] rounded-t-xl">
             <h2 className="text-xl font-semibold text-white">Chat</h2>
             <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-full hover:bg-gray-600 transition-colors">
