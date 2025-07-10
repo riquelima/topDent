@@ -1,19 +1,21 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { PaperAirplaneIcon, UserIcon as DentistIcon } from '../components/icons/HeroIcons';
 import { Dentist, ChatMessage } from '../types';
-import { getDentists, getMessagesBetweenUsers, sendMessage, subscribeToMessages } from '../services/supabaseService';
+import { getDentists, getMessagesBetweenUsers, sendMessage, markMessagesAsRead } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import { formatToHHMM } from '../src/utils/formatDate';
 
 interface ChatPageProps {
   adminId: string;
+  unreadMessages: ChatMessage[];
+  setUnreadMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
 
-export const ChatPage: React.FC<ChatPageProps> = ({ adminId }) => {
+export const ChatPage: React.FC<ChatPageProps> = ({ adminId, unreadMessages, setUnreadMessages }) => {
   const { showToast } = useToast();
   const [dentists, setDentists] = useState<Dentist[]>([]);
   const [selectedDentist, setSelectedDentist] = useState<Dentist | null>(null);
@@ -22,53 +24,16 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId }) => {
   const [isLoading, setIsLoading] = useState({ dentists: true, messages: false });
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
-  const isAudioUnlocked = useRef(false);
-
-  useEffect(() => {
-    notificationSoundRef.current = new Audio('https://www.soundjay.com/buttons/sounds/button-1.mp3');
-    notificationSoundRef.current.load();
-    
-    const unlockAudio = () => {
-      if (notificationSoundRef.current && !isAudioUnlocked.current) {
-        notificationSoundRef.current.muted = true;
-        const promise = notificationSoundRef.current.play();
-        if (promise !== undefined) {
-          promise.then(() => {
-            notificationSoundRef.current?.pause();
-            if (notificationSoundRef.current) {
-              notificationSoundRef.current.currentTime = 0;
-              notificationSoundRef.current.muted = false;
-            }
-            isAudioUnlocked.current = true;
-            console.log("ChatPage Audio context unlocked.");
-          }).catch((error) => {
-             console.warn("ChatPage Audio unlock failed, will try again on next interaction.", error);
-          });
-        }
+  
+  const unreadCountsBySender = useMemo(() => {
+    const counts = new Map<string, number>();
+    unreadMessages.forEach(msg => {
+      if (msg.sender_id) {
+        counts.set(msg.sender_id, (counts.get(msg.sender_id) || 0) + 1);
       }
-    };
-    
-    window.addEventListener('click', unlockAudio, { once: true });
-    window.addEventListener('keydown', unlockAudio, { once: true });
-
-    return () => {
-      window.removeEventListener('click', unlockAudio);
-      window.removeEventListener('keydown', unlockAudio);
-    };
-  }, []);
-
-  const playNotificationSound = useCallback(() => {
-    try {
-        if (notificationSoundRef.current && isAudioUnlocked.current) {
-            notificationSoundRef.current.play().catch(e => console.error("Error playing notification sound:", e));
-        } else if (!isAudioUnlocked.current) {
-            console.warn("Audio not unlocked yet. Skipping sound for this notification.");
-        }
-    } catch(e) {
-        console.error("Critical error in playNotificationSound:", e);
-    }
-  }, []);
+    });
+    return counts;
+  }, [unreadMessages]);
 
   useEffect(() => {
     const fetchAllDentists = async () => {
@@ -98,6 +63,20 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId }) => {
     setIsLoading(prevState => ({ ...prevState, messages: true }));
     setMessages([]);
 
+    const idsToMark = unreadMessages
+        .filter(msg => msg.sender_id === dentist.id)
+        .map(msg => msg.id);
+    
+    if (idsToMark.length > 0) {
+        const { error: markError } = await markMessagesAsRead(idsToMark, adminId);
+        if (markError) {
+            showToast('Erro ao marcar mensagens como lidas.', 'error');
+        } else {
+            // Correctly filter out only the messages that have been read for the selected dentist
+            setUnreadMessages(prev => prev.filter(msg => !idsToMark.includes(msg.id)));
+        }
+    }
+
     const { data, error } = await getMessagesBetweenUsers(adminId, dentist.id!);
     if (error) {
       const typedError = error as any;
@@ -107,26 +86,28 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId }) => {
       setMessages(data || []);
     }
     setIsLoading(prevState => ({ ...prevState, messages: false }));
-  }, [adminId, showToast, selectedDentist]);
+  }, [adminId, showToast, unreadMessages, setUnreadMessages, selectedDentist?.id]);
 
   useEffect(() => {
-    if (!adminId) return;
-
-    const subscription = subscribeToMessages(adminId, (newMessagePayload) => {
-        playNotificationSound();
-        if (newMessagePayload.sender_id === selectedDentist?.id) {
-            setMessages(prevMessages => [...prevMessages, newMessagePayload]);
-        } else {
-            const sender = dentists.find(d => d.id === newMessagePayload.sender_id);
-            const senderName = sender ? sender.full_name : 'outro dentista';
-            showToast(`Nova mensagem de ${senderName}!`, 'info');
+    // This effect updates the currently viewed chat with new incoming messages
+    // that are passed down from the central subscription in App.tsx
+    if (selectedDentist) {
+        const newMessagesForThisChat = unreadMessages.filter(
+            (msg) => msg.sender_id === selectedDentist.id
+        );
+        if (newMessagesForThisChat.length > 0) {
+            setMessages(prev => [...prev, ...newMessagesForThisChat]);
+            
+            const idsToMark = newMessagesForThisChat.map(m => m.id);
+            markMessagesAsRead(idsToMark, adminId).then(({ error }) => {
+                if (!error) {
+                    setUnreadMessages(prev => prev.filter(msg => !idsToMark.includes(msg.id)));
+                }
+            });
         }
-    });
+    }
+  }, [unreadMessages, selectedDentist, adminId, setUnreadMessages]);
 
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, [adminId, selectedDentist, showToast, playNotificationSound, dentists]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,19 +155,44 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId }) => {
             <p className="p-4 text-center text-gray-400">Carregando...</p>
           ) : (
             <ul>
-              {dentists.map(dentist => (
-                <li key={dentist.id}>
-                  <button
-                    onClick={() => handleSelectDentist(dentist)}
-                    className={`w-full text-left p-4 flex items-center space-x-3 transition-colors duration-150 focus:outline-none ${selectedDentist?.id === dentist.id ? 'bg-[#00bcd4] text-black' : 'hover:bg-gray-700/50 text-white'}`}
-                  >
-                    <div className={`p-2 rounded-full ${selectedDentist?.id === dentist.id ? 'bg-black/20' : 'bg-gray-600'}`}>
-                        <DentistIcon className="w-5 h-5"/>
-                    </div>
-                    <span className="font-medium truncate">{dentist.full_name}</span>
-                  </button>
-                </li>
-              ))}
+              {dentists.map(dentist => {
+                const unreadCount = unreadCountsBySender.get(dentist.id!) || 0;
+                const isSelected = selectedDentist?.id === dentist.id;
+                const hasUnread = unreadCount > 0;
+
+                return (
+                  <li key={dentist.id}>
+                    <button
+                      onClick={() => handleSelectDentist(dentist)}
+                      className={`w-full text-left p-4 flex items-center space-x-3 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500 ${
+                        isSelected
+                          ? 'bg-[#00bcd4] text-black'
+                          : `hover:bg-gray-700/50 text-white ${hasUnread ? 'bg-sky-900/50' : ''}`
+                      }`}
+                    >
+                      <div
+                        className={`p-2 rounded-full ${
+                          isSelected ? 'bg-black/20' : 'bg-gray-600'
+                        }`}
+                      >
+                        <DentistIcon className="w-5 h-5" />
+                      </div>
+                      <span className={`font-medium truncate flex-grow ${!isSelected && hasUnread ? 'text-sky-400' : ''}`}>
+                        {dentist.full_name}
+                      </span>
+                      {hasUnread && (
+                        <span
+                          className={`ml-auto flex-shrink-0 inline-flex items-center justify-center h-5 w-5 text-xs font-bold leading-none rounded-full ${
+                            isSelected ? 'bg-white text-[#00bcd4]' : 'bg-red-600 text-white'
+                          }`}
+                        >
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

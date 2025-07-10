@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { Card } from '../components/ui/Card';
@@ -34,7 +34,6 @@ import {
     getAdminUserId,
     getMessagesBetweenUsers,
     sendMessage,
-    subscribeToMessages,
     subscribeToNotificationsForDentist,
     markMessagesAsRead
 } from '../services/supabaseService'; 
@@ -46,6 +45,8 @@ interface DentistDashboardPageProps {
   dentistUsername: string;
   dentistDisplayFullName: string; 
   onLogout: () => void;
+  unreadMessages: ChatMessage[];
+  setUnreadMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
 
 const getWeekDateRange = (date: Date): { start: string, end: string } => {
@@ -212,7 +213,7 @@ const ShortcutCard: React.FC<ShortcutCardProps> = ({ title, icon, to, onClick, c
   return to ? <Link to={to} {...buttonProps}>{content}</Link> : <button {...buttonProps}>{content}</button>;
 };
 
-export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dentistId, dentistUsername, dentistDisplayFullName, onLogout }) => {
+export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dentistId, dentistUsername, dentistDisplayFullName, onLogout, unreadMessages, setUnreadMessages }) => {
   const { showToast } = useToast();
   const navigate = useNavigate();
   
@@ -229,96 +230,36 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   const [arrivalNotification, setArrivalNotification] = useState<Notification | null>(null);
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
-  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
-  const isAudioUnlocked = useRef(false);
-
+  
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [adminUser, setAdminUser] = useState<Dentist | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [unreadChatMessages, setUnreadChatMessages] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const todayDateString = new Date().toISOString().split('T')[0];
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  
+  const unreadChatMessagesCount = useMemo(() => {
+    return unreadMessages.filter(m => m.recipient_id === dentistId).length;
+  }, [unreadMessages, dentistId]);
 
-
-  const playNotificationSound = useCallback(() => {
-    try {
-        if (notificationSoundRef.current && isAudioUnlocked.current) {
-            notificationSoundRef.current.play().catch(e => console.error("Error playing notification sound:", e));
-        } else if (!isAudioUnlocked.current) {
-            console.warn("Audio not unlocked yet. Skipping sound for this notification.");
-        }
-    } catch(e) {
-        console.error("Critical error in playNotificationSound:", e);
-    }
-  }, []);
 
   const handleNewNotification = useCallback((newNotification: Notification) => {
-    console.log("[Realtime] Received new notification, processing...", newNotification);
     if (!notificationIdsRef.current.has(newNotification.id)) {
         notificationIdsRef.current.add(newNotification.id);
         setNotifications(prev => [newNotification, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
     }
     setArrivalNotification(newNotification);
     setIsArrivalModalOpen(true);
-    playNotificationSound();
-  }, [playNotificationSound]);
-
-  const handleNewMessage = useCallback(async (newMessagePayload: ChatMessage) => {
-      setChatMessages(prev => [...prev, newMessagePayload]);
-      if (document.body.classList.contains('chat-modal-open')) {
-          if (newMessagePayload.recipient_id === dentistId) {
-              await markMessagesAsRead([newMessagePayload.id], dentistId);
-          }
-      } else if (newMessagePayload.recipient_id === dentistId) {
-          setUnreadChatMessages(prev => prev + 1);
-          playNotificationSound();
-      }
-  }, [dentistId, playNotificationSound]);
-
-  useEffect(() => {
-    notificationSoundRef.current = new Audio('https://www.soundjay.com/buttons/sounds/button-1.mp3');
-    notificationSoundRef.current.load();
-    
-    const unlockAudio = () => {
-      if (notificationSoundRef.current && !isAudioUnlocked.current) {
-        notificationSoundRef.current.muted = true;
-        const promise = notificationSoundRef.current.play();
-        if (promise !== undefined) {
-          promise.then(() => {
-            notificationSoundRef.current?.pause();
-            if (notificationSoundRef.current) {
-              notificationSoundRef.current.currentTime = 0;
-              notificationSoundRef.current.muted = false;
-            }
-            isAudioUnlocked.current = true;
-            console.log("Audio context unlocked.");
-          }).catch((error) => {
-             console.warn("Audio unlock failed, will try again on next interaction.", error);
-          });
-        }
-      }
-    };
-    
-    window.addEventListener('click', unlockAudio, { once: true });
-    window.addEventListener('keydown', unlockAudio, { once: true });
-
-    return () => {
-      window.removeEventListener('click', unlockAudio);
-      window.removeEventListener('keydown', unlockAudio);
-    };
+    // Sound is now played globally from App.tsx
   }, []);
 
   useEffect(() => {
-    if (!dentistId) return;
-
     let notificationSub: ReturnType<typeof subscribeToNotificationsForDentist> | null = null;
-    let chatSub: ReturnType<typeof subscribeToMessages> | null = null;
     
     const setup = async () => {
         setIsLoading(true);
@@ -359,7 +300,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
                 notificationIdsRef.current = new Set(unreadNotifs.map(n => n.id));
                 setArrivalNotification(unreadNotifs[0]);
                 setIsArrivalModalOpen(true);
-                playNotificationSound();
             }
 
             if (adminUserRes.data) {
@@ -373,16 +313,14 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         }
 
         notificationSub = subscribeToNotificationsForDentist(dentistId, handleNewNotification);
-        chatSub = subscribeToMessages(dentistId, handleNewMessage);
     };
 
     setup();
     
     return () => {
         notificationSub?.unsubscribe();
-        chatSub?.unsubscribe();
     };
-  }, [dentistId, dentistUsername, showToast, handleNewNotification, handleNewMessage, playNotificationSound]);
+  }, [dentistId, dentistUsername, showToast, handleNewNotification]);
 
 
   useEffect(() => {
@@ -510,28 +448,45 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         const receivedMessages = data || [];
         setChatMessages(receivedMessages);
 
-        const unreadMessageIds = receivedMessages
-            .filter(msg => !msg.is_read && msg.recipient_id === dentistId)
+        const unreadMessageIds = unreadMessages
+            .filter(msg => msg.recipient_id === dentistId)
             .map(msg => msg.id);
 
         if (unreadMessageIds.length > 0) {
-            await markMessagesAsRead(unreadMessageIds, dentistId);
-            const updatedMessages = receivedMessages.map(msg => 
-                unreadMessageIds.includes(msg.id) ? { ...msg, is_read: true } : msg
-            );
-            setChatMessages(updatedMessages);
+            const { error: markError } = await markMessagesAsRead(unreadMessageIds, dentistId);
+            if (!markError) {
+                setUnreadMessages(prev => prev.filter(msg => !unreadMessageIds.includes(msg.id)));
+            }
         }
     }
     setIsChatLoading(false);
-  }, [adminUser, dentistId, showToast]);
+  }, [adminUser, dentistId, showToast, unreadMessages, setUnreadMessages]);
 
-  const handleOpenChat = () => {
+  const handleOpenChat = useCallback(() => {
     setIsChatOpen(true);
-    setUnreadChatMessages(0);
     document.body.classList.add('chat-modal-open');
     fetchChatMessages();
-  };
+  }, [fetchChatMessages]);
   
+  useEffect(() => {
+    if (isChatOpen) {
+        const newIncomingMessages = unreadMessages.filter(
+            (msg) => msg.sender_id === adminUser?.id
+        );
+        if (newIncomingMessages.length > 0) {
+            setChatMessages(prev => [...prev, ...newIncomingMessages]);
+            const idsToMark = newIncomingMessages.map(m => m.id);
+            markMessagesAsRead(idsToMark, dentistId).then(({ error }) => {
+                if (!error) {
+                    setUnreadMessages(prev => prev.filter(msg => !idsToMark.includes(msg.id)));
+                } else {
+                    showToast('Erro ao marcar novas mensagens como lidas.', 'error');
+                }
+            });
+        }
+    }
+  }, [isChatOpen, unreadMessages, adminUser, dentistId, setUnreadMessages, showToast]);
+
   const handleCloseChat = () => {
     setIsChatOpen(false);
     setIsPickerOpen(false);
@@ -659,7 +614,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
       <button onClick={handleOpenChat} className="fixed bottom-8 right-8 bg-[#00bcd4] hover:bg-[#00a5b8] text-black w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#121212] focus:ring-[#00bcd4] z-40">
           <img src="https://cdn-icons-png.flaticon.com/512/1078/1078011.png" alt="Chat" className="w-8 h-8" />
-          {unreadChatMessages > 0 && (<span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#00bcd4]">{unreadChatMessages}</span>)}
+          {unreadChatMessagesCount > 0 && (<span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#00bcd4]">{unreadChatMessagesCount}</span>)}
       </button>
 
       <Modal isOpen={isChatOpen} onClose={handleCloseChat} title={`Chat com ${adminUser?.full_name || 'Admin'}`} size="fill">

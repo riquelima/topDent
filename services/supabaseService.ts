@@ -496,6 +496,12 @@ export const getAdminUserId = async (): Promise<{ data: Dentist | null, error: a
     return client.from('dentists').select('id, full_name').eq('username', 'admin').single();
 };
 
+export const getUnreadMessages = async (recipientId: string): Promise<{ data: ChatMessage[] | null, error: any }> => {
+    const client = getSupabaseClient();
+    if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+    return client.from('chat_messages').select('*').eq('recipient_id', recipientId).eq('is_read', false);
+};
+
 export const getMessagesBetweenUsers = async (userId1: string, userId2: string) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
@@ -526,11 +532,12 @@ export const markMessagesAsRead = async (messageIds: string[], recipientId: stri
 export const subscribeToMessages = (userId: string, callback: (payload: ChatMessage) => void): RealtimeChannel | null => {
     const client = getSupabaseClient();
     if (!client) return null;
+    // Returns the channel object without calling .subscribe()
+    // This allows the caller to attach a status callback before subscribing.
     return client.channel(`chat_messages_for_${userId}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${userId}` }, (payload) => {
             callback(payload.new as ChatMessage);
-        })
-        .subscribe();
+        });
 };
 
 

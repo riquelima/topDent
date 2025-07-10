@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { TopDentLogo, ArrowRightOnRectangleIcon, ChatBubbleLeftRightIcon } from '../icons/HeroIcons'; // Added ChatBubbleLeftRightIcon
@@ -38,9 +39,10 @@ interface HeaderProps {
   onLogout: () => void;
   userRole: UserRole;
   userName: string | null;
+  unreadChatCount?: number;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName }) => {
+export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName, unreadChatCount = 0 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -78,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName }) 
           </div>
 
           {/* Center section: Main Navigation (Desktop) */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:block">
+          <div className="hidden md:block">
             {isAdmin && (
               <nav className="flex items-baseline space-x-4 lg:space-x-5">
                 <NavLink to={NavigationPath.Home}>Início</NavLink>
@@ -86,7 +88,16 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName }) 
                 <NavLink to={NavigationPath.Appointments}>Agendamentos</NavLink>
                 <NavLink to={NavigationPath.Return}>Retornos</NavLink>
                 <NavLink to={NavigationPath.ViewRecord}>Prontuários</NavLink>
-                <NavLink to={NavigationPath.Chat}>Chat</NavLink>
+                <NavLink to={NavigationPath.Chat}>
+                    <div className="relative">
+                        Chat
+                        {unreadChatCount > 0 && (
+                        <span className="absolute -top-1.5 -right-3.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#141414]">
+                            {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                        </span>
+                        )}
+                    </div>
+                </NavLink>
                 <NavLink to={NavigationPath.ConsultationHistory}>Histórico</NavLink> 
                 <NavLink to={NavigationPath.AllTreatmentPlans}>Tratamentos</NavLink>
                 <NavLink to={NavigationPath.Configurations}>Configurações</NavLink> 
@@ -139,7 +150,16 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName }) 
                 <NavLink to={NavigationPath.Appointments} onClick={closeMobileMenu} isMobile>Agendamentos</NavLink>
                 <NavLink to={NavigationPath.Return} onClick={closeMobileMenu} isMobile>Retornos</NavLink>
                 <NavLink to={NavigationPath.ViewRecord} onClick={closeMobileMenu} isMobile>Prontuários</NavLink>
-                <NavLink to={NavigationPath.Chat} onClick={closeMobileMenu} isMobile>Chat</NavLink>
+                <NavLink to={NavigationPath.Chat} onClick={closeMobileMenu} isMobile>
+                    <div className="relative inline-block">
+                        Chat
+                        {unreadChatCount > 0 && (
+                        <span className="absolute -top-1 -right-6 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
+                            {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                        </span>
+                        )}
+                    </div>
+                </NavLink>
                 <NavLink to={NavigationPath.ConsultationHistory} onClick={closeMobileMenu} isMobile>Histórico</NavLink>
                 <NavLink to={NavigationPath.AllTreatmentPlans} onClick={closeMobileMenu} isMobile>Tratamentos</NavLink>
                 <NavLink to={NavigationPath.Configurations} onClick={closeMobileMenu} isMobile>Configurações</NavLink>
