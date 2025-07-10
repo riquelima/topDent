@@ -51,7 +51,7 @@ export const AllTreatmentPlansPage: React.FC = () => {
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
 
-  const [viewMode, setViewMode] = useState<ViewMode>('card'); 
+  const [viewMode, setViewMode] = useState<ViewMode>('list'); 
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);

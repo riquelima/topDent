@@ -37,7 +37,7 @@ interface AppointmentToDelete {
   details: string;
 }
 
-type ActiveSortFilter = 'all' | 'upcoming';
+type DateFilter = 'all' | 'today' | 'upcoming';
 
 export const AppointmentsPage: React.FC = () => {
   const { showToast } = useToast(); 
@@ -47,8 +47,6 @@ export const AppointmentsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // const [isModalOpen, setIsModalOpen] = useState(false); // Modal state removed
-  // const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null); // Modal state removed
 
   const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<AppointmentToDelete | null>(null);
@@ -56,7 +54,9 @@ export const AppointmentsPage: React.FC = () => {
   const [dentists, setDentists] = useState<DentistUser[]>([]);
   const [isLoadingDentists, setIsLoadingDentists] = useState(true);
   const [selectedDentistId, setSelectedDentistId] = useState<string>(''); 
-  const [activeSortFilter, setActiveSortFilter] = useState<ActiveSortFilter>('upcoming'); 
+  const [statusFilter, setStatusFilter] = useState<Appointment['status'] | ''>('');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  
   const [notifiedAppointments, setNotifiedAppointments] = useState<Set<string>>(new Set());
 
 
@@ -99,54 +99,71 @@ export const AppointmentsPage: React.FC = () => {
   useEffect(() => {
     let processedAppointments = [...allAppointments];
 
+    // Dentist filter
     if (selectedDentistId) {
       const selectedDentistObject = dentists.find(d => d.id === selectedDentistId);
       if (selectedDentistObject) {
           processedAppointments = processedAppointments.filter(appt => {
-          // Handle data inconsistency where dentist_id could be either UUID or username
           return appt.dentist_id === selectedDentistId || appt.dentist_id === selectedDentistObject.username;
         });
       } else {
          processedAppointments = [];
       }
     }
+    
+    // Status filter
+    if (statusFilter) {
+      processedAppointments = processedAppointments.filter(appt => appt.status === statusFilter);
+    }
 
     const today = new Date().toISOString().split('T')[0];
-    switch (activeSortFilter) {
-      case 'upcoming':
-        processedAppointments = processedAppointments.filter(appt => appt.appointment_date >= today);
-        processedAppointments.sort((a, b) => {
-          if (a.appointment_date < b.appointment_date) return -1;
-          if (a.appointment_date > b.appointment_date) return 1;
-          if (a.appointment_time < b.appointment_time) return -1;
-          if (a.appointment_time > b.appointment_time) return 1;
-          return 0;
-        });
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrow = tomorrowDate.toISOString().split('T')[0];
+    
+    // Date filter
+    switch (dateFilter) {
+      case 'today':
+        processedAppointments = processedAppointments.filter(appt => appt.appointment_date === today);
         break;
-      case 'all':
-      default:
-        const upcomingOrToday = processedAppointments.filter(appt => appt.appointment_date >= today);
-        const past = processedAppointments.filter(appt => appt.appointment_date < today);
+      case 'upcoming': // From tomorrow onwards
+        processedAppointments = processedAppointments.filter(appt => appt.appointment_date >= tomorrow);
+        break;
+      // 'all' doesn't filter by date
+    }
 
-        upcomingOrToday.sort((a, b) => {
+    // Sorting logic
+    if (dateFilter === 'all') {
+      const upcomingOrToday = processedAppointments.filter(appt => appt.appointment_date >= today);
+      const past = processedAppointments.filter(appt => appt.appointment_date < today);
+
+      upcomingOrToday.sort((a, b) => {
+        if (a.appointment_date < b.appointment_date) return -1;
+        if (a.appointment_date > b.appointment_date) return 1;
+        if (a.appointment_time < b.appointment_time) return -1;
+        if (a.appointment_time > b.appointment_time) return 1;
+        return 0;
+      });
+      past.sort((a, b) => { 
+          if (a.appointment_date > b.appointment_date) return -1;
+          if (a.appointment_date < b.appointment_date) return 1;
+          if (a.appointment_time > b.appointment_time) return -1;
+          if (a.appointment_time < b.appointment_time) return 1;
+          return 0;
+      });
+      processedAppointments = [...upcomingOrToday, ...past];
+    } else {
+      // For 'today' and 'upcoming', just sort ascending by date and time
+      processedAppointments.sort((a, b) => {
           if (a.appointment_date < b.appointment_date) return -1;
           if (a.appointment_date > b.appointment_date) return 1;
           if (a.appointment_time < b.appointment_time) return -1;
           if (a.appointment_time > b.appointment_time) return 1;
           return 0;
-        });
-        past.sort((a, b) => { 
-            if (a.appointment_date > b.appointment_date) return -1;
-            if (a.appointment_date < b.appointment_date) return 1;
-            if (a.appointment_time > b.appointment_time) return -1;
-            if (a.appointment_time < b.appointment_time) return 1;
-            return 0;
-        });
-        processedAppointments = [...upcomingOrToday, ...past];
-        break;
+      });
     }
     setFilteredAndSortedAppointments(processedAppointments);
-  }, [allAppointments, selectedDentistId, activeSortFilter, dentists]);
+  }, [allAppointments, selectedDentistId, statusFilter, dateFilter, dentists]);
 
   const handleOpenNewAppointmentPage = () => {
     navigate(NavigationPath.NewAppointment);
@@ -236,6 +253,11 @@ export const AppointmentsPage: React.FC = () => {
     ...dentists.map(d => ({ value: d.id, label: d.full_name }))
   ];
 
+  const statusOptions = [
+    { value: '', label: 'Todos os Status' },
+    ...Object.entries(statusLabelMap).map(([value, label]) => ({ value, label }))
+  ];
+
   if (isLoading && allAppointments.length === 0) {
     return <div className="text-center py-10 text-[#b0b0b0]">Carregando agendamentos...</div>;
   }
@@ -259,30 +281,44 @@ export const AppointmentsPage: React.FC = () => {
       </div>
 
       <Card title="Filtros e Visualização" className="bg-[#1a1a1a]" titleClassName="text-white">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="flex-grow w-full sm:w-auto">
-            <Select 
-                label="Filtrar por dentista"
-                value={selectedDentistId}
-                onChange={(e) => setSelectedDentistId(e.target.value)}
-                options={dentistOptions}
-                disabled={isLoadingDentists || isLoading}
-                containerClassName="mb-0"
-            />
-          </div>
-          <div className="flex-shrink-0 flex items-center space-x-2 bg-[#1f1f1f] p-1 rounded-lg">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+          <Select 
+              label="Filtrar por dentista"
+              value={selectedDentistId}
+              onChange={(e) => setSelectedDentistId(e.target.value)}
+              options={dentistOptions}
+              disabled={isLoadingDentists || isLoading}
+              containerClassName="mb-0"
+          />
+          <Select 
+              label="Filtrar por status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as Appointment['status'] | '')}
+              options={statusOptions}
+              disabled={isLoading}
+              containerClassName="mb-0"
+          />
+          <div className="flex-shrink-0 flex items-center space-x-2 bg-[#1f1f1f] p-1 rounded-lg w-full justify-around lg:justify-end h-[calc(100%-24px)] mt-auto">
             <Button
                 size="sm"
-                variant={activeSortFilter === 'upcoming' ? 'primary' : 'ghost'}
-                onClick={() => setActiveSortFilter('upcoming')}
+                variant={dateFilter === 'today' ? 'primary' : 'ghost'}
+                onClick={() => setDateFilter('today')}
+                disabled={isLoading}
+            >
+                Hoje
+            </Button>
+            <Button
+                size="sm"
+                variant={dateFilter === 'upcoming' ? 'primary' : 'ghost'}
+                onClick={() => setDateFilter('upcoming')}
                 disabled={isLoading}
             >
                 Próximos
             </Button>
             <Button
                 size="sm"
-                variant={activeSortFilter === 'all' ? 'primary' : 'ghost'}
-                onClick={() => setActiveSortFilter('all')}
+                variant={dateFilter === 'all' ? 'primary' : 'ghost'}
+                onClick={() => setDateFilter('all')}
                 disabled={isLoading}
             >
                 Todos

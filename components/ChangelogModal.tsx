@@ -26,6 +26,17 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
         } else {
           const hardcodedEntries: ChangelogEntry[] = [
             {
+              id: 'manual-entry-7',
+              created_at: new Date('2025-07-10T12:00:00Z').toISOString(),
+              release_date: '2025-07-10',
+              version: 'v4.9.0',
+              changes: [
+                'Adicionados filtros por status e data (Hoje, Próximos) na tela de Agendamentos.',
+                'A visualização padrão da tela de Pacientes agora é em modo "Lista".',
+                'A visualização padrão da tela de Tratamentos agora é em modo "Lista".',
+              ]
+            },
+            {
               id: 'manual-entry-6',
               created_at: new Date('2025-07-09T18:00:00Z').toISOString(),
               release_date: '2025-07-09',

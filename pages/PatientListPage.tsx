@@ -28,7 +28,7 @@ export const PatientListPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('card');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [patientToDelete, setPatientToDelete] = useState<PatientToDelete | null>(null);
