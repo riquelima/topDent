@@ -40,65 +40,59 @@ export const ConsultationHistoryPage: React.FC = () => {
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
 
-
-  const fetchHistoryAndFilters = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const filters = {
-        patientSearchTerm: selectedPatientCpfFilter ? 
-                            allPatientsList.find(p => p.cpf === selectedPatientCpfFilter)?.fullName || selectedPatientCpfFilter
-                            : patientSearchTerm.trim() || undefined, 
-        dentistId: selectedDentistIdFilter || undefined,
-        startDate: startDateFilter || undefined,
-        endDate: endDateFilter || undefined,
-      };
-
-      const historyRes = await getConsultationHistory(filters);
-      if (historyRes.error) {
-        throw new Error(historyRes.error.message || "Erro ao buscar histórico.");
-      }
-      setHistoryEntries(historyRes.data || []);
-
-      if (allPatientsList.length === 0) {
-        const patientsRes = await getPatients();
-        if (patientsRes.error) console.warn("Erro ao carregar lista de pacientes para filtro.");
-        else setAllPatientsList(patientsRes.data || []);
-      }
-      if (availableDentists.length === 0) {
-        const dentistsRes = await getKnownDentists();
-        setAvailableDentists(dentistsRes);
-      }
-
-    } catch (err: any) {
-      setError(err.message);
-      showToast(err.message, 'error');
-      setHistoryEntries([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [showToast, selectedPatientCpfFilter, patientSearchTerm, selectedDentistIdFilter, startDateFilter, endDateFilter, allPatientsList, availableDentists]); 
-
+  // Effect to load data for filters (runs once)
   useEffect(() => {
-    fetchHistoryAndFilters();
-  }, [fetchHistoryAndFilters]); 
-  
-  useEffect(() => {
-    const loadDropdownData = async () => {
-        if (allPatientsList.length === 0) {
-            const patientsRes = await getPatients();
-            if (patientsRes.error) console.warn("Erro ao carregar lista de pacientes para filtro inicial.");
-            else setAllPatientsList(patientsRes.data || []);
-        }
-        if (availableDentists.length === 0) {
-            const dentistsRes = await getKnownDentists();
+    const loadFilterData = async () => {
+        try {
+            const [patientsRes, dentistsRes] = await Promise.all([
+                getPatients(),
+                getKnownDentists()
+            ]);
+
+            if (patientsRes.error) {
+                console.warn("Erro ao carregar lista de pacientes para filtro.");
+            } else {
+                setAllPatientsList(patientsRes.data || []);
+            }
+            
             setAvailableDentists(dentistsRes);
+        } catch (err) {
+            showToast('Erro ao carregar dados para filtros', 'error');
         }
     };
-    loadDropdownData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+    loadFilterData();
+  }, [showToast]);
 
+  // Effect to fetch history based on filters
+  useEffect(() => {
+      const fetchHistory = async () => {
+          setIsLoading(true);
+          setError(null);
+          try {
+              const filters = {
+                  // If a patient is selected from the dropdown, use their CPF. Otherwise, use the search term.
+                  patientSearchTerm: selectedPatientCpfFilter || patientSearchTerm.trim() || undefined,
+                  dentistId: selectedDentistIdFilter || undefined,
+                  startDate: startDateFilter || undefined,
+                  endDate: endDateFilter || undefined,
+              };
+
+              const historyRes = await getConsultationHistory(filters);
+              if (historyRes.error) {
+                  throw new Error(historyRes.error.message || "Erro ao buscar histórico.");
+              }
+              setHistoryEntries(historyRes.data || []);
+          } catch (err: any) {
+              setError(err.message);
+              showToast(err.message, 'error');
+              setHistoryEntries([]);
+          } finally {
+              setIsLoading(false);
+          }
+      };
+
+      fetchHistory();
+  }, [selectedPatientCpfFilter, patientSearchTerm, selectedDentistIdFilter, startDateFilter, endDateFilter, showToast]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -162,7 +156,10 @@ export const ConsultationHistoryPage: React.FC = () => {
                 value={patientSearchTerm}
                 onChange={(e) => {
                   setPatientSearchTerm(e.target.value);
-                  if (e.target.value.trim() !== '') setIsPatientDropdownOpen(true);
+                  if (e.target.value.trim() !== '') {
+                    setIsPatientDropdownOpen(true);
+                    setSelectedPatientCpfFilter(''); // Clear CPF filter when typing
+                  }
                   else {
                     setIsPatientDropdownOpen(false);
                     setSelectedPatientCpfFilter(''); 

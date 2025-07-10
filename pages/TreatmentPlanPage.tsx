@@ -268,15 +268,21 @@ export const TreatmentPlanPage: React.FC = () => {
       })
       .filter(p => p.value && !isNaN(parseFloat(p.value)));
 
-    const planDataPayload: Partial<SupabaseTreatmentPlanData> = {
+    const planDataPayload: { [key: string]: any } = {
         patient_cpf: patientCPF, 
         description: description,
         procedures_performed: proceduresPerformed.trim() || null,
-        files: finalFiles.length > 0 ? finalFiles : null,
         dentist_signature: dentistSignature.trim() || null,
         prescribed_medication: prescribedMedication.trim() || null,
-        payments: validPayments.length > 0 ? validPayments : null,
     };
+
+    if (finalFiles.length > 0) {
+        planDataPayload.files = finalFiles;
+    }
+
+    if (validPayments.length > 0) {
+        planDataPayload.payments = validPayments;
+    }
 
     try {
       if (isEditMode && planId) {
@@ -307,9 +313,36 @@ export const TreatmentPlanPage: React.FC = () => {
           navigate(NavigationPath.AllTreatmentPlans); 
         }
       }
-    } catch (error: any) {
-        showToast('Erro ao salvar Plano de Tratamento: ' + error.message, 'error');
-        console.error("Error saving treatment plan:", error);
+    } catch (err: unknown) {
+        let errorMessage = "Ocorreu uma falha inesperada.";
+        let hint = "";
+
+        if (typeof err === 'object' && err !== null && 'message' in err && typeof (err as any).message === 'string') {
+            errorMessage = (err as { message: string }).message;
+            if ('hint' in err && typeof (err as any).hint === 'string') {
+                 hint = (err as any).hint;
+            }
+        } else if (err instanceof Error) {
+            errorMessage = err.message;
+        } else if (typeof err === 'string') {
+            errorMessage = err;
+        }
+
+        if (errorMessage.includes("violates foreign key constraint")) {
+            errorMessage = "Erro de integridade de dados.";
+            hint = "Verifique se o CPF do paciente está correto e se o paciente já está cadastrado no sistema.";
+        } else if (errorMessage.includes("Could not find the 'files' column")) {
+            errorMessage = "A coluna 'files' para salvar anexos não foi encontrada no banco de dados.";
+            hint = "Por favor, aplique a atualização de banco de dados pendente que foi fornecida.";
+        } else if (errorMessage.includes("Could not find the 'payments' column")) {
+             errorMessage = "A coluna 'payments' para salvar pagamentos não foi encontrada no banco de dados.";
+             hint = "Por favor, aplique a atualização de banco de dados pendente que foi fornecida.";
+        }
+
+        const finalMessage = `Erro ao salvar: ${errorMessage}${hint ? ` (Dica: ${hint})` : ''}`;
+        
+        showToast(finalMessage, 'error', 12000);
+        console.error("Error saving treatment plan:", err);
     } finally {
         setIsLoading(false);
     }

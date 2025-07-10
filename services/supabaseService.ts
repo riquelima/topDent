@@ -246,6 +246,33 @@ export const deleteTreatmentPlan = async (planId: string) => {
 // --- APPOINTMENT FUNCTIONS ---
 export type SupabaseAppointmentData = Omit<Appointment, 'id' | 'created_at' | 'updated_at'>;
 
+export interface SimpleAgendamento {
+    nome_cliente: string;
+    telefone: string;
+    data_agendamento: string; // YYYY-MM-DD
+    hora_agendamento: string; // HH:MM:SS
+    servico: string;
+    status: string;
+}
+
+export const addSimpleAgendamento = async (agendamentoData: SimpleAgendamento) => {
+    const client = getSupabaseClient();
+    if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+    
+    // The new table expects a 'time' type, which can include seconds.
+    // We ensure the time format is HH:MM:SS.
+    const timeParts = agendamentoData.hora_agendamento.split(':');
+    const formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2] || '00'}`;
+    
+    const payload = {
+        ...agendamentoData,
+        hora_agendamento: formattedTime,
+        mensagem_enviada: false // Default value
+    };
+
+    return client.from('agendamentos').insert([payload]);
+};
+
 export const addAppointment = async (appointmentData: SupabaseAppointmentData) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };

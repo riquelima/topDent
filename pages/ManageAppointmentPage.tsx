@@ -8,7 +8,7 @@ import { Textarea } from '../components/ui/Textarea';
 import { Select } from '../components/ui/Select';
 import { ChevronUpDownIcon, MagnifyingGlassIcon, ClockIcon, ArrowUturnLeftIcon } from '../components/icons/HeroIcons';
 import { Appointment, Patient, DentistUser, NavigationPath, Procedure } from '../types';
-import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getAppointmentById, getProcedures } from '../services/supabaseService';
+import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getAppointmentById, getProcedures, addSimpleAgendamento } from '../services/supabaseService';
 import type { SupabaseAppointmentData } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import { getKnownDentists } from '../src/utils/users';
@@ -38,6 +38,7 @@ export const ManageAppointmentPage: React.FC = () => {
   // State for appointment fields
   const [patientCpf, setPatientCpf] = useState<string | null>(null);
   const [patientName, setPatientName] = useState('');
+  const [patientPhone, setPatientPhone] = useState('');
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
   const [returnDate, setReturnDate] = useState('');
@@ -130,6 +131,8 @@ export const ManageAppointmentPage: React.FC = () => {
             setPatientCpf(existingAppt.patient_cpf);
             setPatientName(existingAppt.patient_name || '');
             setPatientSearchTerm(existingAppt.patient_name || '');
+            const existingPatient = (patientsRes.data || []).find(p => p.cpf === existingAppt.patient_cpf);
+            setPatientPhone(existingPatient?.phone || '');
             setAppointmentDate(existingAppt.appointment_date);
             setAppointmentTime(existingAppt.appointment_time);
             setReturnDate(existingAppt.return_date || '');
@@ -144,6 +147,7 @@ export const ManageAppointmentPage: React.FC = () => {
           setAppointmentDate(today);
           setPatientCpf(null);
           setPatientName('');
+          setPatientPhone('');
           setPatientSearchTerm('');
           setAppointmentTime('');
           setReturnDate('');
@@ -236,9 +240,27 @@ export const ManageAppointmentPage: React.FC = () => {
         if (error) throw error;
         showToast('Agendamento atualizado com sucesso!', 'success');
       } else {
-        const { error } = await addAppointment(appointmentDataPayload);
-        if (error) throw error;
-        showToast('Agendamento salvo com sucesso!', 'success');
+        // Main appointment save
+        const { error: mainError } = await addAppointment(appointmentDataPayload);
+        if (mainError) throw mainError;
+
+        // Secondary table save (agendamentos)
+        const { error: simpleAgendamentoError } = await addSimpleAgendamento({
+            nome_cliente: patientName.trim(),
+            telefone: patientPhone.trim(),
+            data_agendamento: appointmentDate,
+            hora_agendamento: appointmentTime,
+            servico: procedureString,
+            status: status,
+        });
+
+        if (simpleAgendamentoError) {
+            // Warn the user but don't fail the whole operation since the main appointment was saved.
+            showToast('Agendamento principal salvo, mas falha ao salvar na agenda simplificada.', 'warning');
+            console.error("Error saving to simple agendamentos table:", simpleAgendamentoError);
+        } else {
+            showToast('Agendamento salvo com sucesso!', 'success');
+        }
       }
       navigate(NavigationPath.Appointments);
     } catch (error: any) {
@@ -268,6 +290,7 @@ export const ManageAppointmentPage: React.FC = () => {
   const handlePatientSelect = (patient: Patient) => {
     setPatientCpf(patient.cpf);
     setPatientName(patient.fullName);
+    setPatientPhone(patient.phone || '');
     setPatientSearchTerm(patient.fullName);
     setIsPatientDropdownOpen(false);
   };
@@ -277,6 +300,7 @@ export const ManageAppointmentPage: React.FC = () => {
     setPatientSearchTerm(newSearchTerm);
     setPatientName(newSearchTerm);
     setPatientCpf(null);
+    setPatientPhone(''); // Clear phone when typing new patient name
     if(newSearchTerm.trim() !== '') {
         setIsPatientDropdownOpen(true);
     } else {
@@ -352,6 +376,15 @@ export const ManageAppointmentPage: React.FC = () => {
                 </div>
               )}
             </div>
+
+            <Input
+              label="Telefone do Paciente (para lembretes)"
+              type="tel"
+              value={patientPhone}
+              onChange={(e) => setPatientPhone(e.target.value)}
+              placeholder="Ex: 5571987654321"
+              disabled={isLoading}
+            />
 
             <div className="relative" ref={dentistDropdownRef}>
               <label htmlFor="dentistSelectInput" className="block text-sm font-medium text-gray-300 mb-1">Dentista Responsável *</label>
