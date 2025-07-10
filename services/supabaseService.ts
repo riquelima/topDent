@@ -548,12 +548,14 @@ export const markMessagesAsRead = async (messageIds: string[], recipientId: stri
     const client = getSupabaseClient();
     if (!client || messageIds.length === 0) return { data: null, error: { message: "Client not initialized or no messages to mark." } };
     
-    // By not chaining .select(), we only perform the update. This can prevent RLS issues
-    // where the update is allowed but selecting the updated rows is not.
+    // Chaining .select() makes the query more explicit and can help with certain RLS policies.
+    // This helps ensure that if the update is permitted, we also have permission to view the result,
+    // which can resolve certain permission errors.
     return client.from('chat_messages')
         .update({ is_read: true })
         .in('id', messageIds)
-        .eq('recipient_id', recipientId); // Security check
+        .eq('recipient_id', recipientId) // Security check
+        .select();
 };
 
 export const subscribeToMessages = (userId: string, callback: (payload: ChatMessage) => void): RealtimeChannel | null => {

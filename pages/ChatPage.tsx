@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { PaperAirplaneIcon, UserIcon as DentistIcon } from '../components/icons/HeroIcons';
+import { PaperAirplaneIcon, UserIcon as DentistIcon, CheckIcon, CheckDoubleIcon } from '../components/icons/HeroIcons';
 import { Dentist, ChatMessage } from '../types';
 import { getDentists, getMessagesBetweenUsers, sendMessage, markMessagesAsRead } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
@@ -212,10 +212,21 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId, unreadMessages, set
                     <p className="text-center text-gray-400">Inicie a conversa com {selectedDentist.full_name}.</p>
                 ) : (
                     messages.map(msg => (
-                        <div key={msg.id} className={`flex ${msg.sender_id === adminId ? 'justify-end' : 'justify-start'}`}>
+                        <div key={msg.id} className={`flex items-end ${msg.sender_id === adminId ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-xs md:max-w-md lg:max-w-2xl px-4 py-2 rounded-xl shadow ${msg.sender_id === adminId ? 'bg-[#007b8b] text-white rounded-br-none' : 'bg-[#2a2a2a] text-gray-200 rounded-bl-none'}`}>
-                                <p className="text-sm">{msg.content}</p>
-                                <p className="text-xs text-right mt-1 opacity-60">{formatIsoToSaoPauloTime(msg.created_at)}</p>
+                                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                <div className="flex items-center justify-end text-right mt-1 opacity-60">
+                                    <p className="text-xs">{formatIsoToSaoPauloTime(msg.created_at)}</p>
+                                    {msg.sender_id === adminId && (
+                                        <span className="ml-2">
+                                            {msg.is_read ? (
+                                                <CheckDoubleIcon className="w-4 h-4 text-cyan-300" />
+                                            ) : (
+                                                <CheckIcon className="w-4 h-4 text-gray-400" />
+                                            )}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ))
