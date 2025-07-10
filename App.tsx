@@ -25,6 +25,7 @@ import { NavigationPath, ChatMessage } from './types';
 import { Button } from './components/ui/Button';
 import { ToastProvider } from './contexts/ToastContext';
 import { ChangelogModal } from './components/ChangelogModal';
+import { Modal } from './components/ui/Modal';
 import { updateUserPreferences, getUnreadMessages, subscribeToMessages } from './services/supabaseService';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -76,6 +77,9 @@ const App: React.FC = () => {
   const [unreadMessages, setUnreadMessages] = useState<ChatMessage[]>([]);
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
   const isAudioUnlocked = useRef(false);
+
+  // State for the new admin chat modal
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
 
   useEffect(() => {
     // This effect runs only once on initial app load to restore the session.
@@ -202,6 +206,7 @@ const App: React.FC = () => {
     setUserDisplayFullName(null);
     setIsChangelogModalOpen(false);
     setUnreadMessages([]); // Explicitly clear unread messages on logout
+    setIsChatModalOpen(false); // Close chat modal on logout
     try {
       localStorage.removeItem(SESSION_STORAGE_KEY);
     } catch (error) {
@@ -278,35 +283,69 @@ const App: React.FC = () => {
             path="/*"
             element={
               <ProtectedRoute>
-                <AppLayout onLogout={handleLogout} userRole={userRole} userName={userDisplayFullName} unreadChatCount={unreadMessages.length}>
-                  <Routes>
-                    <Route index element={renderDashboard()} />
-                    
-                    <Route path={NavigationPath.NewPatient.substring(1)} element={<ProtectedRoute adminOnly>{<NewPatientPage />}</ProtectedRoute>} />
-                    <Route path={NavigationPath.EditPatient.substring(1)} element={<ProtectedRoute adminOnly>{<NewPatientPage />}</ProtectedRoute>} />
-                    <Route path={NavigationPath.PatientsList.substring(1)} element={<ProtectedRoute adminOnly>{<PatientListPage />}</ProtectedRoute>} />
-                    <Route path={NavigationPath.Anamnesis.substring(1)} element={<ProtectedRoute adminOnly>{<AnamnesisFormPage />}</ProtectedRoute>} />
-                    <Route path={NavigationPath.AllTreatmentPlans.substring(1)} element={<ProtectedRoute adminOnly>{<AllTreatmentPlansPage />}</ProtectedRoute>} />
-                    <Route path={NavigationPath.Chat.substring(1)} element={<ProtectedRoute adminOnly><ChatPage adminId={userIdForApi!} unreadMessages={unreadMessages} setUnreadMessages={setUnreadMessages} /></ProtectedRoute>} />
-                    <Route path={NavigationPath.Configurations.substring(1)} element={<ProtectedRoute adminOnly>{<ConfigurationsPage />}</ProtectedRoute>} />
-                    <Route path={NavigationPath.Appointments.substring(1)} element={<ProtectedRoute adminOnly><AppointmentsPage /></ProtectedRoute>} />
-                    <Route path={NavigationPath.NewAppointment.substring(1)} element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} />
-                    <Route path={NavigationPath.EditAppointment.substring(1)} element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} />
-                    <Route path={NavigationPath.Return.substring(1)} element={<ProtectedRoute adminOnly><ReturnsPage /></ProtectedRoute>} />
+                <>
+                  <AppLayout onLogout={handleLogout} userRole={userRole} userName={userDisplayFullName} unreadChatCount={unreadMessages.length}>
+                    <Routes>
+                      <Route index element={renderDashboard()} />
+                      
+                      <Route path={NavigationPath.NewPatient.substring(1)} element={<ProtectedRoute adminOnly>{<NewPatientPage />}</ProtectedRoute>} />
+                      <Route path={NavigationPath.EditPatient.substring(1)} element={<ProtectedRoute adminOnly>{<NewPatientPage />}</ProtectedRoute>} />
+                      <Route path={NavigationPath.PatientsList.substring(1)} element={<ProtectedRoute adminOnly>{<PatientListPage />}</ProtectedRoute>} />
+                      <Route path={NavigationPath.Anamnesis.substring(1)} element={<ProtectedRoute adminOnly>{<AnamnesisFormPage />}</ProtectedRoute>} />
+                      <Route path={NavigationPath.AllTreatmentPlans.substring(1)} element={<ProtectedRoute adminOnly>{<AllTreatmentPlansPage />}</ProtectedRoute>} />
+                      <Route path={NavigationPath.Configurations.substring(1)} element={<ProtectedRoute adminOnly>{<ConfigurationsPage />}</ProtectedRoute>} />
+                      <Route path={NavigationPath.Appointments.substring(1)} element={<ProtectedRoute adminOnly><AppointmentsPage /></ProtectedRoute>} />
+                      <Route path={NavigationPath.NewAppointment.substring(1)} element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} />
+                      <Route path={NavigationPath.EditAppointment.substring(1)} element={<ProtectedRoute adminOnly><ManageAppointmentPage /></ProtectedRoute>} />
+                      <Route path={NavigationPath.Return.substring(1)} element={<ProtectedRoute adminOnly><ReturnsPage /></ProtectedRoute>} />
 
-                    <Route path={NavigationPath.TreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
-                    <Route path={NavigationPath.EditTreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
-                    <Route path={NavigationPath.ConsultationHistory.substring(1)} element={<ConsultationHistoryPage />} />
+                      {/* Route for /chat is removed */}
+                      <Route path={NavigationPath.Chat.substring(1)} element={<Navigate to="/" />} />
+
+                      <Route path={NavigationPath.TreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
+                      <Route path={NavigationPath.EditTreatmentPlan.substring(1)} element={<TreatmentPlanPage />} />
+                      <Route path={NavigationPath.ConsultationHistory.substring(1)} element={<ConsultationHistoryPage />} />
+                      
+                      <Route path={NavigationPath.PatientDetail.substring(1)} element={<PatientDetailPage />} />
+                      <Route path={NavigationPath.PatientAnamnesis.substring(1)} element={<PatientAnamnesisPage />} />
+                      <Route path={NavigationPath.PatientTreatmentPlans.substring(1)} element={<PatientTreatmentPlansPage />} />
                     
-                    <Route path={NavigationPath.PatientDetail.substring(1)} element={<PatientDetailPage />} />
-                    <Route path={NavigationPath.PatientAnamnesis.substring(1)} element={<PatientAnamnesisPage />} />
-                    <Route path={NavigationPath.PatientTreatmentPlans.substring(1)} element={<PatientTreatmentPlansPage />} />
-                   
-                    <Route path={NavigationPath.ViewRecord.substring(1)} element={<ViewRecordPage />} />
-                    
-                    <Route path="*" element={<PlaceholderPage title="Página não encontrada" />} />
-                  </Routes>
-                </AppLayout>
+                      <Route path={NavigationPath.ViewRecord.substring(1)} element={<ViewRecordPage />} />
+                      
+                      <Route path="*" element={<PlaceholderPage title="Página não encontrada" />} />
+                    </Routes>
+                  </AppLayout>
+
+                  {/* Admin Chat FAB and Modal */}
+                  {userRole === 'admin' && userIdForApi && (
+                    <>
+                      <button
+                        onClick={() => setIsChatModalOpen(true)}
+                        className="fixed bottom-8 right-8 bg-[#00bcd4] hover:bg-[#00a5b8] text-black w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0e0e0e] focus:ring-[#00bcd4] z-40"
+                      >
+                        <img src="https://cdn-icons-png.flaticon.com/512/1078/1078011.png" alt="Chat" className="w-8 h-8" />
+                        {unreadMessages.length > 0 && (
+                          <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#00bcd4]">
+                            {unreadMessages.length > 9 ? '9+' : unreadMessages.length}
+                          </span>
+                        )}
+                      </button>
+
+                      <Modal
+                        isOpen={isChatModalOpen}
+                        onClose={() => setIsChatModalOpen(false)}
+                        title="Chat com Dentistas"
+                        size="fill"
+                      >
+                        <ChatPage
+                          adminId={userIdForApi}
+                          unreadMessages={unreadMessages}
+                          setUnreadMessages={setUnreadMessages}
+                        />
+                      </Modal>
+                    </>
+                  )}
+                </>
               </ProtectedRoute>
             }
           />

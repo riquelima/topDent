@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -143,7 +144,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId, unreadMessages, set
   };
 
   return (
-    <div className="flex h-[calc(100vh-10rem)] bg-[#1a1a1a] rounded-lg shadow-2xl border border-gray-700/50">
+    <div className="flex h-full bg-[#1a1a1a] rounded-lg shadow-2xl overflow-hidden">
       {/* Sidebar with Dentist List */}
       <aside className="w-1/3 xl:w-1/4 border-r border-gray-700/50 flex flex-col">
         <div className="p-4 border-b border-gray-700/50">
@@ -198,14 +199,14 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId, unreadMessages, set
       </aside>
 
       {/* Main Chat Area */}
-      <main className="w-2/3 xl:w-3/4 flex flex-col">
+      <main className="w-2/3 xl:w-3/4 flex flex-col min-w-0">
         {selectedDentist ? (
           <>
             <header className="p-4 border-b border-gray-700/50 flex items-center space-x-3 bg-[#1f1f1f]">
                <div className="p-2 rounded-full bg-gray-600 text-white"><DentistIcon className="w-5 h-5"/></div>
                <h3 className="text-lg font-semibold text-white">{selectedDentist.full_name}</h3>
             </header>
-            <div className="flex-grow p-4 space-y-4 overflow-y-auto bg-[#181818]">
+            <div className="flex-grow p-4 space-y-4 overflow-y-auto bg-[#181818] rounded-t-md">
                 {isLoading.messages ? (
                     <p className="text-center text-gray-400">Carregando mensagens...</p>
                 ) : messages.length === 0 ? (

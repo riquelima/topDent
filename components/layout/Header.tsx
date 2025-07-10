@@ -88,16 +88,6 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName, un
                 <NavLink to={NavigationPath.Appointments}>Agendamentos</NavLink>
                 <NavLink to={NavigationPath.Return}>Retornos</NavLink>
                 <NavLink to={NavigationPath.ViewRecord}>Prontuários</NavLink>
-                <NavLink to={NavigationPath.Chat}>
-                    <div className="relative">
-                        Chat
-                        {unreadChatCount > 0 && (
-                        <span className="absolute -top-1.5 -right-3.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#141414]">
-                            {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                        </span>
-                        )}
-                    </div>
-                </NavLink>
                 <NavLink to={NavigationPath.ConsultationHistory}>Histórico</NavLink> 
                 <NavLink to={NavigationPath.AllTreatmentPlans}>Tratamentos</NavLink>
                 <NavLink to={NavigationPath.Configurations}>Configurações</NavLink> 
@@ -150,16 +140,6 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName, un
                 <NavLink to={NavigationPath.Appointments} onClick={closeMobileMenu} isMobile>Agendamentos</NavLink>
                 <NavLink to={NavigationPath.Return} onClick={closeMobileMenu} isMobile>Retornos</NavLink>
                 <NavLink to={NavigationPath.ViewRecord} onClick={closeMobileMenu} isMobile>Prontuários</NavLink>
-                <NavLink to={NavigationPath.Chat} onClick={closeMobileMenu} isMobile>
-                    <div className="relative inline-block">
-                        Chat
-                        {unreadChatCount > 0 && (
-                        <span className="absolute -top-1 -right-6 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
-                            {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                        </span>
-                        )}
-                    </div>
-                </NavLink>
                 <NavLink to={NavigationPath.ConsultationHistory} onClick={closeMobileMenu} isMobile>Histórico</NavLink>
                 <NavLink to={NavigationPath.AllTreatmentPlans} onClick={closeMobileMenu} isMobile>Tratamentos</NavLink>
                 <NavLink to={NavigationPath.Configurations} onClick={closeMobileMenu} isMobile>Configurações</NavLink>

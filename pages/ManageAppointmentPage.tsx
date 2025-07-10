@@ -8,7 +8,7 @@ import { Textarea } from '../components/ui/Textarea';
 import { Select } from '../components/ui/Select';
 import { ChevronUpDownIcon, MagnifyingGlassIcon, ClockIcon, ArrowUturnLeftIcon } from '../components/icons/HeroIcons';
 import { Appointment, Patient, DentistUser, NavigationPath, Procedure } from '../types';
-import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getAppointmentById, getProcedures, addSimpleAgendamento } from '../services/supabaseService';
+import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getAppointmentById, getProcedures } from '../services/supabaseService';
 import type { SupabaseAppointmentData } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import { getKnownDentists } from '../src/utils/users';
@@ -243,24 +243,7 @@ export const ManageAppointmentPage: React.FC = () => {
         // Main appointment save
         const { error: mainError } = await addAppointment(appointmentDataPayload);
         if (mainError) throw mainError;
-
-        // Secondary table save (agendamentos)
-        const { error: simpleAgendamentoError } = await addSimpleAgendamento({
-            nome_cliente: patientName.trim(),
-            telefone: patientPhone.trim(),
-            data_agendamento: appointmentDate,
-            hora_agendamento: appointmentTime,
-            servico: procedureString,
-            status: status,
-        });
-
-        if (simpleAgendamentoError) {
-            // Warn the user but don't fail the whole operation since the main appointment was saved.
-            showToast('Agendamento principal salvo, mas falha ao salvar na agenda simplificada.', 'warning');
-            console.error("Error saving to simple agendamentos table:", simpleAgendamentoError);
-        } else {
-            showToast('Agendamento salvo com sucesso!', 'success');
-        }
+        showToast('Agendamento salvo com sucesso!', 'success');
       }
       navigate(NavigationPath.Appointments);
     } catch (error: any) {

@@ -95,13 +95,14 @@ export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
   return { data, error: supabaseError };
 };
 
-export const updatePatient = async (cpf: string, patientData: Partial<Omit<Patient, 'id' | 'cpf'>>) => {
+export const updatePatient = async (oldCpf: string, patientData: Partial<Omit<Patient, 'id'>>) => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
   const dataToUpdate: Record<string, any> = {};
+  if (patientData.cpf !== undefined) dataToUpdate.cpf = patientData.cpf;
   if (patientData.fullName !== undefined) dataToUpdate.full_name = patientData.fullName;
-  if (patientData.dob !== undefined) dataToUpdate.dob = patientData.dob || '1900-01-01'; // Use default date on update as well
+  if (patientData.dob !== undefined) dataToUpdate.dob = patientData.dob || '1900-01-01';
   if (patientData.guardian !== undefined) dataToUpdate.guardian = patientData.guardian || null;
   if (patientData.rg !== undefined) dataToUpdate.rg = patientData.rg || null;
   if (patientData.phone !== undefined) dataToUpdate.phone = patientData.phone || null;
@@ -121,11 +122,11 @@ export const updatePatient = async (cpf: string, patientData: Partial<Omit<Patie
   const { data, error: supabaseError } = await client
     .from('patients')
     .update(dataToUpdate)
-    .eq('cpf', cpf)
+    .eq('cpf', oldCpf)
     .select();
   
   if (supabaseError) {
-    console.error(`Error updating patient CPF ${cpf}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
+    console.error(`Error updating patient CPF ${oldCpf}:`, supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
   }
   return { data, error: supabaseError };
 };
@@ -245,33 +246,6 @@ export const deleteTreatmentPlan = async (planId: string) => {
 
 // --- APPOINTMENT FUNCTIONS ---
 export type SupabaseAppointmentData = Omit<Appointment, 'id' | 'created_at' | 'updated_at'>;
-
-export interface SimpleAgendamento {
-    nome_cliente: string;
-    telefone: string;
-    data_agendamento: string; // YYYY-MM-DD
-    hora_agendamento: string; // HH:MM:SS
-    servico: string;
-    status: string;
-}
-
-export const addSimpleAgendamento = async (agendamentoData: SimpleAgendamento) => {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    
-    // The new table expects a 'time' type, which can include seconds.
-    // We ensure the time format is HH:MM:SS.
-    const timeParts = agendamentoData.hora_agendamento.split(':');
-    const formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2] || '00'}`;
-    
-    const payload = {
-        ...agendamentoData,
-        hora_agendamento: formattedTime,
-        mensagem_enviada: false // Default value
-    };
-
-    return client.from('agendamentos').insert([payload]);
-};
 
 export const addAppointment = async (appointmentData: SupabaseAppointmentData) => {
     const client = getSupabaseClient();

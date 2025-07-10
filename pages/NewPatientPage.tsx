@@ -247,19 +247,22 @@ export const NewPatientPage: React.FC = () => {
       }
     }
 
-    let patientSavedSuccessfully = false;
-    let savedPatientCpf = isEditMode && patientId ? patientId : patientDataPayload.cpf;
-
     try {
       if (isEditMode && patientId) {
-        const { cpf, ...updateData } = patientDataPayload;
-        const { error } = await updatePatient(patientId, updateData);
+        const { error } = await updatePatient(patientId, patientDataPayload);
         if (error) {
           console.error('Supabase update patient error:', error);
-          showToast('Erro ao atualizar paciente: ' + error.message, 'error');
+          let errorMessage = 'Erro ao atualizar paciente.';
+          if ((error as any).code === '23505' || error.message.includes('duplicate key value violates unique constraint')) {
+            errorMessage = 'Erro: O CPF informado já está cadastrado em outro paciente.';
+          } else {
+            errorMessage = 'Erro ao atualizar paciente: ' + error.message;
+          }
+          showToast(errorMessage, 'error', 6000);
         } else {
           showToast('Paciente atualizado com sucesso!', 'success');
-          patientSavedSuccessfully = true;
+          // Navigate to the correct details page, using the potentially new CPF
+          navigate(NavigationPath.PatientDetail.replace(':patientId', patientDataPayload.cpf));
         }
       } else {
         const { error: addPatientError } = await addPatient(patientDataPayload);
@@ -272,11 +275,10 @@ export const NewPatientPage: React.FC = () => {
           }
         } else {
           showToast('Paciente salvo com sucesso!', 'success');
-          patientSavedSuccessfully = true;
 
           if (anamnesisFilled) {
             const anamnesisDataToSave: Omit<SupabaseAnamnesisData, 'id' | 'created_at'> = {
-                patient_cpf: savedPatientCpf,
+                patient_cpf: patientDataPayload.cpf,
                 medications_taken: medications.value,
                 medications_details: medications.details || null,
                 is_smoker: isSmoker,
@@ -306,7 +308,7 @@ export const NewPatientPage: React.FC = () => {
             const validBPReadings = bloodPressureReadings.filter(bp => bp.date && bp.value);
             if (validBPReadings.length > 0) {
                 const bpDataToSave: Omit<SupabaseBloodPressureReading, 'id' | 'created_at'>[] = validBPReadings.map(bp => ({
-                    patient_cpf: savedPatientCpf,
+                    patient_cpf: patientDataPayload.cpf,
                     reading_date: bp.date, 
                     reading_value: bp.value
                 }));
@@ -319,12 +321,8 @@ export const NewPatientPage: React.FC = () => {
             }
           }
           handleClear(); 
+          navigate(NavigationPath.PatientsList);
         }
-      }
-      if (patientSavedSuccessfully && isEditMode && savedPatientCpf) {
-        navigate(NavigationPath.PatientDetail.replace(':patientId', savedPatientCpf));
-      } else if (patientSavedSuccessfully && !isEditMode) {
-        navigate(NavigationPath.PatientsList);
       }
     } catch (error: any) {
       console.error('Unexpected error in handleSubmit:', error);
@@ -370,8 +368,19 @@ export const NewPatientPage: React.FC = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Input label="RG" name="rg" value={formData.rg} onChange={handleChange} disabled={isLoading} />
-            <Input label="CPF (Será usado como ID do Paciente)" name="cpf" value={formData.cpf} onChange={handleChange} 
-                   disabled={isLoading || isEditMode} 
+            <Input 
+              label="CPF (Será usado como ID do Paciente)" 
+              name="cpf" 
+              value={formData.cpf} 
+              onChange={handleChange} 
+              disabled={isLoading || (isEditMode && !formData.cpf.startsWith('ID-'))}
+              description={
+                isEditMode && formData.cpf.startsWith('ID-')
+                  ? 'Este ID provisório pode ser substituído pelo CPF real do paciente.'
+                  : isEditMode
+                  ? 'O CPF não pode ser alterado.'
+                  : 'Deixe em branco para gerar um ID provisório.'
+              }
             />
             <Input label="Telefone" name="phone" type="tel" value={formData.phone} onChange={handleChange} disabled={isLoading} />
           </div>
