@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
@@ -38,7 +37,7 @@ import {
     markMessagesAsRead
 } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
-import { formatToHHMM, isoToDdMmYyyy } from '../src/utils/formatDate';
+import { formatIsoToSaoPauloTime, isoToDdMmYyyy, formatToHHMM } from '../src/utils/formatDate';
 
 interface DentistDashboardPageProps {
   dentistId: string;
@@ -475,6 +474,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         );
         if (newIncomingMessages.length > 0) {
             setChatMessages(prev => [...prev, ...newIncomingMessages]);
+            
             const idsToMark = newIncomingMessages.map(m => m.id);
             markMessagesAsRead(idsToMark, dentistId).then(({ error }) => {
                 if (!error) {
@@ -565,7 +565,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
                     {notifications.length > 0 ? notifications.map(n => (
                       <div key={n.id} className="relative p-3 rounded-md hover:bg-gray-700/50 group">
                         <p className="text-sm text-gray-200 pr-6">{n.message}</p>
-                        <p className="text-xs text-gray-500 text-right mt-1">{formatToHHMM(new Date(n.created_at).toTimeString())}</p>
+                        <p className="text-xs text-gray-500 text-right mt-1">{formatIsoToSaoPauloTime(n.created_at)}</p>
                         <button onClick={(e) => handleDismissNotification(n.id, e)} className="absolute top-2 right-2 p-1 rounded-full text-gray-500 hover:text-white hover:bg-red-500/50 opacity-0 group-hover:opacity-100 transition-all" aria-label="Remover"><XMarkIcon className="w-4 h-4" /></button>
                       </div>
                     )) : <p className="text-sm text-gray-400 text-center p-4">Nenhuma nova notificação.</p>}
@@ -630,7 +630,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
                       <div className={`max-w-xs md:max-w-md lg:max-w-2xl px-4 py-2 rounded-xl shadow-md ${msg.sender_id === dentistId ? 'bg-[#007b8b] text-white rounded-br-none' : 'bg-[#2a2a2a] text-gray-200 rounded-bl-none'}`}>
                           <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                           <div className="flex items-center justify-end text-right mt-1 opacity-60">
-                              <p className="text-xs">{formatToHHMM(msg.created_at)}</p>
+                              <p className="text-xs">{formatIsoToSaoPauloTime(msg.created_at)}</p>
                               {msg.sender_id === dentistId && (
                                   <span className="ml-2">
                                       {msg.is_read ? (

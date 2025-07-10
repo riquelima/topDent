@@ -1,4 +1,3 @@
-
 // services/supabaseService.ts
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { 
@@ -522,11 +521,12 @@ export const markMessagesAsRead = async (messageIds: string[], recipientId: stri
     const client = getSupabaseClient();
     if (!client || messageIds.length === 0) return { data: null, error: { message: "Client not initialized or no messages to mark." } };
     
+    // By not chaining .select(), we only perform the update. This can prevent RLS issues
+    // where the update is allowed but selecting the updated rows is not.
     return client.from('chat_messages')
         .update({ is_read: true })
         .in('id', messageIds)
-        .eq('recipient_id', recipientId) // Security check
-        .select();
+        .eq('recipient_id', recipientId); // Security check
 };
 
 export const subscribeToMessages = (userId: string, callback: (payload: ChatMessage) => void): RealtimeChannel | null => {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -7,7 +6,7 @@ import { PaperAirplaneIcon, UserIcon as DentistIcon } from '../components/icons/
 import { Dentist, ChatMessage } from '../types';
 import { getDentists, getMessagesBetweenUsers, sendMessage, markMessagesAsRead } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
-import { formatToHHMM } from '../src/utils/formatDate';
+import { formatIsoToSaoPauloTime } from '../src/utils/formatDate';
 
 interface ChatPageProps {
   adminId: string;
@@ -216,7 +215,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ adminId, unreadMessages, set
                         <div key={msg.id} className={`flex ${msg.sender_id === adminId ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-xs md:max-w-md lg:max-w-2xl px-4 py-2 rounded-xl shadow ${msg.sender_id === adminId ? 'bg-[#007b8b] text-white rounded-br-none' : 'bg-[#2a2a2a] text-gray-200 rounded-bl-none'}`}>
                                 <p className="text-sm">{msg.content}</p>
-                                <p className="text-xs text-right mt-1 opacity-60">{formatToHHMM(msg.created_at)}</p>
+                                <p className="text-xs text-right mt-1 opacity-60">{formatIsoToSaoPauloTime(msg.created_at)}</p>
                             </div>
                         </div>
                     ))

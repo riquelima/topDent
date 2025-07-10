@@ -1,4 +1,3 @@
-
 // src/utils/formatDate.ts
 
 /**
@@ -57,4 +56,30 @@ export const formatToHHMM = (timeString: string | null | undefined): string => {
   }
   // Fallback for unexpected format, though less likely if source is consistent
   return timeString; 
+};
+
+/**
+ * Formats an ISO 8601 timestamp string into HH:MM format for the 'America/Sao_Paulo' timezone.
+ * @param isoTimestamp The full ISO timestamp string from Supabase (e.g., "2024-07-10T22:30:00+00:00").
+ * @returns Time string in HH:MM format, or an empty string if input is invalid.
+ */
+export const formatIsoToSaoPauloTime = (isoTimestamp: string | null | undefined): string => {
+  if (!isoTimestamp) {
+    return '';
+  }
+  try {
+    const date = new Date(isoTimestamp);
+    // 'pt-BR' is used for locale, but timeZone dictates the offset.
+    // 'hour12: false' ensures 24-hour format.
+    return date.toLocaleTimeString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  } catch (error) {
+    console.error("Error formatting date to São Paulo time:", error);
+    // Fallback to simple HH:MM extraction if toLocaleTimeString fails, which will be in user's local time
+    return formatToHHMM(isoTimestamp.split('T')[1]);
+  }
 };
