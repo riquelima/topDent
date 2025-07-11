@@ -1,4 +1,3 @@
-
 // services/supabaseService.ts
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { 
@@ -19,14 +18,422 @@ import {
     ChatMessage
 } from '../types'; 
 
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export interface Database {
+  public: {
+    Tables: {
+      appointments: {
+        Row: {
+            id: string;
+            patient_cpf: string | null;
+            patient_name: string;
+            appointment_date: string;
+            appointment_time: string;
+            procedure: string;
+            notes: string | null;
+            status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+            dentist_id: string | null; 
+            dentist_name: string | null; 
+            return_date: string | null;
+            created_at: string;
+            updated_at: string | null;
+        }
+        Insert: {
+            id?: string;
+            patient_cpf: string | null;
+            patient_name: string;
+            appointment_date: string;
+            appointment_time: string;
+            procedure: string;
+            notes?: string | null;
+            status?: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+            dentist_id?: string | null; 
+            dentist_name?: string | null; 
+            return_date?: string | null;
+            created_at?: string;
+        }
+        Update: {
+            patient_cpf?: string | null;
+            patient_name?: string;
+            appointment_date?: string;
+            appointment_time?: string;
+            procedure?: string;
+            notes?: string | null;
+            status?: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+            dentist_id?: string | null; 
+            dentist_name?: string | null; 
+            return_date?: string | null;
+            updated_at?: string | null;
+        }
+      }
+      patients: {
+        Row: {
+          cpf: string
+          full_name: string
+          dob: string
+          guardian: string | null
+          rg: string | null
+          phone: string | null
+          address_street: string | null
+          address_number: string | null
+          address_district: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          payment_type: "health_plan" | "private" | null
+          health_plan_code: string | null
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          cpf: string
+          full_name: string
+          dob: string
+          guardian?: string | null
+          rg?: string | null
+          phone?: string | null
+          address_street?: string | null
+          address_number?: string | null
+          address_district?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          payment_type?: "health_plan" | "private" | null
+          health_plan_code?: string | null
+          created_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+            cpf?: string;
+            full_name?: string;
+            dob?: string;
+            guardian?: string | null;
+            rg?: string | null;
+            phone?: string | null;
+            address_street?: string | null;
+            address_number?: string | null;
+            address_district?: string | null;
+            emergency_contact_name?: string | null;
+            emergency_contact_phone?: string | null;
+            payment_type?: "health_plan" | "private" | null;
+            health_plan_code?: string | null;
+            updated_at?: string | null;
+        }
+      }
+      anamnesis_forms: {
+        Row: {
+            id: string;
+            created_at: string;
+            patient_cpf: string;
+            medications_taken: 'Sim' | 'Não' | null;
+            medications_details: string | null;
+            is_smoker: 'Sim' | 'Não' | null;
+            is_pregnant: 'Sim' | 'Não' | null;
+            allergies_exist: 'Sim' | 'Não' | 'Não sei' | null;
+            allergies_details: string | null;
+            has_disease: 'Sim' | 'Não' | null;
+            disease_cardiovascular: boolean | null;
+            disease_respiratory: boolean | null;
+            disease_vascular: boolean | null;
+            disease_diabetes: boolean | null;
+            disease_hypertension: boolean | null;
+            disease_renal: boolean | null;
+            disease_neoplasms: boolean | null;
+            disease_hereditary: boolean | null;
+            disease_other_details: string | null;
+            surgeries_had: 'Sim' | 'Não' | null;
+            surgeries_details: string | null;
+        }
+        Insert: {
+            id?: string;
+            created_at?: string;
+            patient_cpf: string;
+            medications_taken: 'Sim' | 'Não' | null;
+            medications_details?: string | null;
+            is_smoker: 'Sim' | 'Não' | null;
+            is_pregnant: 'Sim' | 'Não' | null;
+            allergies_exist: 'Sim' | 'Não' | 'Não sei' | null;
+            allergies_details?: string | null;
+            has_disease: 'Sim' | 'Não' | null;
+            disease_cardiovascular?: boolean | null;
+            disease_respiratory?: boolean | null;
+            disease_vascular?: boolean | null;
+            disease_diabetes?: boolean | null;
+            disease_hypertension?: boolean | null;
+            disease_renal?: boolean | null;
+            disease_neoplasms?: boolean | null;
+            disease_hereditary?: boolean | null;
+            disease_other_details?: string | null;
+            surgeries_had: 'Sim' | 'Não' | null;
+            surgeries_details?: string | null;
+        }
+        Update: {
+            patient_cpf?: string;
+            medications_taken?: 'Sim' | 'Não' | null;
+            medications_details?: string | null;
+            is_smoker?: 'Sim' | 'Não' | null;
+            is_pregnant?: 'Sim' | 'Não' | null;
+            allergies_exist?: 'Sim' | 'Não' | 'Não sei' | null;
+            allergies_details?: string | null;
+            has_disease?: 'Sim' | 'Não' | null;
+            disease_cardiovascular?: boolean | null;
+            disease_respiratory?: boolean | null;
+            disease_vascular?: boolean | null;
+            disease_diabetes?: boolean | null;
+            disease_hypertension?: boolean | null;
+            disease_renal?: boolean | null;
+            disease_neoplasms?: boolean | null;
+            disease_hereditary?: boolean | null;
+            disease_other_details?: string | null;
+            surgeries_had?: 'Sim' | 'Não' | null;
+            surgeries_details?: string | null;
+        }
+      }
+      blood_pressure_readings: {
+        Row: {
+            id: string;
+            created_at: string;
+            patient_cpf: string;
+            reading_date: string;
+            reading_value: string;
+        }
+        Insert: {
+            id?: string;
+            created_at?: string;
+            patient_cpf: string;
+            reading_date: string;
+            reading_value: string;
+        }
+        Update: {
+            patient_cpf?: string;
+            reading_date?: string;
+            reading_value?: string;
+        }
+      }
+      treatment_plans: {
+        Row: {
+            id: string;
+            created_at: string;
+            patient_cpf: string;
+            description: string;
+            procedures_performed: string | null;
+            files: Json | null;
+            dentist_signature: string | null;
+            prescribed_medication: string | null;
+            payments: Json | null;
+            updated_at?: string;
+        }
+        Insert: {
+            id?: string;
+            created_at?: string;
+            patient_cpf: string;
+            description: string;
+            procedures_performed?: string | null;
+            files?: Json | null;
+            dentist_signature?: string | null;
+            prescribed_medication?: string | null;
+            payments?: Json | null;
+        }
+        Update: {
+            patient_cpf?: string;
+            description?: string;
+            procedures_performed?: string | null;
+            files?: Json | null;
+            dentist_signature?: string | null;
+            prescribed_medication?: string | null;
+            payments?: Json | null;
+            updated_at?: string;
+        }
+      }
+      dentists: {
+        Row: {
+            id: string;
+            full_name: string;
+            username: string;
+            password?: string;
+            show_changelog?: boolean;
+            created_at: string;
+            updated_at: string | null;
+        }
+        Insert: {
+            id?: string;
+            full_name: string;
+            username: string;
+            password?: string;
+            show_changelog?: boolean;
+            created_at?: string;
+        }
+        Update: {
+            full_name?: string;
+            username?: string;
+            password?: string;
+            show_changelog?: boolean;
+            updated_at?: string | null;
+        }
+      }
+      reminders: {
+        Row: {
+            id: string;
+            created_at: string;
+            title: string;
+            content: string;
+            is_active: boolean;
+        }
+        Insert: {
+            id?: string;
+            created_at?: string;
+            title: string;
+            content: string;
+            is_active: boolean;
+        }
+        Update: {
+            title?: string;
+            content?: string;
+            is_active?: boolean;
+        }
+      }
+      procedures: {
+        Row: {
+            id: string;
+            name: string;
+            is_active: boolean;
+            created_at: string;
+            updated_at: string;
+        }
+        Insert: {
+            id?: string;
+            name: string;
+            is_active?: boolean;
+            created_at?: string;
+        }
+        Update: {
+            name?: string;
+            is_active?: boolean;
+            updated_at?: string;
+        }
+      }
+      consultation_history: {
+        Row: {
+            id: string;
+            appointment_id: string | null;
+            patient_cpf: string | null;
+            dentist_id: string | null;
+            dentist_name: string | null;
+            patient_name: string;
+            procedure_details: string;
+            consultation_date: string;
+            completion_timestamp: string;
+            status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+            notes: string | null;
+            created_at: string;
+        }
+        Insert: {
+            id?: string;
+            appointment_id: string | null;
+            patient_cpf: string | null;
+            dentist_id?: string | null;
+            dentist_name?: string | null;
+            patient_name: string;
+            procedure_details: string;
+            consultation_date: string;
+            completion_timestamp?: string;
+            status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+            notes?: string | null;
+            created_at?: string;
+        }
+        Update: {
+            appointment_id?: string | null;
+            patient_cpf?: string | null;
+            dentist_id?: string | null;
+            dentist_name?: string | null;
+            patient_name?: string;
+            procedure_details?: string;
+            consultation_date?: string;
+            completion_timestamp?: string;
+            status?: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+            notes?: string | null;
+        }
+      }
+      notifications: {
+        Row: {
+            id: string;
+            created_at: string;
+            dentist_id: string;
+            message: string;
+            is_read: boolean;
+            appointment_id: string | null;
+        }
+        Insert: {
+            id?: string;
+            created_at?: string;
+            dentist_id: string;
+            message: string;
+            is_read?: boolean;
+            appointment_id?: string | null;
+        }
+        Update: {
+            dentist_id?: string;
+            message?: string;
+            is_read?: boolean;
+            appointment_id?: string | null;
+        }
+      }
+      chat_messages: {
+        Row: {
+            id: string;
+            sender_id: string;
+            recipient_id: string;
+            content: string;
+            created_at: string;
+            is_read: boolean;
+        }
+        Insert: {
+            id?: string;
+            sender_id: string;
+            recipient_id: string;
+            content: string;
+            created_at?: string;
+            is_read?: boolean;
+        }
+        Update: {
+            sender_id?: string;
+            recipient_id?: string;
+            content?: string;
+            is_read?: boolean;
+        }
+      }
+      configurations: {
+        Row: { key: string; value: string; created_at: string }
+        Insert: { key: string; value: string; created_at?: string }
+        Update: {
+             key?: string; 
+             value?: string;
+        }
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+  }
+}
+
+
 const SUPABASE_URL: string = 'https://wbxjsqixqxdcagiorccx.supabase.co';
 const SUPABASE_ANON_KEY: string = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndieGpzcWl4cXhkY2FnaW9yY2N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NDY2MTEsImV4cCI6MjA2NDUyMjYxMX0.k6XbupkpNarKbmIGKUPYnRFh9Fha5Li4gq5l5HvRe7w';
 
-let supabase: SupabaseClient | null = null;
+let supabase: SupabaseClient<Database> | null = null;
 
 if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
   try {
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);
     console.log("Supabase client initialized.");
   } catch (error) {
     console.error("Error initializing Supabase client:", error);
@@ -38,7 +445,7 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL' &&
   );
 }
 
-export const getSupabaseClient = (): SupabaseClient | null => {
+export const getSupabaseClient = (): SupabaseClient<Database> | null => {
   if (!supabase) {
     console.error("Supabase client is not initialized. Check configuration in services/supabaseService.ts.");
   }
@@ -72,7 +479,7 @@ export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
 
   const { cpf, fullName, dob, guardian, rg, phone, addressStreet, addressNumber, addressDistrict, emergencyContactName, emergencyContactPhone, payment_type, health_plan_code } = patientData;
   
-  const dataToInsert = {
+  const dataToInsert: Database["public"]["Tables"]["patients"]["Insert"] = {
     created_at: new Date().toISOString(), 
     cpf,
     full_name: fullName,
@@ -89,7 +496,7 @@ export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
     health_plan_code: health_plan_code || null,
   };
 
-  const { data, error: supabaseError } = await client.from('patients').insert([dataToInsert]).select();
+  const { data, error: supabaseError } = await client.from('patients').insert(dataToInsert).select();
   if (supabaseError) {
     console.error('Error adding patient to Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
   }
@@ -100,7 +507,7 @@ export const updatePatient = async (oldCpf: string, patientData: Partial<Omit<Pa
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
-  const dataToUpdate: Record<string, any> = {};
+  const dataToUpdate: Database["public"]["Tables"]["patients"]["Update"] = {};
   if (patientData.cpf !== undefined) dataToUpdate.cpf = patientData.cpf;
   if (patientData.fullName !== undefined) dataToUpdate.full_name = patientData.fullName;
   if (patientData.dob !== undefined) dataToUpdate.dob = patientData.dob || '1900-01-01';
@@ -179,7 +586,7 @@ export const getPatientByCpf = async (cpf: string): Promise<{ data: Patient | nu
 export const addAnamnesisForm = async (anamnesisData: Omit<SupabaseAnamnesisData, 'id' | 'created_at'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('anamnesis_forms').insert([anamnesisData]).select();
+    return client.from('anamnesis_forms').insert(anamnesisData).select();
 };
 
 export const addBloodPressureReadings = async (readings: Omit<SupabaseBloodPressureReading, 'id' | 'created_at'>[]) => {
@@ -207,13 +614,14 @@ export const getBloodPressureReadingsByPatientCpf = async (patientCpf: string): 
 export const addTreatmentPlan = async (planData: Omit<SupabaseTreatmentPlanData, 'id' | 'created_at'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('treatment_plans').insert([planData]).select();
+    return client.from('treatment_plans').insert(planData).select();
 };
 
 export const updateTreatmentPlan = async (planId: string, planData: Partial<SupabaseTreatmentPlanData>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('treatment_plans').update({ ...planData, updated_at: new Date().toISOString() }).eq('id', planId).select();
+    const updatePayload = { ...planData, updated_at: new Date().toISOString() };
+    return client.from('treatment_plans').update(updatePayload).eq('id', planId).select();
 };
 
 export const getTreatmentPlanById = async (planId: string): Promise<{ data: SupabaseTreatmentPlanData | null, error: any }> => {
@@ -251,13 +659,14 @@ export type SupabaseAppointmentData = Omit<Appointment, 'id' | 'created_at' | 'u
 export const addAppointment = async (appointmentData: SupabaseAppointmentData) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('appointments').insert([appointmentData]).select();
+    return client.from('appointments').insert(appointmentData).select();
 };
 
 export const updateAppointment = async (appointmentId: string, appointmentData: Partial<SupabaseAppointmentData>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('appointments').update({ ...appointmentData, updated_at: new Date().toISOString() }).eq('id', appointmentId).select();
+    const updatePayload = { ...appointmentData, updated_at: new Date().toISOString() };
+    return client.from('appointments').update(updatePayload).eq('id', appointmentId).select();
 };
 
 export const getAppointmentById = async (appointmentId: string): Promise<{ data: Appointment | null, error: any }> => {
@@ -320,7 +729,7 @@ export const getUpcomingReturns = async (): Promise<{ data: AppointmentReturnInf
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
     const today = new Date().toISOString().split('T')[0];
     const { data, error } = await client.from('appointments')
-      .select('id, return_date, patient_cpf, patient_name, patient_phone:patients(phone)')
+      .select('id, return_date, patient_cpf, patient_name, patient_phone:patients(phone), dentist_id, dentist_name')
       .not('return_date', 'is', null)
       .gte('return_date', today)
       .order('return_date');
@@ -333,6 +742,12 @@ export const clearAppointmentReturnDate = async (appointmentId: string) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
     return client.from('appointments').update({ return_date: null }).eq('id', appointmentId);
+};
+
+export const clearReturnDatesForAppointments = async (appointmentIds: string[]) => {
+    const client = getSupabaseClient();
+    if (!client || appointmentIds.length === 0) return { data: null, error: { message: "Client not initialized or no IDs provided." } };
+    return client.from('appointments').update({ return_date: null }).in('id', appointmentIds).select();
 };
 
 
@@ -352,13 +767,14 @@ export const getDentistByUsername = async (username: string): Promise<{ data: De
 export const addDentist = async (dentistData: Omit<Dentist, 'id' | 'created_at' | 'updated_at'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('dentists').insert([dentistData]).select().single();
+    return client.from('dentists').insert(dentistData).select().single();
 };
 
 export const updateDentist = async (dentistId: string, dentistData: Partial<Omit<Dentist, 'id' | 'created_at' | 'updated_at'>>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('dentists').update({ ...dentistData, updated_at: new Date().toISOString() }).eq('id', dentistId);
+    const updatePayload = { ...dentistData, updated_at: new Date().toISOString() };
+    return client.from('dentists').update(updatePayload).eq('id', dentistId);
 };
 
 export const deleteDentist = async (dentistId: string) => {
@@ -390,7 +806,7 @@ export const getActiveReminders = async (): Promise<{ data: Reminder[] | null, e
 export const addReminder = async (reminderData: Omit<Reminder, 'id' | 'created_at' | 'is_active'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('reminders').insert([{ ...reminderData, is_active: true }]);
+    return client.from('reminders').insert({ ...reminderData, is_active: true });
 };
 
 export const updateReminder = async (reminderId: string, reminderData: Partial<Omit<Reminder, 'id' | 'created_at' | 'is_active'>>) => {
@@ -426,7 +842,7 @@ export const getProcedures = async (includeInactive: boolean = false): Promise<{
 export const addProcedure = async (procedureData: Pick<Procedure, 'name'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('procedures').insert([{ ...procedureData, is_active: true }]);
+    return client.from('procedures').insert({ ...procedureData, is_active: true });
 };
 
 export const updateProcedure = async (procedureId: string, procedureData: Partial<Pick<Procedure, 'name' | 'is_active'>>) => {
@@ -446,7 +862,7 @@ export const addConsultationHistoryEntry = async (entry: Omit<ConsultationHistor
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
     const payload = { ...entry, completion_timestamp: new Date().toISOString() };
-    return client.from('consultation_history').insert([payload]);
+    return client.from('consultation_history').insert(payload);
 };
 
 export const getConsultationHistory = async (filters: { patientSearchTerm?: string, dentistId?: string, startDate?: string, endDate?: string }) => {
@@ -466,7 +882,7 @@ export const getConsultationHistory = async (filters: { patientSearchTerm?: stri
 export const addNotification = async (notification: Omit<Notification, 'id' | 'created_at' | 'is_read'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('notifications').insert([{ ...notification, is_read: false }]);
+    return client.from('notifications').insert({ ...notification, is_read: false });
 };
 
 export const getUnreadNotificationsForDentist = async (dentistId: string): Promise<{ data: Notification[] | null, error: any }> => {
@@ -516,7 +932,7 @@ export const getMessagesBetweenUsers = async (userId1: string, userId2: string) 
 export const sendMessage = async (message: Omit<ChatMessage, 'id' | 'created_at' | 'is_read'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('chat_messages').insert([message]);
+    return client.from('chat_messages').insert(message);
 };
 
 export const markMessagesAsRead = async (messageIds: string[], recipientId: string) => {

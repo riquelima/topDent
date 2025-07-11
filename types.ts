@@ -235,6 +235,8 @@ export interface AppointmentReturnInfo {
   patient_cpf: string | null;
   patient_name: string;
   patient_phone: string;
+  dentist_id?: string | null;
+  dentist_name?: string | null;
 }
 
 // Interface for Changelog

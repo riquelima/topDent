@@ -4,7 +4,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
-import { UserPlusIcon, PencilIcon, TrashIcon, LockClosedIcon, UserIcon as FormUserIcon, CheckIcon, BellIcon, BriefcaseIcon, CheckCircleIcon, XCircleIcon } from '../components/icons/HeroIcons'; // Added BriefcaseIcon, CheckCircleIcon, XCircleIcon
+import { UserPlusIcon, PencilIcon, TrashIcon, LockClosedIcon, UserIcon as FormUserIcon, CheckIcon, BellIcon, BriefcaseIcon, CheckCircleIcon, XCircleIcon, WhatsAppIcon } from '../components/icons/HeroIcons'; // Added BriefcaseIcon, CheckCircleIcon, XCircleIcon
 import { Dentist, Reminder, Procedure } from '../types';
 import { 
     getDentists, addDentist, updateDentist, deleteDentist,
@@ -65,6 +65,9 @@ export const ConfigurationsPage = (): JSX.Element => {
   const [procedureFormData, setProcedureFormData] = useState<ProcedureFormState>({ name: '' });
   const [isConfirmDeleteProcedureModalOpen, setIsConfirmDeleteProcedureModalOpen] = useState(false);
   const [procedureToDelete, setProcedureToDelete] = useState<Procedure | null>(null);
+
+  // Webhook State
+  const [isTriggeringWebhook, setIsTriggeringWebhook] = useState(false);
 
 
   const fetchDentists = useCallback(async () => {
@@ -332,6 +335,24 @@ export const ConfigurationsPage = (): JSX.Element => {
     setIsSubmittingProcedure(false);
   };
 
+    const handleConfirmAppointments = async () => {
+        setIsTriggeringWebhook(true);
+        const webhookUrl = 'https://primary-production-76569.up.railway.app/webhook-test/b54a4900-15a6-41ec-9508-7575370de5b3';
+
+        try {
+            await fetch(webhookUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+            });
+            alert("✅ Mensagem de confirmação enviada com sucesso no WhatsApp!");
+        } catch (error: any) {
+            console.error('Erro ao disparar webhook de confirmação:', error);
+            alert("⚠️ Algo deu errado. Tente novamente.");
+        } finally {
+            setIsTriggeringWebhook(false);
+        }
+    };
+
 
   if (isLoadingDentists && isLoadingReminders && isLoadingProcedures) {
     return <div className="text-center py-10 text-[#b0b0b0]">Carregando configurações...</div>;
@@ -342,6 +363,26 @@ export const ConfigurationsPage = (): JSX.Element => {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <h1 className="text-3xl font-bold text-white">Configurações</h1>
       </div>
+
+      {/* Automações Card */}
+      <Card title="Automações" className="bg-[#1a1a1a]" titleClassName="text-white">
+          <div className="flex flex-col sm:flex-row justify-between items-center p-2">
+              <div className="flex-grow mb-4 sm:mb-0 sm:mr-4">
+                  <h4 className="font-semibold text-white">Confirmar Agendamentos via WhatsApp</h4>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Clique no botão para disparar uma automação que enviará mensagens de confirmação de agendamento via WhatsApp para os clientes do próximo dia útil.
+                  </p>
+              </div>
+              <Button
+                  onClick={handleConfirmAppointments}
+                  disabled={isTriggeringWebhook}
+                  leftIcon={<WhatsAppIcon className="w-5 h-5" />}
+                  variant="primary"
+              >
+                  {isTriggeringWebhook ? 'Enviando...' : 'Confirmar Agendamentos'}
+              </Button>
+          </div>
+      </Card>
 
       {/* Gerenciar Dentistas Card */}
       <Card title="Gerenciar Dentistas" className="bg-[#1a1a1a]" titleClassName="text-white">

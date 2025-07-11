@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, FormEvent, useRef, useCallback } from 'react';
 import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -14,6 +13,7 @@ import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getApp
 import type { SupabaseAppointmentData } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import { getKnownDentists } from '../src/utils/users';
+import { isoToDdMmYyyy } from '../src/utils/formatDate';
 
 const statusOptions: { value: Appointment['status']; label: string }[] = [
   { value: 'Scheduled', label: 'Agendado' },
@@ -45,7 +45,8 @@ export const ManageAppointmentPage: React.FC = () => {
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
   const [returnDate, setReturnDate] = useState('');
-  
+  const [returnTime, setReturnTime] = useState('');
+
   // State for procedures
   const [allSelectableProcedures, setAllSelectableProcedures] = useState<string[]>([]);
   const [selectedProcedures, setSelectedProcedures] = useState<Record<string, boolean>>({});
@@ -140,12 +141,15 @@ export const ManageAppointmentPage: React.FC = () => {
             setPatientPhone(existingPatient?.phone || '');
             setAppointmentDate(existingAppt.appointment_date);
             setAppointmentTime(existingAppt.appointment_time);
-            setReturnDate(existingAppt.return_date || '');
             setNotes(existingAppt.notes || '');
             setStatus(existingAppt.status);
             setSelectedDentistId(existingAppt.dentist_id || null);
             const currentDentist = dentistsRes.find(d => d.id === existingAppt.dentist_id);
             setDentistSearchTerm(currentDentist ? currentDentist.full_name : '');
+            
+            // Return fields are for creating a NEW return, so they start empty.
+            setReturnDate('');
+            setReturnTime('');
           }
         } else if (navigationState?.patientCpf && navigationState?.patientName) {
             // This is a rebook action
@@ -162,6 +166,7 @@ export const ManageAppointmentPage: React.FC = () => {
             setAppointmentDate(today);
             setAppointmentTime('');
             setReturnDate('');
+            setReturnTime('');
             setNotes('');
             setStatus('Scheduled');
             setSelectedDentistId(null);
@@ -176,6 +181,7 @@ export const ManageAppointmentPage: React.FC = () => {
           setPatientSearchTerm('');
           setAppointmentTime('');
           setReturnDate('');
+          setReturnTime('');
           setNotes('');
           setStatus('Scheduled');
           setSelectedDentistId(null);
@@ -223,6 +229,19 @@ export const ManageAppointmentPage: React.FC = () => {
     if (value.length === 3 && value.endsWith(":") && digits.length === 2) newFormattedTime = value;
     setAppointmentTime(newFormattedTime);
   };
+  
+  const handleReturnTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    let digits = value.replace(/\D/g, "").substring(0, 4);
+    let newFormattedTime = "";
+
+    if (digits.length === 0) newFormattedTime = "";
+    else if (digits.length <= 2) newFormattedTime = digits;
+    else newFormattedTime = `${digits.substring(0, 2)}:${digits.substring(2)}`;
+    
+    if (value.length === 3 && value.endsWith(":") && digits.length === 2) newFormattedTime = value;
+    setReturnTime(newFormattedTime);
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -246,6 +265,7 @@ export const ManageAppointmentPage: React.FC = () => {
 
     setIsLoading(true);
     const selectedDentistObject = availableDentists.find(d => d.id === selectedDentistId);
+    
     const appointmentDataPayload: SupabaseAppointmentData = {
       patient_cpf: patientCpf,
       patient_name: patientName.trim(),
@@ -256,7 +276,7 @@ export const ManageAppointmentPage: React.FC = () => {
       status,
       dentist_id: selectedDentistId,
       dentist_name: selectedDentistObject?.full_name || null,
-      return_date: returnDate || null,
+      return_date: null, // This is now handled by creating a new appointment
     };
 
     try {
@@ -265,11 +285,37 @@ export const ManageAppointmentPage: React.FC = () => {
         if (error) throw error;
         showToast('Agendamento atualizado com sucesso!', 'success');
       } else {
-        // Main appointment save
         const { error: mainError } = await addAppointment(appointmentDataPayload);
         if (mainError) throw mainError;
         showToast('Agendamento salvo com sucesso!', 'success');
       }
+
+      // After successfully saving the main appointment, check and create the return appointment.
+      if (returnDate && returnTime) {
+        if (!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(returnTime)) {
+            showToast('Hora do retorno é inválida. O agendamento principal foi salvo, mas o retorno não.', 'warning', 8000);
+        } else {
+            const returnAppointmentPayload: SupabaseAppointmentData = {
+              patient_cpf: patientCpf,
+              patient_name: patientName.trim(),
+              appointment_date: returnDate,
+              appointment_time: returnTime,
+              procedure: "Retorno", // Default procedure for returns
+              notes: `Agendamento de retorno referente à consulta de ${isoToDdMmYyyy(appointmentDate)}.`,
+              status: 'Scheduled',
+              dentist_id: selectedDentistId,
+              dentist_name: selectedDentistObject?.full_name || null,
+              return_date: null,
+            };
+            const { error: returnError } = await addAppointment(returnAppointmentPayload);
+            if (returnError) {
+              showToast(`Agendamento principal salvo, mas falha ao criar retorno: ${returnError.message}`, 'error', 8000);
+            } else {
+              showToast('Agendamento de retorno criado com sucesso!', 'success');
+            }
+        }
+      }
+
       navigate(NavigationPath.Appointments);
     } catch (error: any) {
       showToast(`Erro: ${error.message}`, 'error');
@@ -421,11 +467,15 @@ export const ManageAppointmentPage: React.FC = () => {
               )}
             </div>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <DatePicker label="Data da Consulta *" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} required disabled={isLoading} />
             <Input label="Hora da Consulta (HH:MM) *" value={appointmentTime} onChange={handleTimeInputChange} placeholder="Ex: 14:30" required maxLength={5} disabled={isLoading} prefixIcon={<ClockIcon className="w-5 h-5 text-gray-400" />} />
-            <DatePicker label="Data de Retorno (Opcional)" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} disabled={isLoading} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-700/50">
+             <DatePicker label="Agendar Retorno para Data (Opcional)" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} disabled={isLoading} />
+             <Input label="Hora do Retorno (HH:MM)" value={returnTime} onChange={handleReturnTimeChange} placeholder="Ex: 09:00" maxLength={5} disabled={isLoading || !returnDate} prefixIcon={<ClockIcon className="w-5 h-5 text-gray-400" />} description={!returnDate ? "Preencha a data do retorno primeiro." : ""} />
           </div>
           
           <div>

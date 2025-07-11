@@ -1,13 +1,15 @@
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { getUpcomingReturns, getConfigurationValue, updateConfigurationValue, clearAppointmentReturnDate } from '../services/supabaseService';
+import { getUpcomingReturns, getConfigurationValue, updateConfigurationValue, clearAppointmentReturnDate, getSupabaseClient } from '../services/supabaseService';
 import { AppointmentReturnInfo, NavigationPath } from '../types';
 import { isoToDdMmYyyy } from '../src/utils/formatDate';
 import { Link } from 'react-router-dom';
 import { Textarea } from '../components/ui/Textarea';
 import { useToast } from '../contexts/ToastContext';
-import { TrashIcon } from '../components/icons/HeroIcons';
+import { TrashIcon, ArrowPathIcon } from '../components/icons/HeroIcons';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 
 const WHATSAPP_TEMPLATE_KEY = 'whatsapp_return_message';
@@ -29,7 +31,8 @@ export const ReturnsPage: React.FC = () => {
   const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] = useState(false);
   const [returnToDelete, setReturnToDelete] = useState<AppointmentReturnInfo | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
+  
+  const [convertingReturnId, setConvertingReturnId] = useState<string | null>(null);
 
   const fetchReturns = useCallback(async () => {
     setIsLoading(true);
@@ -126,6 +129,50 @@ export const ReturnsPage: React.FC = () => {
       closeConfirmDeleteModal();
   };
 
+  const handleConvertSingleReturn = async (ret: AppointmentReturnInfo) => {
+    setConvertingReturnId(ret.id);
+
+    const newAppointmentPayload = {
+        patient_cpf: ret.patient_cpf,
+        patient_name: ret.patient_name,
+        appointment_date: ret.return_date,
+        appointment_time: '09:00', // Default time
+        procedure: 'Retorno',
+        notes: `Retorno referente ao agendamento ID: ${ret.id}`,
+        status: 'Scheduled' as const,
+        dentist_id: ret.dentist_id || null,
+        dentist_name: ret.dentist_name || 'A definir',
+        return_date: null,
+    };
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+        showToast("Erro: Cliente Supabase não inicializado.", 'error');
+        setConvertingReturnId(null);
+        return;
+    }
+
+    const { error: insertError } = await supabase.from('appointments').insert(newAppointmentPayload as any);
+
+    if (insertError) {
+        showToast(`Erro ao criar novo agendamento: ${insertError.message}`, 'error');
+        setConvertingReturnId(null);
+        return;
+    }
+
+    const { error: clearError } = await clearAppointmentReturnDate(ret.id);
+
+    if (clearError) {
+        showToast('Retorno convertido, mas falha ao limpar o lembrete original.', 'warning');
+    } else {
+        showToast('Retorno convertido em agendamento com sucesso!', 'success');
+    }
+    
+    setConvertingReturnId(null);
+    fetchReturns();
+  };
+
+
   const renderContent = () => {
     if (isLoading) {
       return <p className="text-center text-[#b0b0b0] py-8">Carregando retornos...</p>;
@@ -144,7 +191,6 @@ export const ReturnsPage: React.FC = () => {
             <tr>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider align-middle">Data do Retorno</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider align-middle">Paciente</th>
-              <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-[#b0b0b0] uppercase tracking-wider align-middle">Lembrete Whatsapp</th>
               <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-[#b0b0b0] uppercase tracking-wider align-middle">Ações</th>
             </tr>
           </thead>
@@ -153,12 +199,12 @@ export const ReturnsPage: React.FC = () => {
               <tr key={ret.id} className="hover:bg-[#1f1f1f] transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-semibold align-middle">{isoToDdMmYyyy(ret.return_date)}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-white align-middle">
-                  <Link to={NavigationPath.PatientDetail.replace(':patientId', ret.patient_cpf)} className="hover:text-[#00bcd4] transition-colors">
+                  <Link to={NavigationPath.PatientDetail.replace(':patientId', ret.patient_cpf || '')} className="hover:text-[#00bcd4] transition-colors">
                     {ret.patient_name}
                   </Link>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap align-middle">
-                    <div className="flex justify-center">
+                <td className="px-6 py-4 whitespace-nowrap text-center align-middle">
+                    <div className="flex justify-center items-center space-x-2">
                         <Button
                             variant="ghost"
                             size="sm"
@@ -168,19 +214,29 @@ export const ReturnsPage: React.FC = () => {
                         >
                             <img src="https://raw.githubusercontent.com/riquelima/topDent/refs/heads/main/368d6855-50b1-41da-9d0b-c10e5d2b1e19.png" alt="WhatsApp Icon" className="w-6 h-6" />
                         </Button>
-                    </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap align-middle">
-                    <div className="flex justify-center">
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => requestDeleteReturn(ret)}
                             className="p-2 rounded-full hover:bg-red-500/20"
                             title="Excluir lembrete de retorno"
-                            disabled={isDeleting}
+                            disabled={isDeleting || !!convertingReturnId}
                         >
-                            <TrashIcon className="w-5 h-5 text-red-400 hover:text-red-300" />
+                            <TrashIcon className="w-6 h-6 text-red-400 hover:text-red-300" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleConvertSingleReturn(ret)}
+                            className="p-2 rounded-full hover:bg-teal-500/20"
+                            title="Converter em Agendamento"
+                            disabled={isDeleting || !!convertingReturnId}
+                        >
+                            {convertingReturnId === ret.id ? (
+                                <ArrowPathIcon className="w-6 h-6 animate-spin text-teal-400" />
+                            ) : (
+                                <img src="https://cdn-icons-png.flaticon.com/512/1828/1828817.png" alt="Converter em Agendamento" className="w-6 h-6" />
+                            )}
                         </Button>
                     </div>
                 </td>

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { XMarkIcon, CheckIcon } from './icons/HeroIcons';
@@ -26,6 +27,19 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
           setError('Não foi possível carregar as atualizações.');
         } else {
           const hardcodedEntries: ChangelogEntry[] = [
+            {
+              id: 'manual-entry-consolidated-11-07-2025',
+              created_at: new Date('2025-07-11T12:00:00Z').toISOString(),
+              release_date: '2025-07-11',
+              version: 'v6.0.0',
+              changes: [
+                'Automação de Confirmação de Agendamentos: Adicionado um novo botão em "Configurações" para acionar uma automação que envia confirmações de agendamento via WhatsApp.',
+                'Criação Automática de Retornos: Ao agendar uma consulta com data e hora de retorno, um novo agendamento para o retorno é criado automaticamente no sistema.',
+                'Conversão de Lembretes de Retorno: Agora é possível converter lembretes de retorno antigos em agendamentos individuais diretamente da tela de "Retornos", com um novo ícone de estrela.',
+                'Correção no Campo de Hora: Corrigido um bug que impedia a digitação da hora da consulta, exibindo o código de formatação em vez do horário.',
+                'Melhorias Gerais: Implementadas melhorias de usabilidade e correções de bugs para tornar o sistema mais estável e eficiente.',
+              ]
+            },
             {
               id: 'manual-entry-consolidated-10-07-2025',
               created_at: new Date('2025-07-10T15:00:00Z').toISOString(),
