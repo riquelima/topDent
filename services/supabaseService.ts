@@ -475,7 +475,7 @@ export interface Database {
           changes?: string[];
         };
         Relationships: []
-      };
+      }
     };
     Views: {
       [_ in never]: never
@@ -519,7 +519,7 @@ export const getSupabaseClient = (): SupabaseClient<Database> | null => {
   return supabase;
 };
 
-const transformPatientData = (p: any): Patient => ({
+const transformPatientData = (p: Database['public']['Tables']['patients']['Row']): Patient => ({
     id: p.cpf, 
     cpf: p.cpf,
     fullName: p.full_name,

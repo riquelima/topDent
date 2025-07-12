@@ -30,6 +30,7 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [unreadMessages, setUnreadMessages] = useState<ChatMessage[]>([]);
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+  const audioUnlockedRef = useRef(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +41,8 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
 
   useEffect(() => {
     try {
-        notificationSoundRef.current = new Audio('https://proxy.notificationsounds.com/notification-sounds/pristine-609/download/file-sounds-1137-pristine.mp3');
+        notificationSoundRef.current = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1137-pristine.mp3');
+        notificationSoundRef.current.crossOrigin = 'anonymous';
     } catch(e) {
         console.error("Failed to initialize audio for dentist chat:", e);
     }
@@ -48,20 +50,14 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
 
   const totalUnreadCount = useMemo(() => unreadMessages.length, [unreadMessages]);
 
-  const unlockAudio = useCallback(() => {
-    if (notificationSoundRef.current && notificationSoundRef.current.paused) {
-        notificationSoundRef.current.play().catch(() => {});
-        notificationSoundRef.current.pause();
-        window.removeEventListener('click', unlockAudio);
+  const playNotificationSound = useCallback(() => {
+    if (notificationSoundRef.current && audioUnlockedRef.current) {
+        notificationSoundRef.current.currentTime = 0;
+        notificationSoundRef.current.play().catch(error => {
+            console.warn("Dentist chat notification sound failed to play:", error);
+        });
     }
   }, []);
-
-  useEffect(() => {
-    window.addEventListener('click', unlockAudio);
-    return () => {
-        window.removeEventListener('click', unlockAudio);
-    };
-  }, [unlockAudio]);
 
   useEffect(() => {
     let chatSub: RealtimeChannel | null = null;
@@ -82,9 +78,7 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
       }
 
       chatSub = subscribeToMessages(dentistId, (newMessagePayload) => {
-        if (notificationSoundRef.current) {
-            notificationSoundRef.current.play().catch(e => console.warn("Could not play chat notification sound:", e));
-        }
+        playNotificationSound();
         setUnreadMessages(prev => [...prev, newMessagePayload]);
       });
 
@@ -95,7 +89,7 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     return () => {
       if (chatSub) chatSub.unsubscribe();
     };
-  }, [dentistId, showToast]);
+  }, [dentistId, showToast, playNotificationSound]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -154,11 +148,26 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   }, [adminUser, dentistId, showToast, unreadMessages]);
 
   const toggleChat = () => {
-      const nextIsOpenState = !isOpen;
-      setIsOpen(nextIsOpenState);
-      if (nextIsOpenState && adminUser) {
-          fetchMessages();
-      }
+    if (!audioUnlockedRef.current) {
+        const audio = notificationSoundRef.current;
+        if (audio) {
+            audio.play().then(() => {
+                audio.pause();
+                audio.currentTime = 0;
+                audioUnlockedRef.current = true;
+                console.log("Audio context unlocked successfully for DentistChat.");
+            }).catch(error => {
+                console.warn("Dentist audio context unlock failed. Notifications may be silent.", error);
+                showToast("Sons de notificação podem estar bloqueados pelo navegador.", 'warning');
+            });
+        }
+    }
+    
+    const nextIsOpenState = !isOpen;
+    setIsOpen(nextIsOpenState);
+    if (nextIsOpenState && adminUser) {
+        fetchMessages();
+    }
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {

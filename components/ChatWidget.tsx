@@ -32,6 +32,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [unreadMessages, setUnreadMessages] = useState<ChatMessage[]>([]);
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+  const audioUnlockedRef = useRef(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
@@ -41,9 +42,8 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Attempt to initialize Audio on component mount
     try {
-        const audio = new Audio('https://proxy.notificationsounds.com/notification-sounds/pristine-609/download/file-sounds-1137-pristine.mp3');
+        const audio = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1137-pristine.mp3');
         audio.crossOrigin = 'anonymous';
         notificationSoundRef.current = audio;
     } catch(e) {
@@ -64,32 +64,13 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   }, [unreadMessages]);
 
   const playNotificationSound = useCallback(() => {
-    if (notificationSoundRef.current) {
+    if (notificationSoundRef.current && audioUnlockedRef.current) {
       notificationSoundRef.current.currentTime = 0;
-      const playPromise = notificationSoundRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.warn("Chat notification sound blocked by browser:", error);
-        });
-      }
+      notificationSoundRef.current.play().catch(error => {
+        console.warn("Chat notification sound failed to play:", error);
+      });
     }
   }, []);
-
-  const unlockAudio = useCallback(() => {
-    if (notificationSoundRef.current && notificationSoundRef.current.paused) {
-        notificationSoundRef.current.play().catch(() => {});
-        notificationSoundRef.current.pause();
-        // Remove the listener after the first interaction
-        window.removeEventListener('click', unlockAudio);
-    }
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('click', unlockAudio);
-    return () => {
-        window.removeEventListener('click', unlockAudio);
-    };
-  }, [unlockAudio]);
 
   useEffect(() => {
     let chatSub: RealtimeChannel | null = null;
@@ -162,6 +143,23 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     setIsPickerOpen(false);
   };
 
+  const handleToggleChat = () => {
+    if (!audioUnlockedRef.current) {
+        const audio = notificationSoundRef.current;
+        if (audio) {
+            audio.play().then(() => {
+                audio.pause();
+                audio.currentTime = 0;
+                audioUnlockedRef.current = true;
+                console.log("Audio context unlocked successfully.");
+            }).catch(error => {
+                console.warn("Audio context unlock failed. Notifications may be silent.", error);
+                showToast("Sons de notificação podem estar bloqueados pelo navegador.", 'warning');
+            });
+        }
+    }
+    setIsOpen(!isOpen);
+  };
 
   const handleSelectDentist = useCallback(async (dentist: Dentist) => {
     if (selectedDentist?.id === dentist.id) return;
@@ -438,7 +436,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
         </div>
       )}
 
-      <button onClick={() => setIsOpen(!isOpen)} className="fixed bottom-8 right-8 bg-[#00bcd4] hover:bg-[#00a5b8] text-black w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0e0e0e] focus:ring-[#00bcd4] z-40">
+      <button onClick={handleToggleChat} className="fixed bottom-8 right-8 bg-[#00bcd4] hover:bg-[#00a5b8] text-black w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0e0e0e] focus:ring-[#00bcd4] z-40">
         <img src="https://cdn-icons-png.flaticon.com/512/9314/9314332.png" alt="Chat" className="w-8 h-8" />
         {totalUnreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#00bcd4]">
