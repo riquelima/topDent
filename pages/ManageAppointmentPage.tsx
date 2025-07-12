@@ -9,7 +9,7 @@ import { Textarea } from '../components/ui/Textarea';
 import { Select } from '../components/ui/Select';
 import { ChevronUpDownIcon, MagnifyingGlassIcon, ClockIcon, ArrowUturnLeftIcon } from '../components/icons/HeroIcons';
 import { Appointment, Patient, DentistUser, NavigationPath, Procedure } from '../types';
-import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getAppointmentById, getProcedures } from '../services/supabaseService';
+import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getAppointmentById, getProcedures, updatePatientLastAppointment } from '../services/supabaseService';
 import type { SupabaseAppointmentData } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import { getKnownDentists } from '../src/utils/users';
@@ -222,11 +222,17 @@ export const ManageAppointmentPage: React.FC = () => {
     let digits = value.replace(/\D/g, "").substring(0, 4);
     let newFormattedTime = "";
 
-    if (digits.length === 0) newFormattedTime = "";
-    else if (digits.length <= 2) newFormattedTime = digits;
-    else newFormattedTime = `${digits.substring(0, 2)}:${digits.substring(2)}`;
+    if (digits.length === 0) {
+      newFormattedTime = "";
+    } else if (digits.length <= 2) {
+      newFormattedTime = digits;
+    } else {
+      newFormattedTime = `${digits.substring(0, 2)}:${digits.substring(2)}`;
+    }
     
-    if (value.length === 3 && value.endsWith(":") && digits.length === 2) newFormattedTime = value;
+    if (value.length === 3 && value.endsWith(":") && digits.length === 2) {
+      newFormattedTime = value;
+    }
     setAppointmentTime(newFormattedTime);
   };
   
@@ -235,14 +241,31 @@ export const ManageAppointmentPage: React.FC = () => {
     let digits = value.replace(/\D/g, "").substring(0, 4);
     let newFormattedTime = "";
 
-    if (digits.length === 0) newFormattedTime = "";
-    else if (digits.length <= 2) newFormattedTime = digits;
-    else newFormattedTime = `${digits.substring(0, 2)}:${digits.substring(2)}`;
+    if (digits.length === 0) {
+      newFormattedTime = "";
+    } else if (digits.length <= 2) {
+      newFormattedTime = digits;
+    } else {
+      newFormattedTime = `${digits.substring(0, 2)}:${digits.substring(2)}`;
+    }
     
-    if (value.length === 3 && value.endsWith(":") && digits.length === 2) newFormattedTime = value;
+    if (value.length === 3 && value.endsWith(":") && digits.length === 2) {
+      newFormattedTime = value;
+    }
     setReturnTime(newFormattedTime);
   };
 
+  const triggerConfirmationWebhook = () => {
+    const webhookUrl = 'https://primary-production-76569.up.railway.app/webhook/3b9c4d09-ad0f-4c10-a405-c49014ca14da';
+    fetch(webhookUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+    }).catch(error => {
+      // Log the error but don't bother the user, as we can't know if it really failed
+      console.error('Webhook trigger request failed to dispatch:', error);
+    });
+  };
+  
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const finalProcedures: string[] = [];
@@ -280,17 +303,36 @@ export const ManageAppointmentPage: React.FC = () => {
     };
 
     try {
+      let savedAppointment: Appointment | null = null;
       if (isEditMode && appointmentId) {
-        const { error } = await updateAppointment(appointmentId, appointmentDataPayload);
+        const { data, error } = await updateAppointment(appointmentId, appointmentDataPayload);
         if (error) throw error;
+        savedAppointment = data;
         showToast('Agendamento atualizado com sucesso!', 'success');
       } else {
-        const { error: mainError } = await addAppointment(appointmentDataPayload);
+        const { data: newData, error: mainError } = await addAppointment(appointmentDataPayload);
         if (mainError) throw mainError;
+        savedAppointment = newData;
         showToast('Agendamento salvo com sucesso!', 'success');
       }
 
-      // After successfully saving the main appointment, check and create the return appointment.
+      if (savedAppointment) {
+          if (savedAppointment.patient_cpf) {
+            const { error: updatePatientError } = await updatePatientLastAppointment(savedAppointment.patient_cpf, savedAppointment.appointment_date);
+            if (updatePatientError) {
+              console.warn("Failed to update patient's last appointment date:", updatePatientError);
+              showToast("Falha ao atualizar data no perfil do paciente.", "warning");
+            }
+          }
+          
+          if (patientPhone && patientPhone.trim()) {
+              triggerConfirmationWebhook();
+              showToast('Confirmação de agendamento enviada para o WhatsApp do paciente!', 'success', 6000);
+          } else {
+              showToast('Agendamento salvo. Lembrete do WhatsApp não enviado (paciente sem telefone).', 'warning', 8000);
+          }
+      }
+      
       if (returnDate && returnTime) {
         if (!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(returnTime)) {
             showToast('Hora do retorno é inválida. O agendamento principal foi salvo, mas o retorno não.', 'warning', 8000);
@@ -300,7 +342,7 @@ export const ManageAppointmentPage: React.FC = () => {
               patient_name: patientName.trim(),
               appointment_date: returnDate,
               appointment_time: returnTime,
-              procedure: "Retorno", // Default procedure for returns
+              procedure: "Retorno", 
               notes: `Agendamento de retorno referente à consulta de ${isoToDdMmYyyy(appointmentDate)}.`,
               status: 'Scheduled',
               dentist_id: selectedDentistId,

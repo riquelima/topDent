@@ -1,5 +1,4 @@
 
-
 export interface Patient {
   id: string; // Should be unique, CPF can serve this role for now
   fullName: string;
@@ -15,6 +14,7 @@ export interface Patient {
   emergencyContactPhone: string | null;
   payment_type?: 'health_plan' | 'private' | null;
   health_plan_code?: string | null;
+  last_appointment_date?: string | null; // Added new field
   created_at?: string; // ISO timestamp string
   updated_at?: string; // ISO timestamp string
 }

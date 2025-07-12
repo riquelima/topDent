@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { Input } from './ui/Input';
@@ -41,8 +40,9 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
 
   useEffect(() => {
     try {
-        notificationSoundRef.current = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1137-pristine.mp3');
-        notificationSoundRef.current.crossOrigin = 'anonymous';
+        const audio = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1153-pristine.mp3');
+        audio.volume = 1.0;
+        notificationSoundRef.current = audio;
     } catch(e) {
         console.error("Failed to initialize audio for dentist chat:", e);
     }

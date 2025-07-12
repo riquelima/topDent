@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { Card } from './ui/Card';
@@ -43,8 +42,8 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
 
   useEffect(() => {
     try {
-        const audio = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1137-pristine.mp3');
-        audio.crossOrigin = 'anonymous';
+        const audio = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1153-pristine.mp3');
+        audio.volume = 1.0;
         notificationSoundRef.current = audio;
     } catch(e) {
         console.error("Failed to initialize audio:", e)

@@ -32,7 +32,7 @@ export const getKnownDentists = async (): Promise<DentistUser[]> => {
 
   if (data && data.length > 0) {
     // Map the fetched data to the DentistUser object.
-    return data.map(dentist => ({
+    return (data as any[]).map(dentist => ({
       id: dentist.id, 
       full_name: dentist.full_name,
       username: dentist.username,
