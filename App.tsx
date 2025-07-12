@@ -155,7 +155,7 @@ const App: React.FC = () => {
   
   const renderDashboard = () => {
     if (userRole === 'admin') {
-      return <DashboardPage />;
+      return <DashboardPage onLogout={handleLogout} />;
     }
     if (userRole === 'dentist' && userIdForApi && userUsername && userDisplayFullName) {
       return (

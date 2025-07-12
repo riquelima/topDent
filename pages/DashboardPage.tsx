@@ -106,13 +106,17 @@ interface QuickStats {
   pendingConsultations: number;
 }
 
+interface DashboardPageProps {
+  onLogout: () => void;
+}
+
 interface ReminderFormData {
   id: string;
   title: string;
   content: string;
 }
 
-export const DashboardPage: React.FC = () => {
+export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
   const navigate = useNavigate(); 
   const { showToast } = useToast();
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
@@ -354,7 +358,7 @@ export const DashboardPage: React.FC = () => {
             iconColorClass="text-white" 
             iconBgClass="bg-black/25" 
           />
-          <QuickAccessCard title="Sair" description="Encerrar sessão" icon={<ArrowRightOnRectangleIcon className="transform scale-x-[-1]"/>} onClick={() => alert('Logout action to be implemented!')} colorClass="bg-red-600" hoverColorClass="hover:bg-red-500" iconColorClass="text-white" iconBgClass="bg-black/25" />
+          <QuickAccessCard title="Sair" description="Encerrar sessão" icon={<ArrowRightOnRectangleIcon className="transform scale-x-[-1]"/>} onClick={onLogout} colorClass="bg-red-600" hoverColorClass="hover:bg-red-500" iconColorClass="text-white" iconBgClass="bg-black/25" />
         </div>
       </section>
 

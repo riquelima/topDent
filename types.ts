@@ -1,17 +1,18 @@
 
+
 export interface Patient {
   id: string; // Should be unique, CPF can serve this role for now
   fullName: string;
   dob: string; // Expected in YYYY-MM-DD for input, but can be DD/MM/YYYY for display
   guardian?: string;
-  rg: string;
+  rg: string | null;
   cpf: string; // Can be used as ID
-  phone: string;
-  addressStreet: string;
-  addressNumber: string;
-  addressDistrict: string;
-  emergencyContactName: string;
-  emergencyContactPhone: string;
+  phone: string | null;
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressDistrict: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
   payment_type?: 'health_plan' | 'private' | null;
   health_plan_code?: string | null;
   created_at?: string; // ISO timestamp string

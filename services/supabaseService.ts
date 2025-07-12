@@ -67,8 +67,7 @@ export interface Database {
             return_date?: string | null;
             created_at?: string;
             updated_at?: string | null;
-        },
-        Relationships: []
+        }
       },
       patients: {
         Row: {
@@ -121,8 +120,7 @@ export interface Database {
           health_plan_code?: string | null
           created_at?: string
           updated_at?: string | null
-        },
-        Relationships: []
+        }
       },
       anamnesis_forms: {
         Row: {
@@ -193,8 +191,7 @@ export interface Database {
             disease_other_details?: string | null;
             surgeries_had?: 'Sim' | 'Não' | null;
             surgeries_details?: string | null;
-        },
-        Relationships: []
+        }
       },
       blood_pressure_readings: {
         Row: {
@@ -217,8 +214,7 @@ export interface Database {
             patient_cpf?: string;
             reading_date?: string;
             reading_value?: string;
-        },
-        Relationships: []
+        }
       },
       treatment_plans: {
         Row: {
@@ -256,8 +252,7 @@ export interface Database {
             prescribed_medication?: string | null;
             payments?: PaymentInput[] | null;
             updated_at?: string;
-        },
-        Relationships: []
+        }
       },
       dentists: {
         Row: {
@@ -283,8 +278,7 @@ export interface Database {
             password?: string;
             created_at?: string;
             updated_at?: string | null;
-        },
-        Relationships: []
+        }
       },
       reminders: {
         Row: {
@@ -307,8 +301,7 @@ export interface Database {
             title?: string;
             content?: string;
             is_active?: boolean;
-        },
-        Relationships: []
+        }
       },
       procedures: {
         Row: {
@@ -331,8 +324,7 @@ export interface Database {
             is_active?: boolean;
             created_at?: string;
             updated_at?: string;
-        },
-        Relationships: []
+        }
       },
       consultation_history: {
         Row: {
@@ -376,8 +368,7 @@ export interface Database {
             status?: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
             notes?: string | null;
             created_at?: string;
-        },
-        Relationships: []
+        }
       },
       notifications: {
         Row: {
@@ -403,8 +394,7 @@ export interface Database {
             message?: string;
             is_read?: boolean;
             appointment_id?: string | null;
-        },
-        Relationships: []
+        }
       },
       chat_messages: {
         Row: {
@@ -439,8 +429,7 @@ export interface Database {
             file_url?: string | null;
             file_name?: string | null;
             file_type?: string | null;
-        },
-        Relationships: []
+        }
       },
       configurations: {
         Row: { key: string; value: string; created_at: string },
@@ -449,8 +438,7 @@ export interface Database {
             key?: string; 
             value?: string; 
             created_at?: string 
-        },
-        Relationships: []
+        }
       },
       changelog: {
         Row: {
@@ -474,7 +462,6 @@ export interface Database {
           version?: string;
           changes?: string[];
         };
-        Relationships: []
       }
     };
     Views: {
@@ -524,14 +511,14 @@ const transformPatientData = (p: Database['public']['Tables']['patients']['Row']
     cpf: p.cpf,
     fullName: p.full_name,
     dob: p.dob,
-    guardian: p.guardian,
-    rg: p.rg,
-    phone: p.phone,
-    addressStreet: p.address_street,
-    addressNumber: p.address_number,
-    addressDistrict: p.address_district,
-    emergencyContactName: p.emergency_contact_name,
-    emergencyContactPhone: p.emergency_contact_phone,
+    guardian: p.guardian ?? undefined,
+    rg: p.rg ?? '',
+    phone: p.phone ?? '',
+    addressStreet: p.address_street ?? '',
+    addressNumber: p.address_number ?? '',
+    addressDistrict: p.address_district ?? '',
+    emergencyContactName: p.emergency_contact_name ?? '',
+    emergencyContactPhone: p.emergency_contact_phone ?? '',
     payment_type: p.payment_type,
     health_plan_code: p.health_plan_code,
     created_at: p.created_at,
