@@ -39,10 +39,29 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    notificationSoundRef.current = new Audio('https://proxy.notificationsounds.com/notification-sounds/pristine-609/download/file-sounds-1137-pristine.mp3');
+    try {
+        notificationSoundRef.current = new Audio('https://proxy.notificationsounds.com/notification-sounds/pristine-609/download/file-sounds-1137-pristine.mp3');
+    } catch(e) {
+        console.error("Failed to initialize audio for dentist chat:", e);
+    }
   }, []);
 
   const totalUnreadCount = useMemo(() => unreadMessages.length, [unreadMessages]);
+
+  const unlockAudio = useCallback(() => {
+    if (notificationSoundRef.current && notificationSoundRef.current.paused) {
+        notificationSoundRef.current.play().catch(() => {});
+        notificationSoundRef.current.pause();
+        window.removeEventListener('click', unlockAudio);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('click', unlockAudio);
+    return () => {
+        window.removeEventListener('click', unlockAudio);
+    };
+  }, [unlockAudio]);
 
   useEffect(() => {
     let chatSub: RealtimeChannel | null = null;
@@ -154,7 +173,40 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     setAttachedFiles([]);
 
     try {
-      // Case 1: Only text content, no files
+      let contentForFirstMessage = textContent;
+
+      for (const [index, file] of filesToSend.entries()) {
+        const { data: uploadData, error: uploadError } = await uploadChatFile(file, dentistId);
+        if (uploadError) {
+          const errorMessage = (uploadError.message || '').toLowerCase();
+          if (errorMessage.includes('bucket not found')) {
+              showToast("Erro: Repositório de arquivos 'chat-files' não foi encontrado. Por favor, crie-o no seu painel Supabase Storage.", 'error', 10000);
+          } else if (errorMessage.includes('security policy') || errorMessage.includes('permission denied') || errorMessage.includes('unauthorized')) {
+               showToast("Erro de Permissão (RLS). É necessário criar uma 'Policy' no seu painel Supabase para permitir uploads no bucket 'chat-files'.", 'error', 15000);
+          } else {
+              showToast(`Falha ao enviar o arquivo ${file.name}: ${uploadError.message || 'Erro desconhecido'}`, 'error');
+          }
+          console.error(`Error uploading file ${file.name}:`, JSON.stringify(uploadError, null, 2));
+          continue;
+        }
+
+        if (uploadData) {
+          const messagePayload: Omit<ChatMessage, 'id' | 'created_at' | 'is_read'> = {
+            sender_id: dentistId,
+            recipient_id: adminUser.id,
+            content: contentForFirstMessage,
+            file_url: uploadData.publicUrl,
+            file_name: file.name,
+            file_type: file.type,
+          };
+          const { data: sentMsg, error: sendError } = await sendMessage(messagePayload);
+          if (sendError) throw new Error(`Falha ao enviar mensagem do arquivo ${file.name}: ${sendError.message}`);
+          if (sentMsg) setMessages(prev => [...prev, sentMsg]);
+
+          contentForFirstMessage = '';
+        }
+      }
+
       if (textContent && filesToSend.length === 0) {
         const { data: sentMsg, error } = await sendMessage({
           sender_id: dentistId,
@@ -163,46 +215,9 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
         });
         if (error) throw new Error(`Falha ao enviar mensagem de texto: ${error.message}`);
         if (sentMsg) setMessages(prev => [...prev, sentMsg]);
-      } 
-      // Case 2: Files are present (with or without text)
-      else if (filesToSend.length > 0) {
-        let textSentWithFirstFile = false;
-        for (const file of filesToSend) {
-          const { data: uploadData, error: uploadError } = await uploadChatFile(file, dentistId);
-          if (uploadError) {
-            const errorMessage = (uploadError.message || '').toLowerCase();
-            if (errorMessage.includes('bucket not found')) {
-                showToast("Erro: Repositório de arquivos 'chat-files' não foi encontrado. Por favor, crie-o no seu painel Supabase Storage.", 'error', 10000);
-            } else if (errorMessage.includes('security policy') || errorMessage.includes('permission denied') || errorMessage.includes('unauthorized')) {
-                 showToast("Erro de Permissão (RLS). É necessário criar uma 'Policy' no seu painel Supabase para permitir uploads no bucket 'chat-files'.", 'error', 15000);
-            } else {
-                showToast(`Falha ao enviar o arquivo ${file.name}: ${uploadError.message || 'Erro desconhecido'}`, 'error');
-            }
-            console.error(`Error uploading file ${file.name}:`, JSON.stringify(uploadError, null, 2));
-            continue; // Continue to next file
-          }
-
-          if (uploadData) {
-            const messagePayload: Omit<ChatMessage, 'id' | 'created_at' | 'is_read'> = {
-              sender_id: dentistId,
-              recipient_id: adminUser.id,
-              content: !textSentWithFirstFile ? textContent : '', // Send text with first file, or empty string
-              file_url: uploadData.publicUrl,
-              file_name: file.name,
-              file_type: file.type,
-            };
-            
-            const { data: sentMsg, error: sendError } = await sendMessage(messagePayload);
-            if (sendError) throw new Error(`Falha ao enviar mensagem do arquivo ${file.name}: ${sendError.message}`);
-            if (sentMsg) setMessages(prev => [...prev, sentMsg]);
-
-            textSentWithFirstFile = true; // Mark text as sent
-          }
-        }
       }
     } catch (error: any) {
       showToast(error?.message || 'Ocorreu um erro inesperado ao enviar.', 'error');
-      // Restore form state on failure
       setNewMessage(textContent);
       setAttachedFiles(filesToSend);
     } finally {
@@ -242,7 +257,7 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   return (
     <>
       {isOpen && (
-        <div className="fixed bottom-24 right-8 w-full max-w-[1060px] h-[700px] bg-[#1a1a1a] rounded-xl shadow-2xl flex flex-col z-50 border border-gray-700/50 animate-slide-up-widget">
+        <div className="fixed bottom-24 right-8 w-full max-w-lg h-[700px] bg-[#1a1a1a] rounded-xl shadow-2xl flex flex-col z-50 border border-gray-700/50 animate-slide-up-widget">
           <header className="p-4 border-b border-gray-700/50 flex justify-between items-center bg-[#1f1f1f] rounded-t-xl">
             <h2 className="text-xl font-semibold text-white">Chat com Admin</h2>
             <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-full hover:bg-gray-600 transition-colors">

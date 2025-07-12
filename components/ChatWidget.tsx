@@ -4,7 +4,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { PaperAirplaneIcon, UserIcon as DentistIcon, CheckIcon, CheckDoubleIcon, XMarkIcon, FaceSmileIcon, PaperclipIcon, DocumentTextIcon } from './icons/HeroIcons';
+import { PaperAirplaneIcon, CheckIcon, CheckDoubleIcon, XMarkIcon, FaceSmileIcon, PaperclipIcon, DocumentTextIcon } from './icons/HeroIcons';
 import { Dentist, ChatMessage } from '../types';
 import { getDentists, getMessagesBetweenUsers, sendMessage, markMessagesAsRead, getUnreadMessages, subscribeToMessages, uploadChatFile } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
@@ -41,7 +41,14 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    notificationSoundRef.current = new Audio('https://proxy.notificationsounds.com/notification-sounds/pristine-609/download/file-sounds-1137-pristine.mp3');
+    // Attempt to initialize Audio on component mount
+    try {
+        const audio = new Audio('https://proxy.notificationsounds.com/notification-sounds/pristine-609/download/file-sounds-1137-pristine.mp3');
+        audio.crossOrigin = 'anonymous';
+        notificationSoundRef.current = audio;
+    } catch(e) {
+        console.error("Failed to initialize audio:", e)
+    }
   }, []);
 
   const unreadCountsBySender = useMemo(() => {
@@ -55,6 +62,34 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   const totalUnreadCount = useMemo(() => {
       return unreadMessages.length;
   }, [unreadMessages]);
+
+  const playNotificationSound = useCallback(() => {
+    if (notificationSoundRef.current) {
+      notificationSoundRef.current.currentTime = 0;
+      const playPromise = notificationSoundRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.warn("Chat notification sound blocked by browser:", error);
+        });
+      }
+    }
+  }, []);
+
+  const unlockAudio = useCallback(() => {
+    if (notificationSoundRef.current && notificationSoundRef.current.paused) {
+        notificationSoundRef.current.play().catch(() => {});
+        notificationSoundRef.current.pause();
+        // Remove the listener after the first interaction
+        window.removeEventListener('click', unlockAudio);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('click', unlockAudio);
+    return () => {
+        window.removeEventListener('click', unlockAudio);
+    };
+  }, [unlockAudio]);
 
   useEffect(() => {
     let chatSub: RealtimeChannel | null = null;
@@ -75,9 +110,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
       }
 
       chatSub = subscribeToMessages(adminId, (newMessagePayload) => {
-        if (notificationSoundRef.current) {
-            notificationSoundRef.current.play().catch(e => console.warn("Could not play chat notification sound:", e));
-        }
+        playNotificationSound();
         setUnreadMessages(prev => [...prev, newMessagePayload]);
       });
 
@@ -89,7 +122,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     return () => {
       if (chatSub) chatSub.unsubscribe();
     };
-  }, [adminId, showToast]);
+  }, [adminId, showToast, playNotificationSound]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -169,7 +202,40 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     setAttachedFiles([]);
 
     try {
-      // Case 1: Only text content, no files
+      let contentForFirstMessage = textContent;
+
+      for (const [index, file] of filesToSend.entries()) {
+        const { data: uploadData, error: uploadError } = await uploadChatFile(file, adminId);
+        if (uploadError) {
+            const errorMessage = (uploadError.message || '').toLowerCase();
+            if (errorMessage.includes('bucket not found')) {
+                showToast("Erro: Repositório de arquivos 'chat-files' não foi encontrado. Por favor, crie-o no seu painel Supabase Storage.", 'error', 10000);
+            } else if (errorMessage.includes('security policy') || errorMessage.includes('permission denied') || errorMessage.includes('unauthorized')) {
+                 showToast("Erro de Permissão (RLS). É necessário criar uma 'Policy' no seu painel Supabase para permitir uploads no bucket 'chat-files'.", 'error', 15000);
+            } else {
+                showToast(`Falha ao enviar o arquivo ${file.name}: ${uploadError.message || 'Erro desconhecido'}`, 'error');
+            }
+            console.error(`Error uploading file ${file.name}:`, JSON.stringify(uploadError, null, 2));
+            continue;
+        }
+
+        if (uploadData) {
+            const messagePayload: Omit<ChatMessage, 'id' | 'created_at' | 'is_read'> = {
+              sender_id: adminId,
+              recipient_id: selectedDentist.id,
+              content: contentForFirstMessage,
+              file_url: uploadData.publicUrl,
+              file_name: file.name,
+              file_type: file.type,
+            };
+            const { data: sentMsg, error: sendError } = await sendMessage(messagePayload);
+            if (sendError) throw new Error(`Falha ao enviar mensagem do arquivo ${file.name}: ${sendError.message}`);
+            if (sentMsg) setMessages(prev => [...prev, sentMsg]);
+            
+            contentForFirstMessage = '';
+        }
+      }
+
       if (textContent && filesToSend.length === 0) {
         const { data: sentMsg, error } = await sendMessage({
           sender_id: adminId,
@@ -178,54 +244,16 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
         });
         if (error) throw new Error(`Falha ao enviar mensagem de texto: ${error.message}`);
         if (sentMsg) setMessages(prev => [...prev, sentMsg]);
-      } 
-      // Case 2: Files are present (with or without text)
-      else if (filesToSend.length > 0) {
-        let textSentWithFirstFile = false;
-        for (const file of filesToSend) {
-          const { data: uploadData, error: uploadError } = await uploadChatFile(file, adminId);
-          if (uploadError) {
-            // Keep existing error handling for uploads
-            const errorMessage = (uploadError.message || '').toLowerCase();
-            if (errorMessage.includes('bucket not found')) {
-                showToast("Erro: Repositório de arquivos 'chat-files' não foi encontrado. Por favor, crie-o no seu painel Supabase Storage.", 'error', 10000);
-            } else if (errorMessage.includes('security policy') || errorMessage.includes('permission denied') || errorMessage.includes('unauthorized')) {
-                showToast("Erro de Permissão (RLS). É necessário criar uma 'Policy' no seu painel Supabase para permitir uploads no bucket 'chat-files'.", 'error', 15000);
-            } else {
-                showToast(`Falha ao enviar o arquivo ${file.name}: ${uploadError.message || 'Erro desconhecido'}`, 'error');
-            }
-            console.error(`Error uploading file ${file.name}:`, JSON.stringify(uploadError, null, 2));
-            continue; // Continue to next file
-          }
-
-          if (uploadData) {
-            const messagePayload: Omit<ChatMessage, 'id' | 'created_at' | 'is_read'> = {
-              sender_id: adminId,
-              recipient_id: selectedDentist.id,
-              content: !textSentWithFirstFile ? textContent : '', // Send text with first file, or empty string
-              file_url: uploadData.publicUrl,
-              file_name: file.name,
-              file_type: file.type,
-            };
-            
-            const { data: sentMsg, error: sendError } = await sendMessage(messagePayload);
-            if (sendError) throw new Error(`Falha ao enviar mensagem do arquivo ${file.name}: ${sendError.message}`);
-            if (sentMsg) setMessages(prev => [...prev, sentMsg]);
-            
-            textSentWithFirstFile = true; // Mark text as sent
-          }
-        }
       }
     } catch (error: any) {
       showToast(error?.message || 'Ocorreu um erro inesperado ao enviar.', 'error');
-      // Restore form state on failure
       setNewMessage(textContent);
       setAttachedFiles(filesToSend);
     } finally {
       setIsSending(false);
     }
   };
-  
+
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         setIsDragging(true);
@@ -265,50 +293,48 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
               <XMarkIcon className="w-5 h-5 text-gray-300" />
             </button>
           </header>
-
-          <div className="flex-1 flex min-h-0">
-            <aside className="w-1/3 border-r border-gray-700/50 flex flex-col">
-              <div className="flex-1 overflow-y-auto">
-                {isLoading.dentists ? (
-                  <p className="p-4 text-center text-gray-400 text-sm">Carregando...</p>
-                ) : (
-                  <ul>{dentists.map(dentist => {
-                    const unreadCount = unreadCountsBySender.get(dentist.id!) || 0;
-                    const isSelected = selectedDentist?.id === dentist.id;
-                    return (
-                      <li key={dentist.id}>
-                        <button onClick={() => handleSelectDentist(dentist)} className={`w-full text-left p-4 flex items-center space-x-3 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500 ${ isSelected ? 'bg-[#00bcd4] text-black' : 'hover:bg-gray-700/50 text-white' }`}>
-                          <div className={`relative flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center overflow-hidden ${isSelected ? 'bg-black/20' : 'bg-gray-600'}`}>
-                            <img src="https://cdn-icons-png.flaticon.com/512/4344/4344446.png" alt={`Foto de ${dentist.full_name}`} className="w-full h-full object-cover" />
-                          </div>
-                          <span className="font-medium truncate flex-grow">{dentist.full_name}</span>
-                          {unreadCount > 0 && (
-                             <span className={`ml-auto flex-shrink-0 inline-flex items-center justify-center h-5 w-5 text-xs font-bold leading-none rounded-full ${isSelected ? 'bg-white text-[#00bcd4]' : 'bg-red-600 text-white'}`}>{unreadCount}</span>
-                          )}
-                        </button>
-                      </li>
-                    );
-                  })}</ul>
-                )}
+          <main className="flex-1 flex min-h-0">
+            <aside className="w-1/3 border-r border-gray-700/50 flex flex-col bg-[#1f1f1f]">
+              <div className="p-3 border-b border-gray-700/50">
+                <h3 className="text-lg font-semibold text-white">Conversas</h3>
               </div>
+              <ul className="overflow-y-auto flex-1">
+                {isLoading.dentists ? (
+                  <p className="text-center text-gray-400 p-4">Carregando...</p>
+                ) : (
+                  dentists.map(dentist => {
+                    const unreadCount = unreadCountsBySender.get(dentist.id!) || 0;
+                    return (
+                        <li key={dentist.id} onClick={() => handleSelectDentist(dentist)}
+                            className={`p-3 cursor-pointer border-l-4 ${selectedDentist?.id === dentist.id ? 'bg-[#2a2a2a] border-teal-500' : 'border-transparent hover:bg-[#2a2a2a]'}`}>
+                           <div className="flex items-center justify-between">
+                             <div className="flex items-center">
+                                <img src="https://cdn-icons-png.flaticon.com/512/4344/4344446.png" alt="Profile Icon" className="w-8 h-8 rounded-full mr-3" />
+                                <span className="font-medium text-white">{dentist.full_name}</span>
+                             </div>
+                             {unreadCount > 0 && <span className="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{unreadCount}</span>}
+                           </div>
+                        </li>
+                    )
+                  })
+                )}
+              </ul>
             </aside>
-            <main className="w-2/3 flex flex-col relative" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-               {isDragging && (
+            <section className="w-2/3 flex flex-col" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+              {isDragging && (
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20 border-4 border-dashed border-teal-500 rounded-lg pointer-events-none">
                   <p className="text-white text-lg font-semibold">Arraste e solte os arquivos aqui</p>
                 </div>
               )}
               {selectedDentist ? (
                 <>
-                  <header className="p-4 border-b border-gray-700/50 flex items-center space-x-3 bg-[#1f1f1f]">
-                    <div className={`relative flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-gray-600 text-white overflow-hidden`}>
-                      <img src="https://cdn-icons-png.flaticon.com/512/4344/4344446.png" alt={`Foto de ${selectedDentist.full_name}`} className="w-full h-full object-cover" />
-                    </div>
+                  <div className="p-3 border-b border-gray-700/50 flex items-center bg-[#1f1f1f]">
+                     <img src="https://cdn-icons-png.flaticon.com/512/4344/4344446.png" alt="Profile Icon" className="w-8 h-8 rounded-full mr-3" />
                     <h3 className="text-lg font-semibold text-white">{selectedDentist.full_name}</h3>
-                  </header>
+                  </div>
                   <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#181818]">
-                    {isLoading.messages ? (<p className="text-center text-gray-400">Carregando...</p>)
-                    : messages.length === 0 ? (<p className="text-center text-gray-400">Inicie a conversa.</p>)
+                    {isLoading.messages ? (<p className="text-center text-gray-400">Carregando mensagens...</p>) 
+                    : messages.length === 0 ? (<p className="text-center text-gray-400">Inicie a conversa com {selectedDentist.full_name}.</p>)
                     : (messages.map(msg => (
                         <div key={msg.id} className={`flex items-end ${msg.sender_id === adminId ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-md px-4 py-2 rounded-xl shadow ${msg.sender_id === adminId ? 'bg-[#007b8b] text-white rounded-br-none' : 'bg-[#2a2a2a] text-gray-200 rounded-bl-none'}`}>
@@ -334,8 +360,8 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
                     )))}
                     <div ref={messagesEndRef} />
                   </div>
-                  <footer className="p-4 bg-[#1f1f1f] border-t border-gray-700/50" ref={pickerRef}>
-                    {attachedFiles.length > 0 && (
+                  <footer className="p-4 bg-[#1f1f1f] border-t border-gray-700/50 relative" ref={pickerRef}>
+                     {attachedFiles.length > 0 && (
                         <div className="p-2 mb-2 border-b border-gray-700/50 space-y-2 max-h-28 overflow-y-auto">
                             {attachedFiles.map((file, index) => (
                                 <div key={index} className="flex items-center justify-between bg-[#2a2a2a] p-1.5 rounded-md text-xs">
@@ -347,75 +373,68 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
                             ))}
                         </div>
                     )}
-                    <div className="relative">
-                      {isPickerOpen && (
-                        <div className="absolute bottom-full right-0 mb-2 z-10">
-                            <EmojiPicker 
-                                onEmojiClick={handleEmojiClick}
-                                theme={Theme.DARK}
-                                lazyLoadEmojis={true}
-                                height={400}
-                                width={350}
-                            />
-                        </div>
-                      )}
-                      <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
-                        <Button 
+                    {isPickerOpen && (
+                      <div className="absolute bottom-full right-0 mb-2 z-10">
+                          <EmojiPicker 
+                              onEmojiClick={handleEmojiClick}
+                              theme={Theme.DARK}
+                              lazyLoadEmojis={true}
+                              height={400}
+                              width={350}
+                          />
+                      </div>
+                    )}
+                    <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
+                      <Button 
+                          type="button" 
+                          onClick={() => fileInputRef.current?.click()} 
+                          variant="ghost" 
+                          className="p-3 h-12"
+                          aria-label="Anexar arquivo"
+                          title="Anexar arquivo"
+                          disabled={isSending}
+                      >
+                          <PaperclipIcon className="w-6 h-6 text-gray-400"/>
+                      </Button>
+                      <input 
+                          type="file"
+                          multiple
+                          ref={fileInputRef}
+                          className="hidden"
+                          onChange={handleFileChange}
+                          accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      />
+                      <Input 
+                        containerClassName="flex-grow mb-0" 
+                        className="bg-[#2a2a2a] border-gray-600 focus:border-[#00bcd4] h-12" 
+                        placeholder="Digite sua mensagem..." 
+                        value={newMessage} 
+                        onChange={e => setNewMessage(e.target.value)} 
+                        disabled={isSending || isLoading.messages} 
+                        autoFocus
+                        suffixIcon={
+                          <button 
                             type="button" 
-                            onClick={() => fileInputRef.current?.click()} 
-                            variant="ghost" 
-                            className="p-3 h-12"
-                            aria-label="Anexar arquivo"
-                            title="Anexar arquivo"
-                            disabled={isSending}
-                        >
-                            <PaperclipIcon className="w-6 h-6 text-gray-400"/>
-                        </Button>
-                        <input 
-                            type="file"
-                            multiple
-                            ref={fileInputRef}
-                            className="hidden"
-                            onChange={handleFileChange}
-                            accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        />
-                        <Input 
-                          containerClassName="flex-grow mb-0" 
-                          className="bg-[#2a2a2a] border-gray-600 focus:border-[#00bcd4] h-12" 
-                          placeholder="Digite sua mensagem..." 
-                          value={newMessage} 
-                          onChange={e => setNewMessage(e.target.value)} 
-                          disabled={isSending || isLoading.messages} 
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              handleSendMessage(e);
-                            }
-                          }}
-                          suffixIcon={
-                            <button 
-                              type="button" 
-                              onClick={() => setIsPickerOpen(!isPickerOpen)} 
-                              className="p-1 rounded-full text-gray-400 hover:text-white transition-colors"
-                              aria-label="Adicionar emoji"
-                              title="Adicionar emoji"
-                            >
-                              <FaceSmileIcon className="w-6 h-6"/>
-                            </button>
-                          }
-                        />
-                        <Button type="submit" variant="primary" className="h-12 w-12 p-0 flex-shrink-0" disabled={isSending || isLoading.messages || (!newMessage.trim() && attachedFiles.length === 0)}><PaperAirplaneIcon className="w-6 h-6"/></Button>
-                      </form>
-                    </div>
+                            onClick={() => setIsPickerOpen(!isPickerOpen)} 
+                            className="p-1 rounded-full text-gray-400 hover:text-white transition-colors"
+                            aria-label="Adicionar emoji"
+                            title="Adicionar emoji"
+                          >
+                            <FaceSmileIcon className="w-6 h-6"/>
+                          </button>
+                        }
+                      />
+                      <Button type="submit" variant="primary" className="h-12 w-12 p-0 flex-shrink-0" disabled={isSending || isLoading.messages || (!newMessage.trim() && attachedFiles.length === 0)}><PaperAirplaneIcon className="w-6 h-6"/></Button>
+                    </form>
                   </footer>
                 </>
               ) : (
-                <div className="flex-1 flex items-center justify-center">
-                  <p className="text-gray-400">Selecione um dentista para iniciar a conversa.</p>
+                <div className="flex-1 flex items-center justify-center bg-[#181818]">
+                  <p className="text-gray-400">Selecione uma conversa para começar</p>
                 </div>
               )}
-            </main>
-          </div>
+            </section>
+          </main>
         </div>
       )}
 
