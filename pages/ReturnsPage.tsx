@@ -1,9 +1,7 @@
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { getUpcomingReturns, getConfigurationValue, updateConfigurationValue, clearAppointmentReturnDate, getSupabaseClient } from '../services/supabaseService';
+import { getUpcomingReturns, getConfigurationValue, updateConfigurationValue, clearAppointmentReturnDate, addAppointment } from '../services/supabaseService';
 import { AppointmentReturnInfo, NavigationPath } from '../types';
 import { isoToDdMmYyyy } from '../src/utils/formatDate';
 import { Link } from 'react-router-dom';
@@ -145,14 +143,7 @@ export const ReturnsPage: React.FC = () => {
         return_date: null,
     };
 
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-        showToast("Erro: Cliente Supabase não inicializado.", 'error');
-        setConvertingReturnId(null);
-        return;
-    }
-
-    const { error: insertError } = await supabase.from('appointments').insert(newAppointmentPayload as any);
+    const { error: insertError } = await addAppointment(newAppointmentPayload);
 
     if (insertError) {
         showToast(`Erro ao criar novo agendamento: ${insertError.message}`, 'error');

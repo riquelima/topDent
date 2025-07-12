@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect, useCallback, FormEvent } from 'react';
+
+import React, { useState, useEffect, useCallback, FormEvent, useRef } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -9,7 +10,7 @@ import { Dentist, Reminder, Procedure } from '../types';
 import { 
     getDentists, addDentist, updateDentist, deleteDentist,
     getReminders, addReminder, updateReminderIsActive, deleteReminderById,
-    getProcedures, addProcedure, updateProcedure, deleteProcedure // Added Procedure functions
+    getProcedures, addProcedure, updateProcedure, deleteProcedure
 } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
@@ -17,10 +18,10 @@ import { isoToDdMmYyyy } from '../src/utils/formatDate';
 import { Modal } from '../components/ui/Modal'; // Added Modal
 
 interface DentistFormState {
-  id?: string; // For editing
+  id?: string;
   full_name: string;
   username: string;
-  password?: string; // Optional for edit if not changing
+  password?: string;
 }
 
 interface ReminderFormState {
@@ -155,11 +156,12 @@ export const ConfigurationsPage = (): JSX.Element => {
         if (updateError) throw updateError;
         showToast('Dentista atualizado com sucesso!', 'success');
       } else {
-        const { error: addError } = await addDentist({
+        const addPayload: Omit<Dentist, 'id' | 'created_at' | 'updated_at'> = {
           full_name: dentistFormData.full_name,
           username: dentistFormData.username,
-          password: dentistFormData.password!, 
-        });
+          password: dentistFormData.password!,
+        };
+        const { error: addError } = await addDentist(addPayload);
         if (addError) throw addError;
         showToast('Dentista cadastrado com sucesso!', 'success');
       }
@@ -169,7 +171,7 @@ export const ConfigurationsPage = (): JSX.Element => {
       let message = 'Erro ao salvar dentista.';
       if (err.message?.includes('unique constraint')) {
         message = 'Erro: Nome de usuário já existe.';
-      } else if (err.message) {
+      } else if (err.message && !err.message.includes('upload')) {
         message += ` ${err.message}`;
       }
       showToast(message, 'error');
@@ -409,7 +411,9 @@ export const ConfigurationsPage = (): JSX.Element => {
               <tbody className="bg-[#1a1a1a] divide-y divide-gray-700">
                 {dentists.map(dentist => (
                   <tr key={dentist.id} className="hover:bg-[#1f1f1f] transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{dentist.full_name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                      {dentist.full_name}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b0b0b0]">{dentist.username}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center space-x-2">
@@ -571,7 +575,7 @@ export const ConfigurationsPage = (): JSX.Element => {
           onClose={handleCloseDentistModal}
           title={editingDentist ? 'Editar Dentista' : 'Cadastrar Novo Dentista'}
         >
-            <form onSubmit={handleDentistFormSubmit} className="space-y-4">
+            <form onSubmit={handleDentistFormSubmit} className="space-y-6">
               <Input
                 label="Nome Completo"
                 name="full_name"

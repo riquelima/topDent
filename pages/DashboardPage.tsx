@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom'; 
 import { Card } from '../components/ui/Card';
@@ -24,7 +23,7 @@ import {
 import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
 import { NavigationPath, Appointment, Reminder } from '../types';
 import { 
-    getAppointments, // Changed from getUpcomingAppointments
+    getAppointments, 
     getActiveReminders,
     updateReminder,      
     deleteReminderById,
@@ -103,7 +102,8 @@ interface QuickStats {
   patientsRegistered: number;
   consultationsToday: number;
   activeTreatments: number;
-  totalConsultations: number; // Added total consultations
+  totalConsultations: number;
+  pendingConsultations: number;
 }
 
 interface ReminderFormData {
@@ -122,7 +122,8 @@ export const DashboardPage: React.FC = () => {
     patientsRegistered: 0,
     consultationsToday: 0,
     activeTreatments: 0,
-    totalConsultations: 0, // Initialized
+    totalConsultations: 0,
+    pendingConsultations: 0,
   });
 
   // Reminder states
@@ -143,7 +144,7 @@ export const DashboardPage: React.FC = () => {
   const [reminderToDelete, setReminderToDelete] = useState<Reminder | null>(null);
 
 
-  const fetchDashboardData = useCallback(async (limit: number = 4) => {
+  const fetchDashboardData = useCallback(async () => {
     setIsLoadingUpcomingAppointments(true);
     setIsLoadingReminders(true);
 
@@ -155,13 +156,14 @@ export const DashboardPage: React.FC = () => {
       console.error("Error fetching appointments:", appointmentsError.message ? appointmentsError.message : 'Unknown error');
       showToast("Falha ao carregar agendamentos.", "error");
       setUpcomingAppointments([]);
-      setQuickStats(prev => ({ ...prev, consultationsToday: 0, totalConsultations: 0 }));
+      setQuickStats(prev => ({ ...prev, consultationsToday: 0, totalConsultations: 0, pendingConsultations: 0 }));
     } else {
       const appointmentsData = allAppointments || [];
       
       // Stats calculation
       const todayAppointmentsCount = appointmentsData.filter(appt => appt.appointment_date === todayString).length;
       const totalAppointmentsCount = appointmentsData.length;
+      const pendingConsultationsCount = appointmentsData.filter(appt => appt.status === 'Scheduled' || appt.status === 'Confirmed').length;
       
       // Upcoming list calculation
       const upcoming = appointmentsData
@@ -176,15 +178,15 @@ export const DashboardPage: React.FC = () => {
             if (a.appointment_time < b.appointment_time) return -1;
             if (a.appointment_time > b.appointment_time) return 1;
             return 0;
-        })
-        .slice(0, limit);
+        });
       setUpcomingAppointments(upcoming);
 
       // Update stats state
       setQuickStats(prev => ({ 
         ...prev, 
         consultationsToday: todayAppointmentsCount,
-        totalConsultations: totalAppointmentsCount
+        totalConsultations: totalAppointmentsCount,
+        pendingConsultations: pendingConsultationsCount,
       }));
     }
     setIsLoadingUpcomingAppointments(false);
@@ -357,9 +359,10 @@ export const DashboardPage: React.FC = () => {
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <section className="lg:col-span-2">
+        <section className="lg:col-span-2 flex">
           <Card 
-            className="bg-[#1a1a1a]"
+            className="bg-[#1a1a1a] w-full flex flex-col"
+            bodyClassName="flex-1 overflow-y-auto"
             title={
               <div className="flex justify-between items-center">
                 <span className="flex items-center text-xl text-white"><CalendarDaysIcon className="w-6 h-6 mr-3 text-[#00bcd4]" />Próximos Agendamentos</span>
@@ -488,6 +491,10 @@ export const DashboardPage: React.FC = () => {
                 <li className="flex justify-between items-center text-md py-1">
                   <span className="text-[#b0b0b0]">Consultas hoje</span>
                   <span className="font-bold text-2xl text-white">{quickStats.consultationsToday}</span>
+                </li>
+                <li className="flex justify-between items-center text-md py-1">
+                  <span className="text-[#b0b0b0]">Consultas pendentes</span>
+                  <span className="font-bold text-2xl text-white">{quickStats.pendingConsultations}</span>
                 </li>
                 <li className="flex justify-between items-center text-md py-1">
                   <span className="text-[#b0b0b0]">Tratamentos ativos</span>

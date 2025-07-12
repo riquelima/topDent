@@ -1,16 +1,23 @@
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
-import { PaperAirplaneIcon, CheckIcon, CheckDoubleIcon, XMarkIcon } from './icons/HeroIcons';
+import { PaperAirplaneIcon, CheckIcon, CheckDoubleIcon, XMarkIcon, FaceSmileIcon, PaperclipIcon, DocumentTextIcon } from './icons/HeroIcons';
 import { Dentist, ChatMessage } from '../types';
-import { getAdminUserId, getMessagesBetweenUsers, sendMessage, markMessagesAsRead, getUnreadMessages, subscribeToMessages } from '../services/supabaseService';
+import { getAdminUserId, getMessagesBetweenUsers, sendMessage, markMessagesAsRead, getUnreadMessages, subscribeToMessages, uploadChatFile } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import { formatIsoToSaoPauloTime } from '../src/utils/formatDate';
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 
 interface DentistChatWidgetProps {
   dentistId: string;
 }
+
+const isImageFile = (fileType: string | null | undefined): boolean => {
+  if (!fileType) return false;
+  return fileType.startsWith('image/');
+};
 
 export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId }) => {
   const { showToast } = useToast();
@@ -23,9 +30,16 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [unreadMessages, setUnreadMessages] = useState<ChatMessage[]>([]);
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  // File sending state
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    notificationSoundRef.current = new Audio('https://www.soundjay.com/buttons/sounds/button-1.mp3');
+    notificationSoundRef.current = new Audio('https://proxy.notificationsounds.com/notification-sounds/pristine-609/download/file-sounds-1137-pristine.mp3');
   }, []);
 
   const totalUnreadCount = useMemo(() => unreadMessages.length, [unreadMessages]);
@@ -85,6 +99,21 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     }
   }, [unreadMessages, adminUser, dentistId, isOpen]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+        setIsPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setNewMessage(prev => prev + emojiData.emoji);
+    setIsPickerOpen(false);
+  };
+
   const fetchMessages = useCallback(async () => {
     if (!adminUser) return;
     setIsLoading(prevState => ({ ...prevState, messages: true }));
@@ -115,23 +144,100 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !adminUser?.id) return;
+    if ((!newMessage.trim() && attachedFiles.length === 0) || !adminUser?.id) return;
+
     setIsSending(true);
-    const content = newMessage;
+    const textContent = newMessage.trim();
+    const filesToSend = [...attachedFiles];
+
     setNewMessage('');
-    const sentMessage: ChatMessage = {
-      id: `temp-${Date.now()}`, sender_id: dentistId, recipient_id: adminUser.id,
-      content, created_at: new Date().toISOString(), is_read: false
-    };
-    setMessages(prev => [...prev, sentMessage]);
-    const { error } = await sendMessage({ sender_id: dentistId, recipient_id: adminUser.id, content });
-    if (error) {
-      showToast(`Falha ao enviar mensagem: ${error.message}`, 'error');
-      setMessages(prev => prev.filter(m => m.id !== sentMessage.id));
-      setNewMessage(content);
+    setAttachedFiles([]);
+
+    try {
+      // Case 1: Only text content, no files
+      if (textContent && filesToSend.length === 0) {
+        const { data: sentMsg, error } = await sendMessage({
+          sender_id: dentistId,
+          recipient_id: adminUser.id,
+          content: textContent,
+        });
+        if (error) throw new Error(`Falha ao enviar mensagem de texto: ${error.message}`);
+        if (sentMsg) setMessages(prev => [...prev, sentMsg]);
+      } 
+      // Case 2: Files are present (with or without text)
+      else if (filesToSend.length > 0) {
+        let textSentWithFirstFile = false;
+        for (const file of filesToSend) {
+          const { data: uploadData, error: uploadError } = await uploadChatFile(file, dentistId);
+          if (uploadError) {
+            const errorMessage = (uploadError.message || '').toLowerCase();
+            if (errorMessage.includes('bucket not found')) {
+                showToast("Erro: Repositório de arquivos 'chat-files' não foi encontrado. Por favor, crie-o no seu painel Supabase Storage.", 'error', 10000);
+            } else if (errorMessage.includes('security policy') || errorMessage.includes('permission denied') || errorMessage.includes('unauthorized')) {
+                 showToast("Erro de Permissão (RLS). É necessário criar uma 'Policy' no seu painel Supabase para permitir uploads no bucket 'chat-files'.", 'error', 15000);
+            } else {
+                showToast(`Falha ao enviar o arquivo ${file.name}: ${uploadError.message || 'Erro desconhecido'}`, 'error');
+            }
+            console.error(`Error uploading file ${file.name}:`, JSON.stringify(uploadError, null, 2));
+            continue; // Continue to next file
+          }
+
+          if (uploadData) {
+            const messagePayload: Omit<ChatMessage, 'id' | 'created_at' | 'is_read'> = {
+              sender_id: dentistId,
+              recipient_id: adminUser.id,
+              content: !textSentWithFirstFile ? textContent : '', // Send text with first file, or empty string
+              file_url: uploadData.publicUrl,
+              file_name: file.name,
+              file_type: file.type,
+            };
+            
+            const { data: sentMsg, error: sendError } = await sendMessage(messagePayload);
+            if (sendError) throw new Error(`Falha ao enviar mensagem do arquivo ${file.name}: ${sendError.message}`);
+            if (sentMsg) setMessages(prev => [...prev, sentMsg]);
+
+            textSentWithFirstFile = true; // Mark text as sent
+          }
+        }
+      }
+    } catch (error: any) {
+      showToast(error?.message || 'Ocorreu um erro inesperado ao enviar.', 'error');
+      // Restore form state on failure
+      setNewMessage(textContent);
+      setAttachedFiles(filesToSend);
+    } finally {
+      setIsSending(false);
     }
-    setIsSending(false);
   };
+  
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const allowedFiles = Array.from(e.dataTransfer.files).filter(file => 
+                file.type.startsWith('image/') || file.type === 'application/pdf' || file.type === 'application/msword' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            );
+            setAttachedFiles(prev => [...prev, ...allowedFiles]);
+            e.dataTransfer.clearData();
+        }
+    };
+    
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            setAttachedFiles(prev => [...prev, ...Array.from(e.target.files)]);
+        }
+    };
+
 
   return (
     <>
@@ -143,14 +249,31 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
               <XMarkIcon className="w-5 h-5 text-gray-300" />
             </button>
           </header>
-          <main className="flex-1 flex flex-col min-h-0">
+          <main className="flex-1 flex flex-col min-h-0" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+              {isDragging && (
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20 border-4 border-dashed border-teal-500 rounded-lg pointer-events-none">
+                  <p className="text-white text-lg font-semibold">Arraste e solte os arquivos aqui</p>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#181818]">
                 {isLoading.messages || isLoading.admin ? (<p className="text-center text-gray-400">Carregando...</p>)
                 : messages.length === 0 ? (<p className="text-center text-gray-400">Inicie a conversa.</p>)
                 : (messages.map(msg => (
                     <div key={msg.id} className={`flex items-end ${msg.sender_id === dentistId ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-xs px-4 py-2 rounded-xl shadow ${msg.sender_id === dentistId ? 'bg-[#007b8b] text-white rounded-br-none' : 'bg-[#2a2a2a] text-gray-200 rounded-bl-none'}`}>
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      <div className={`max-w-md px-4 py-2 rounded-xl shadow ${msg.sender_id === dentistId ? 'bg-[#007b8b] text-white rounded-br-none' : 'bg-[#2a2a2a] text-gray-200 rounded-bl-none'}`}>
+                        {msg.file_url && (
+                            isImageFile(msg.file_type) ? (
+                                <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
+                                    <img src={msg.file_url} alt={msg.file_name || 'imagem anexa'} className="max-w-xs rounded-lg my-1" />
+                                </a>
+                            ) : (
+                                <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center bg-black/20 p-2 rounded-lg hover:bg-black/30 my-1">
+                                    <DocumentTextIcon className="w-6 h-6 mr-2 flex-shrink-0" />
+                                    <span className="truncate">{msg.file_name || 'Arquivo'}</span>
+                                </a>
+                            )
+                        )}
+                        {msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
                         <div className="flex items-center justify-end text-right mt-1 opacity-70">
                           <p className="text-xs">{formatIsoToSaoPauloTime(msg.created_at)}</p>
                           {msg.sender_id === dentistId && (<span className="ml-2">{msg.is_read ? <CheckDoubleIcon className="w-4 h-4 text-cyan-300" /> : <CheckIcon className="w-4 h-4 text-gray-400" />}</span>)}
@@ -160,10 +283,71 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
                 )))}
                 <div ref={messagesEndRef} />
               </div>
-              <footer className="p-4 bg-[#1f1f1f] border-t border-gray-700/50">
+              <footer className="p-4 bg-[#1f1f1f] border-t border-gray-700/50 relative" ref={pickerRef}>
+                {attachedFiles.length > 0 && (
+                    <div className="p-2 mb-2 border-b border-gray-700/50 space-y-2 max-h-28 overflow-y-auto">
+                        {attachedFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between bg-[#2a2a2a] p-1.5 rounded-md text-xs">
+                                <span className="text-gray-300 truncate pr-2">{file.name}</span>
+                                <button type="button" onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== index))}>
+                                    <XMarkIcon className="w-4 h-4 text-red-400 hover:text-red-300"/>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {isPickerOpen && (
+                  <div className="absolute bottom-full right-0 mb-2 z-10">
+                      <EmojiPicker 
+                          onEmojiClick={handleEmojiClick}
+                          theme={Theme.DARK}
+                          lazyLoadEmojis={true}
+                          height={400}
+                          width={350}
+                      />
+                  </div>
+                )}
                 <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
-                  <Input containerClassName="flex-grow mb-0" className="bg-[#2a2a2a] border-gray-600 focus:border-[#00bcd4] h-12" placeholder="Digite sua mensagem..." value={newMessage} onChange={e => setNewMessage(e.target.value)} disabled={isSending || isLoading.messages} autoFocus />
-                  <Button type="submit" variant="primary" className="h-12 w-12 p-0 flex-shrink-0" disabled={isSending || isLoading.messages || !newMessage.trim()}><PaperAirplaneIcon className="w-6 h-6"/></Button>
+                  <Button 
+                      type="button" 
+                      onClick={() => fileInputRef.current?.click()} 
+                      variant="ghost" 
+                      className="p-3 h-12"
+                      aria-label="Anexar arquivo"
+                      title="Anexar arquivo"
+                      disabled={isSending}
+                  >
+                      <PaperclipIcon className="w-6 h-6 text-gray-400"/>
+                  </Button>
+                  <input 
+                      type="file"
+                      multiple
+                      ref={fileInputRef}
+                      className="hidden"
+                      onChange={handleFileChange}
+                      accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  />
+                  <Input 
+                    containerClassName="flex-grow mb-0" 
+                    className="bg-[#2a2a2a] border-gray-600 focus:border-[#00bcd4] h-12" 
+                    placeholder="Digite sua mensagem..." 
+                    value={newMessage} 
+                    onChange={e => setNewMessage(e.target.value)} 
+                    disabled={isSending || isLoading.messages} 
+                    autoFocus
+                    suffixIcon={
+                      <button 
+                        type="button" 
+                        onClick={() => setIsPickerOpen(!isPickerOpen)} 
+                        className="p-1 rounded-full text-gray-400 hover:text-white transition-colors"
+                        aria-label="Adicionar emoji"
+                        title="Adicionar emoji"
+                      >
+                        <FaceSmileIcon className="w-6 h-6"/>
+                      </button>
+                    }
+                  />
+                  <Button type="submit" variant="primary" className="h-12 w-12 p-0 flex-shrink-0" disabled={isSending || isLoading.messages || (!newMessage.trim() && attachedFiles.length === 0)}><PaperAirplaneIcon className="w-6 h-6"/></Button>
                 </form>
               </footer>
           </main>

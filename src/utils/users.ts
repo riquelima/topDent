@@ -17,7 +17,7 @@ export const getKnownDentists = async (): Promise<DentistUser[]> => {
     ];
   }
 
-  // Explicitly select 'id' (UUID), 'full_name', and 'username'. This is the source of the dentist list for appointments.
+  // Explicitly select 'id' (UUID), 'full_name', and 'username'.
   const { data, error } = await client
     .from('dentists')
     .select('id, full_name, username') 

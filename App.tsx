@@ -26,7 +26,6 @@ import { ToastProvider } from './contexts/ToastContext';
 import { ChangelogModal } from './components/ChangelogModal';
 import { ChatWidget } from './components/ChatWidget';
 import { DentistChatWidget } from './components/DentistChatWidget';
-import { updateUserPreferences } from './services/supabaseService';
 
 
 export type UserRole = 'admin' | 'dentist' | null;
@@ -98,7 +97,7 @@ const App: React.FC = () => {
     }
   }, []);
   
-  const handleLoginSuccess = useCallback((role: UserRole, idForApi: string, username: string, displayFullName: string, showChangelog?: boolean) => {
+  const handleLoginSuccess = useCallback((role: UserRole, idForApi: string, username: string, displayFullName: string) => {
     const sessionData = { 
       userRole: role, 
       userIdForApi: idForApi, 
@@ -115,7 +114,7 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Could not save user session to localStorage", error);
     }
-    if (role === 'admin' && showChangelog !== false) {
+    if (role === 'admin') {
         setIsChangelogModalOpen(true);
     }
   }, []);
@@ -133,11 +132,8 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleCloseChangelogModal = async (dontShowAgain: boolean) => {
+  const handleCloseChangelogModal = () => {
     setIsChangelogModalOpen(false);
-    if (dontShowAgain && userRole === 'admin' && userIdForApi) {
-        await updateUserPreferences(userIdForApi, { show_changelog: false });
-    }
   };
 
   const ProtectedRoute: React.FC<{children: JSX.Element; adminOnly?: boolean}> = ({ children, adminOnly = false }) => {

@@ -145,7 +145,6 @@ export interface Dentist {
   full_name: string;
   username: string;
   password?: string; // Optional for reads/updates if not changing
-  show_changelog?: boolean; // For "What's New" modal preference
   created_at?: string;
   updated_at?: string;
 }
@@ -186,9 +185,12 @@ export interface ChatMessage {
   id: string;
   sender_id: string;
   recipient_id: string;
-  content: string;
+  content: string | null;
   created_at: string;
   is_read: boolean;
+  file_url?: string | null;
+  file_name?: string | null;
+  file_type?: string | null;
 }
 
 export enum NavigationPath {

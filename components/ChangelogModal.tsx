@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { XMarkIcon, CheckIcon } from './icons/HeroIcons';
@@ -9,14 +10,13 @@ import { isoToDdMmYyyy } from '../src/utils/formatDate';
 
 interface ChangelogModalProps {
   isOpen: boolean;
-  onClose: (dontShowAgain: boolean) => void;
+  onClose: () => void;
 }
 
 export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
   const [changelog, setChangelog] = useState<ChangelogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -27,6 +27,18 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
           setError('Não foi possível carregar as atualizações.');
         } else {
           const hardcodedEntries: ChangelogEntry[] = [
+            {
+              id: 'manual-entry-consolidated-12-07-2025',
+              created_at: new Date('2025-07-12T10:00:00Z').toISOString(),
+              release_date: '2025-07-12',
+              version: 'v7.0.0',
+              changes: [
+                'Envio de Arquivos no Chat: Agora é possível enviar arquivos (imagens, PDFs, documentos) diretamente no chat, tanto para administradores quanto para dentistas.',
+                'Arrastar e Soltar no Chat: Adicionada a funcionalidade de arrastar e soltar arquivos diretamente na janela do chat para facilitar o anexo.',
+                'Fotos de Perfil para Dentistas: Administradores agora podem adicionar fotos de perfil para os dentistas na tela de configurações, que serão exibidas no chat.',
+                'Melhorias nas Mensagens de Erro: Aprimoradas as mensagens de erro para uploads de arquivos, fornecendo instruções claras sobre como corrigir problemas de configuração no Supabase (como "Bucket not found" e permissões RLS).',
+              ]
+            },
             {
               id: 'manual-entry-consolidated-11-07-2025',
               created_at: new Date('2025-07-11T12:00:00Z').toISOString(),
@@ -122,14 +134,10 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
     }
   }, [isOpen]);
 
-  const handleClose = () => {
-    onClose(dontShowAgain);
-  };
-
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[2000] p-4 animate-fade-in" onClick={handleClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[2000] p-4 animate-fade-in" onClick={onClose}>
       <div 
         className="bg-[#1f1f1f]/90 border border-gray-700/50 rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh] animate-slide-up"
         onClick={e => e.stopPropagation()}
@@ -137,7 +145,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
         <header className="p-6 border-b border-gray-700/50 flex justify-between items-center">
           <h2 className="text-2xl font-bold text-white">✨ Novidades e Atualizações</h2>
           <button
-            onClick={handleClose}
+            onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors p-1 rounded-full"
             aria-label="Fechar"
           >
@@ -170,17 +178,8 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
             <p className="text-center text-gray-400">Nenhuma atualização recente encontrada.</p>
           )}
         </main>
-        <footer className="p-6 border-t border-gray-700/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <label className="flex items-center cursor-pointer text-gray-300 hover:text-white">
-            <input
-              type="checkbox"
-              checked={dontShowAgain}
-              onChange={e => setDontShowAgain(e.target.checked)}
-              className="h-4 w-4 text-[#00bcd4] bg-gray-700 border-gray-600 rounded focus:ring-[#00bcd4]"
-            />
-            <span className="ml-2 text-sm">Não mostrar novamente</span>
-          </label>
-          <Button variant="primary" onClick={handleClose}>
+        <footer className="p-6 border-t border-gray-700/50 flex flex-col sm:flex-row justify-end items-center gap-4">
+          <Button variant="primary" onClick={onClose}>
             Fechar
           </Button>
         </footer>

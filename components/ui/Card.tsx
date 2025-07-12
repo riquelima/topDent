@@ -6,13 +6,14 @@ interface CardProps {
   className?: string;
   title?: React.ReactNode; 
   titleClassName?: string;
+  bodyClassName?: string;
   onClick?: (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
   hoverEffect?: boolean;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = '', title, titleClassName = '', onClick, hoverEffect = false }) => {
-  const baseStyles = "bg-[#1a1a1a] shadow-lg rounded-lg overflow-hidden border border-gray-700/50"; // Darker card with subtle border
-  const hoverStyles = hoverEffect ? "transition-all duration-150 ease-in-out hover:shadow-xl hover:border-gray-600/70" : ""; // Subtle hover
+export const Card: React.FC<CardProps> = ({ children, className = '', title, titleClassName = '', bodyClassName = '', onClick, hoverEffect = false }) => {
+  const baseStyles = "bg-[#1a1a1a] shadow-lg rounded-lg overflow-hidden border border-gray-700/50";
+  const hoverStyles = hoverEffect ? "transition-all duration-150 ease-in-out hover:shadow-xl hover:border-gray-600/70" : "";
   const clickableStyles = onClick ? "cursor-pointer" : "";
 
   return (
@@ -29,7 +30,7 @@ export const Card: React.FC<CardProps> = ({ children, className = '', title, tit
           )}
         </div>
       )}
-      <div className="p-6">
+      <div className={`p-6 ${bodyClassName}`}>
         {children}
       </div>
     </div>
