@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { Card } from './ui/Card';
@@ -30,7 +31,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [unreadMessages, setUnreadMessages] = useState<ChatMessage[]>([]);
-  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUnlockedRef = useRef(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -42,10 +43,11 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
 
   useEffect(() => {
     try {
+        // Use a reliable, high-quality CDN link for the sound
         const audio = new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_f441b7f72f.mp3');
         audio.volume = 1.0;
-        audio.preload = 'auto'; // Garante pré-carregamento
-        notificationSoundRef.current = audio;
+        audio.preload = 'auto'; // Ensures the browser starts loading the audio file as soon as possible
+        audioRef.current = audio;
     } catch(e) {
         console.error("Failed to initialize audio:", e)
     }
@@ -64,28 +66,27 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   }, [unreadMessages]);
 
   const playNotificationSound = useCallback(() => {
-    const audio = notificationSoundRef.current;
-    if (audioUnlockedRef.current && audio) {
-      audio.currentTime = 0;
-      audio.play().catch((err) => {
-        console.warn("🔇 Som bloqueado:", err);
-      });
-    } else {
-      // Fallback usando Web Audio API (para burlar restrições do autoplay)
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(1000, ctx.currentTime); // tom agudo
-        gain.gain.setValueAtTime(0.1, ctx.currentTime); // volume
-        oscillator.start();
-        oscillator.stop(ctx.currentTime + 0.1); // 100ms
-      } catch (e) {
-        console.error("Audio fallback failed", e)
-      }
+    const audio = audioRef.current;
+    if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch((err) => {
+            console.warn("🔇 Som bloqueado:", err);
+            // Fallback using Web Audio API if direct play fails after unlock attempt
+            try {
+                const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const oscillator = ctx.createOscillator();
+                const gain = ctx.createGain();
+                oscillator.connect(gain);
+                gain.connect(ctx.destination);
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(1000, ctx.currentTime); // high pitch tone
+                gain.gain.setValueAtTime(0.1, ctx.currentTime); // volume
+                oscillator.start();
+                oscillator.stop(ctx.currentTime + 0.1); // 100ms duration
+            } catch (fallbackError) {
+                console.error("Audio fallback failed", fallbackError);
+            }
+        });
     }
   }, []);
 
@@ -161,15 +162,17 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   };
 
   const handleToggleChat = () => {
-    if (!audioUnlockedRef.current && notificationSoundRef.current) {
-        const audio = notificationSoundRef.current;
+    if (!audioUnlockedRef.current && audioRef.current) {
+        const audio = audioRef.current;
+        // The most robust way to unlock is to play a sound and immediately pause it.
         audio.play().then(() => {
             audio.pause();
             audio.currentTime = 0;
             audioUnlockedRef.current = true;
-            console.log("🔊 Áudio desbloqueado.");
-        }).catch(() => {
-            showToast("Clique para desbloquear o som de notificação.", "warning");
+            console.log("🔊 Áudio desbloqueado para notificações futuras.");
+        }).catch((err) => {
+            // This error is expected if the browser blocks it. No need to show a toast.
+            console.warn("Tentativa de desbloqueio de áudio falhou (esperado na primeira interação):", err);
         });
     }
     setIsOpen(!isOpen);

@@ -562,7 +562,7 @@ export const updatePatient = async (oldCpf: string, patientData: Partial<Omit<Pa
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
-  const dataToUpdate: Database['public']['Tables']['patients']['Update'] = {};
+  const dataToUpdate: Partial<Database['public']['Tables']['patients']['Update']> = {};
   if (patientData.cpf !== undefined) dataToUpdate.cpf = patientData.cpf;
   if (patientData.fullName !== undefined) dataToUpdate.full_name = patientData.fullName;
   if (patientData.dob !== undefined) dataToUpdate.dob = patientData.dob || '1900-01-01';
@@ -681,14 +681,14 @@ export const getBloodPressureReadingsByPatientCpf = async (patientCpf: string): 
 export const addTreatmentPlan = async (planData: Omit<SupabaseTreatmentPlanData, 'id' | 'created_at'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('treatment_plans').insert(planData as any).select();
+    return client.from('treatment_plans').insert(planData).select();
 };
 
 export const updateTreatmentPlan = async (planId: string, planData: Partial<SupabaseTreatmentPlanData>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
     const updatePayload = { ...planData, updated_at: new Date().toISOString() };
-    return client.from('treatment_plans').update(updatePayload as any).eq('id', planId).select().single();
+    return client.from('treatment_plans').update(updatePayload).eq('id', planId).select().single();
 };
 
 export const getTreatmentPlanById = async (planId: string) => {
