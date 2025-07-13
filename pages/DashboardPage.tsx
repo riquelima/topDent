@@ -31,7 +31,7 @@ import {
     getPatients,
     getAllTreatmentPlans
 } from '../services/supabaseService'; 
-import { isoToDdMmYyyy, formatToHHMM } from '../src/utils/formatDate';
+import { isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
 import { useToast } from '../contexts/ToastContext';
 
 
@@ -152,7 +152,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
     setIsLoadingUpcomingAppointments(true);
     setIsLoadingReminders(true);
 
-    const todayString = new Date().toISOString().split('T')[0];
+    const todayString = getTodayInSaoPaulo();
 
     // Fetch ALL appointments once
     const { data: allAppointments, error: appointmentsError } = await getAppointments();
@@ -172,7 +172,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
       // Upcoming list calculation
       const upcoming = appointmentsData
         .filter(appt => {
-          const isUpcomingDate = new Date(appt.appointment_date + 'T00:00:00') >= new Date(todayString);
+          const isUpcomingDate = appt.appointment_date >= todayString;
           const isPendingStatus = appt.status === 'Scheduled' || appt.status === 'Confirmed';
           return isUpcomingDate && isPendingStatus;
         })

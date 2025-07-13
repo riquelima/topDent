@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -29,7 +30,7 @@ import {
     subscribeToNotificationsForDentist,
 } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
-import { formatIsoToSaoPauloTime, isoToDdMmYyyy, formatToHHMM } from '../src/utils/formatDate';
+import { formatIsoToSaoPauloTime, isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
 
 interface DentistDashboardPageProps {
   dentistId: string;
@@ -38,6 +39,13 @@ interface DentistDashboardPageProps {
 }
 
 const getWeekDateRange = (date: Date): { start: string, end: string } => {
+    const formatDateToIso = (d: Date) => {
+        const year = d.getFullYear();
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const day = d.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const d = new Date(date);
     const day = d.getDay(); 
     const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1); 
@@ -45,8 +53,8 @@ const getWeekDateRange = (date: Date): { start: string, end: string } => {
     const sunday = new Date(new Date(monday).setDate(monday.getDate() + 6)); 
 
     return {
-        start: monday.toISOString().split('T')[0],
-        end: sunday.toISOString().split('T')[0],
+        start: formatDateToIso(monday),
+        end: formatDateToIso(sunday),
     };
 };
 
@@ -219,7 +227,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   const [arrivalNotification, setArrivalNotification] = useState<Notification | null>(null);
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
-  const todayDateString = new Date().toISOString().split('T')[0];
+  const todayDateString = getTodayInSaoPaulo();
 
   const handleNewNotification = useCallback((newNotification: Notification) => {
     if (!notificationIdsRef.current.has(newNotification.id)) {
@@ -237,7 +245,8 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         setIsLoading(true);
         setError(null);
 
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = getTodayInSaoPaulo();
+        const spNowForWeek = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
 
         try {
             const [
@@ -245,7 +254,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
                 initialNotificationsRes
             ] = await Promise.all([
                 getAppointmentsByDate(todayStr, dentistId, dentistUsername),
-                getAppointmentsByDateRangeForDentist(getWeekDateRange(new Date()).start, getWeekDateRange(new Date()).end, dentistId, dentistUsername),
+                getAppointmentsByDateRangeForDentist(getWeekDateRange(spNowForWeek).start, getWeekDateRange(spNowForWeek).end, dentistId, dentistUsername),
                 getAllAppointmentsForDentist(dentistId, 50, 1, dentistUsername),
                 getUnreadNotificationsForDentist(dentistId),
             ]);
@@ -326,8 +335,9 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     const refreshAllAppointmentData = async () => {
         setIsLoading(true);
         setError(null);
-        const todayStr = new Date().toISOString().split('T')[0];
-        const weekDateRange = getWeekDateRange(new Date());
+        const todayStr = getTodayInSaoPaulo();
+        const spNowForWeek = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+        const weekDateRange = getWeekDateRange(spNowForWeek);
 
         try {
             const [todayRes, weekRes, allRes] = await Promise.all([

@@ -21,9 +21,8 @@ import {
 } from '../types'; 
 
 // The recursive type definition for Json can cause TypeScript to hit its recursion limit
-// when used with the Supabase client's generics. Replacing it with a non-recursive
-// version resolves these errors.
-export type Json = any;
+// when used with the Supabase client's generics. Using 'any' directly avoids this.
+// export type Json = any; // This alias is removed to use 'any' directly.
 
 export type Database = {
   public: {
@@ -232,10 +231,10 @@ export type Database = {
             patient_cpf: string;
             description: string;
             procedures_performed: string | null;
-            files: Json | null;
+            files: { name: string; url: string; }[] | null;
             dentist_signature: string | null;
             prescribed_medication: string | null;
-            payments: Json | null;
+            payments: PaymentInput[] | null;
             updated_at?: string;
         },
         Insert: {
@@ -244,10 +243,10 @@ export type Database = {
             patient_cpf: string;
             description: string;
             procedures_performed?: string | null;
-            files?: Json | null;
+            files?: { name: string; url: string; }[] | null;
             dentist_signature?: string | null;
             prescribed_medication?: string | null;
-            payments?: Json | null;
+            payments?: PaymentInput[] | null;
             updated_at?: string;
         },
         Update: {
@@ -256,10 +255,10 @@ export type Database = {
             patient_cpf?: string;
             description?: string;
             procedures_performed?: string | null;
-            files?: Json | null;
+            files?: { name: string; url: string; }[] | null;
             dentist_signature?: string | null;
             prescribed_medication?: string | null;
-            payments?: Json | null;
+            payments?: PaymentInput[] | null;
             updated_at?: string;
         }
       },
@@ -552,7 +551,7 @@ export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
     health_plan_code: health_plan_code || null,
   };
 
-  const { data, error: supabaseError } = await client.from('patients').insert([dataToInsert]).select();
+  const { data, error: supabaseError } = await client.from('patients').insert(dataToInsert).select();
   if (supabaseError) {
     console.error('Error adding patient to Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
   }
@@ -654,7 +653,7 @@ export const getPatientByCpf = async (cpf: string): Promise<{ data: Patient | nu
 export const addAnamnesisForm = async (anamnesisData: Omit<SupabaseAnamnesisData, 'id' | 'created_at'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('anamnesis_forms').insert([anamnesisData]).select();
+    return client.from('anamnesis_forms').insert(anamnesisData).select();
 };
 
 export const addBloodPressureReadings = async (readings: Omit<SupabaseBloodPressureReading, 'id' | 'created_at'>[]) => {
@@ -682,7 +681,7 @@ export const getBloodPressureReadingsByPatientCpf = async (patientCpf: string): 
 export const addTreatmentPlan = async (planData: Omit<SupabaseTreatmentPlanData, 'id' | 'created_at'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('treatment_plans').insert([planData]).select();
+    return client.from('treatment_plans').insert(planData).select();
 };
 
 export const updateTreatmentPlan = async (planId: string, planData: Partial<SupabaseTreatmentPlanData>) => {
@@ -757,7 +756,7 @@ export const getAppointmentById = async (id: string): Promise<{ data: Appointmen
 export const addAppointment = async (appointmentData: SupabaseAppointmentData) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('appointments').insert([appointmentData]).select().single();
+    return client.from('appointments').insert(appointmentData).select().single();
 };
 
 export const updateAppointment = async (id: string, appointmentData: Partial<SupabaseAppointmentData>) => {
@@ -869,7 +868,7 @@ export const getDentistByUsername = async (username: string): Promise<{ data: De
 export const addDentist = async (dentistData: Omit<Dentist, 'id' | 'created_at' | 'updated_at'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('dentists').insert([dentistData]).select().single();
+    return client.from('dentists').insert(dentistData).select().single();
 };
 
 export const updateDentist = async (id: string, dentistData: Partial<Omit<Dentist, 'id' | 'created_at'>>) => {
@@ -906,7 +905,7 @@ export const getActiveReminders = async (): Promise<{ data: Reminder[] | null; e
 export const addReminder = async (reminderData: Omit<Reminder, 'id' | 'created_at' | 'is_active'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('reminders').insert([{ ...reminderData, is_active: true }]);
+    return client.from('reminders').insert({ ...reminderData, is_active: true });
 };
 
 export const updateReminder = async (id: string, reminderData: Partial<Omit<Reminder, 'id' | 'created_at'>>) => {
@@ -941,7 +940,7 @@ export const getProcedures = async (includeInactive = false): Promise<{ data: Pr
 export const addProcedure = async (procedureData: Pick<Procedure, 'name'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('procedures').insert([procedureData]);
+    return client.from('procedures').insert(procedureData);
 };
 
 export const updateProcedure = async (id: string, procedureData: Partial<Pick<Procedure, 'name' | 'is_active'>>) => {
@@ -960,7 +959,7 @@ export const deleteProcedure = async (id: string) => {
 export const addConsultationHistoryEntry = async (entry: Omit<ConsultationHistoryEntry, 'id' | 'created_at' | 'completion_timestamp'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('consultation_history').insert([{ ...entry, completion_timestamp: new Date().toISOString() }]);
+    return client.from('consultation_history').insert({ ...entry, completion_timestamp: new Date().toISOString() });
 };
 
 export const getConsultationHistory = async (filters: { patientSearchTerm?: string; dentistId?: string; startDate?: string; endDate?: string }) => {
@@ -994,7 +993,7 @@ export const getConfigurationValue = async (key: string): Promise<{ data: string
 export const updateConfigurationValue = async (key: string, value: string) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('configurations').upsert([{ key, value }]);
+    return client.from('configurations').upsert({ key, value });
 };
 
 // --- CHANGELOG FUNCTIONS ---
@@ -1008,7 +1007,7 @@ export const getChangelog = async (): Promise<{ data: ChangelogEntry[] | null, e
 export const addNotification = async (notification: Omit<Notification, 'id' | 'created_at' | 'is_read'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('notifications').insert([notification]);
+    return client.from('notifications').insert(notification);
 };
 
 export const getUnreadNotificationsForDentist = async (dentistId: string) => {
@@ -1029,7 +1028,7 @@ export const subscribeToNotificationsForDentist = (dentistId: string, callback: 
     return client
         .channel(`public:notifications:dentist_id=eq.${dentistId}`)
         .on<Notification>('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `dentist_id=eq.${dentistId}` }, (payload) => {
-            callback(payload.new);
+            callback(payload.new as Notification);
         })
 };
 
@@ -1047,7 +1046,7 @@ export const getMessagesBetweenUsers = async (userId1: string, userId2: string) 
 export const sendMessage = async (message: Omit<ChatMessage, 'id' | 'created_at' | 'is_read'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('chat_messages').insert([message]).select().single();
+    return client.from('chat_messages').insert(message).select().single();
 };
 
 export const markMessagesAsRead = async (messageIds: string[], readerId: string) => {
@@ -1076,7 +1075,7 @@ export const subscribeToMessages = (userId: string, callback: (payload: ChatMess
     return client
         .channel(`public:chat_messages:recipient_id=eq.${userId}`)
         .on<ChatMessage>('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${userId}` }, (payload) => {
-            callback(payload.new);
+            callback(payload.new as ChatMessage);
         });
 };
 

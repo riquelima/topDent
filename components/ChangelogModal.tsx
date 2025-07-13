@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { XMarkIcon, CheckIcon } from './icons/HeroIcons';
@@ -27,6 +28,18 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
           setError('Não foi possível carregar as atualizações.');
         } else {
           const hardcodedEntries: ChangelogEntry[] = [
+            {
+              id: 'manual-entry-consolidated-13-07-2025',
+              created_at: new Date('2025-07-13T10:00:00Z').toISOString(),
+              release_date: '2025-07-13',
+              version: 'v8.0.0',
+              changes: [
+                'Automação de Agendamento no WhatsApp: Ao salvar um agendamento, uma automação é acionada no n8n para enviar a confirmação ao paciente.',
+                'Feedback de Envio de Lembrete: Adicionado um toast de notificação que informa se a confirmação do WhatsApp foi enviada com sucesso ou se falhou por falta de telefone.',
+                'Registro da Última Consulta no Paciente: O sistema agora salva automaticamente a data da última consulta no cadastro do paciente, facilitando o acompanhamento.',
+                'Atualização Segura de CPF/ID: Melhorado o processo de atualização do CPF/ID de um paciente, garantindo que todos os seus dados vinculados (agendamentos, tratamentos) sejam migrados corretamente, evitando erros no banco de dados.',
+              ]
+            },
             {
               id: 'manual-entry-consolidated-12-07-2025',
               created_at: new Date('2025-07-12T10:00:00Z').toISOString(),

@@ -13,7 +13,7 @@ import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getApp
 import type { SupabaseAppointmentData } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import { getKnownDentists } from '../src/utils/users';
-import { isoToDdMmYyyy } from '../src/utils/formatDate';
+import { isoToDdMmYyyy, getTodayInSaoPaulo } from '../src/utils/formatDate';
 
 const statusOptions: { value: Appointment['status']; label: string }[] = [
   { value: 'Scheduled', label: 'Agendado' },
@@ -162,7 +162,7 @@ export const ManageAppointmentPage: React.FC = () => {
             setPatientSearchTerm(navigationState.patientName);
             setPatientPhone(existingPatient?.phone || '');
             
-            const today = new Date().toISOString().split('T')[0];
+            const today = getTodayInSaoPaulo();
             setAppointmentDate(today);
             setAppointmentTime('');
             setReturnDate('');
@@ -173,7 +173,7 @@ export const ManageAppointmentPage: React.FC = () => {
             setDentistSearchTerm('');
         } else {
           // Standard new appointment
-          const today = new Date().toISOString().split('T')[0];
+          const today = getTodayInSaoPaulo();
           setAppointmentDate(today);
           setPatientCpf(null);
           setPatientName('');

@@ -1,4 +1,3 @@
-
 // src/utils/formatDate.ts
 
 /**
@@ -83,4 +82,20 @@ export const formatIsoToSaoPauloTime = (isoTimestamp: string | null | undefined)
     // Fallback to simple HH:MM extraction if toLocaleTimeString fails, which will be in user's local time
     return formatToHHMM(isoTimestamp.split('T')[1]);
   }
+};
+
+/**
+ * Gets the current date in 'America/Sao_Paulo' timezone and returns it as 'YYYY-MM-DD'.
+ * This is crucial for correctly filtering "today's" appointments regardless of server/user timezone.
+ * @returns The current date in Sao Paulo as a 'YYYY-MM-DD' string.
+ */
+export const getTodayInSaoPaulo = (): string => {
+  const spTime = new Date().toLocaleString("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  // toLocaleString with en-CA gives YYYY-MM-DD format, we just need the date part
+  return spTime.split(',')[0]; 
 };

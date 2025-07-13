@@ -8,7 +8,7 @@ import { Select } from '../components/ui/Select';
 import { PlusIcon, PencilIcon, TrashIcon, BellIcon } from '../components/icons/HeroIcons'; 
 import { Appointment, DentistUser, NavigationPath, ConsultationHistoryEntry } from '../types'; 
 import { getAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry, getProcedures } from '../services/supabaseService'; 
-import { isoToDdMmYyyy, formatToHHMM } from '../src/utils/formatDate';
+import { isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal'; 
 import { useToast } from '../contexts/ToastContext'; 
 import { getKnownDentists } from '../src/utils/users'; 
@@ -57,7 +57,7 @@ export const AppointmentsPage: React.FC = () => {
   const [selectedDentistId, setSelectedDentistId] = useState<string>(''); 
   const [statusFilter, setStatusFilter] = useState<Appointment['status'] | ''>('');
   const [procedureFilter, setProcedureFilter] = useState<string>('');
-  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   
   const [availableProcedures, setAvailableProcedures] = useState<string[]>([]);
   const [notifiedAppointments, setNotifiedAppointments] = useState<Set<string>>(new Set());
@@ -125,17 +125,14 @@ export const AppointmentsPage: React.FC = () => {
       processedAppointments = processedAppointments.filter(appt => appt.procedure.includes(procedureFilter));
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    const tomorrowDate = new Date();
-    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-    const tomorrow = tomorrowDate.toISOString().split('T')[0];
+    const today = getTodayInSaoPaulo();
     
     switch (dateFilter) {
       case 'today':
         processedAppointments = processedAppointments.filter(appt => appt.appointment_date === today);
         break;
       case 'upcoming': 
-        processedAppointments = processedAppointments.filter(appt => appt.appointment_date >= tomorrow);
+        processedAppointments = processedAppointments.filter(appt => appt.appointment_date > today);
         break;
     }
 
