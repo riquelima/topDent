@@ -551,7 +551,7 @@ export const addPatient = async (patientData: Omit<Patient, 'id'>) => {
     health_plan_code: health_plan_code || null,
   };
 
-  const { data, error: supabaseError } = await client.from('patients').insert(dataToInsert).select();
+  const { data, error: supabaseError } = await client.from('patients').insert(dataToInsert as any).select();
   if (supabaseError) {
     console.error('Error adding patient to Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
   }
@@ -585,7 +585,7 @@ export const updatePatient = async (oldCpf: string, patientData: Partial<Omit<Pa
 
   const { data, error: supabaseError } = await client
     .from('patients')
-    .update(dataToUpdate)
+    .update(dataToUpdate as any)
     .eq('cpf', oldCpf)
     .select();
   
@@ -601,7 +601,7 @@ export const updatePatientLastAppointment = async (cpf: string, appointmentDate:
 
     return await client
         .from('patients')
-        .update({ last_appointment_date: appointmentDate, updated_at: new Date().toISOString() })
+        .update({ last_appointment_date: appointmentDate, updated_at: new Date().toISOString() } as any)
         .eq('cpf', cpf);
 };
 
@@ -653,13 +653,13 @@ export const getPatientByCpf = async (cpf: string): Promise<{ data: Patient | nu
 export const addAnamnesisForm = async (anamnesisData: Omit<SupabaseAnamnesisData, 'id' | 'created_at'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('anamnesis_forms').insert(anamnesisData).select();
+    return client.from('anamnesis_forms').insert(anamnesisData as any).select();
 };
 
 export const addBloodPressureReadings = async (readings: Omit<SupabaseBloodPressureReading, 'id' | 'created_at'>[]) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('blood_pressure_readings').insert(readings).select();
+    return client.from('blood_pressure_readings').insert(readings as any).select();
 };
 
 export const getAnamnesisFormByPatientCpf = async (patientCpf: string): Promise<{ data: SupabaseAnamnesisData | null, error: any }> => {
@@ -681,14 +681,14 @@ export const getBloodPressureReadingsByPatientCpf = async (patientCpf: string): 
 export const addTreatmentPlan = async (planData: Omit<SupabaseTreatmentPlanData, 'id' | 'created_at'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('treatment_plans').insert(planData).select();
+    return client.from('treatment_plans').insert(planData as any).select();
 };
 
 export const updateTreatmentPlan = async (planId: string, planData: Partial<SupabaseTreatmentPlanData>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
     const updatePayload = { ...planData, updated_at: new Date().toISOString() };
-    return client.from('treatment_plans').update(updatePayload).eq('id', planId).select().single();
+    return client.from('treatment_plans').update(updatePayload as any).eq('id', planId).select().single();
 };
 
 export const getTreatmentPlanById = async (planId: string) => {
@@ -756,13 +756,13 @@ export const getAppointmentById = async (id: string): Promise<{ data: Appointmen
 export const addAppointment = async (appointmentData: SupabaseAppointmentData) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('appointments').insert(appointmentData).select().single();
+    return client.from('appointments').insert(appointmentData as any).select().single();
 };
 
 export const updateAppointment = async (id: string, appointmentData: Partial<SupabaseAppointmentData>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('appointments').update({ ...appointmentData, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+    return client.from('appointments').update({ ...appointmentData, updated_at: new Date().toISOString() } as any).eq('id', id).select().single();
 };
 
 export const deleteAppointment = async (id: string) => {
@@ -774,7 +774,7 @@ export const deleteAppointment = async (id: string) => {
 export const updateAppointmentStatus = async (id: string, status: Appointment['status']) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('appointments').update({ status, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+    return client.from('appointments').update({ status, updated_at: new Date().toISOString() } as any).eq('id', id).select().single();
 };
 
 export const getAppointmentsByPatientCpf = async (cpf: string) => {
@@ -849,7 +849,7 @@ export const getUpcomingReturns = async (): Promise<{ data: AppointmentReturnInf
 export const clearAppointmentReturnDate = async (appointmentId: string) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('appointments').update({ return_date: null }).eq('id', appointmentId);
+    return client.from('appointments').update({ return_date: null } as any).eq('id', appointmentId);
 };
 
 // --- DENTIST FUNCTIONS ---
@@ -868,13 +868,13 @@ export const getDentistByUsername = async (username: string): Promise<{ data: De
 export const addDentist = async (dentistData: Omit<Dentist, 'id' | 'created_at' | 'updated_at'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('dentists').insert(dentistData).select().single();
+    return client.from('dentists').insert(dentistData as any).select().single();
 };
 
 export const updateDentist = async (id: string, dentistData: Partial<Omit<Dentist, 'id' | 'created_at'>>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('dentists').update({ ...dentistData, updated_at: new Date().toISOString() }).eq('id', id);
+    return client.from('dentists').update({ ...dentistData, updated_at: new Date().toISOString() } as any).eq('id', id);
 };
 
 export const deleteDentist = async (id: string) => {
@@ -905,19 +905,19 @@ export const getActiveReminders = async (): Promise<{ data: Reminder[] | null; e
 export const addReminder = async (reminderData: Omit<Reminder, 'id' | 'created_at' | 'is_active'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('reminders').insert({ ...reminderData, is_active: true });
+    return client.from('reminders').insert({ ...reminderData, is_active: true } as any);
 };
 
 export const updateReminder = async (id: string, reminderData: Partial<Omit<Reminder, 'id' | 'created_at'>>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('reminders').update(reminderData).eq('id', id);
+    return client.from('reminders').update(reminderData as any).eq('id', id);
 };
 
 export const updateReminderIsActive = async (id: string, is_active: boolean) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('reminders').update({ is_active }).eq('id', id);
+    return client.from('reminders').update({ is_active } as any).eq('id', id);
 };
 
 export const deleteReminderById = async (id: string) => {
@@ -940,13 +940,13 @@ export const getProcedures = async (includeInactive = false): Promise<{ data: Pr
 export const addProcedure = async (procedureData: Pick<Procedure, 'name'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('procedures').insert(procedureData);
+    return client.from('procedures').insert(procedureData as any);
 };
 
 export const updateProcedure = async (id: string, procedureData: Partial<Pick<Procedure, 'name' | 'is_active'>>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('procedures').update({ ...procedureData, updated_at: new Date().toISOString() }).eq('id', id);
+    return client.from('procedures').update({ ...procedureData, updated_at: new Date().toISOString() } as any).eq('id', id);
 };
 
 export const deleteProcedure = async (id: string) => {
@@ -959,7 +959,7 @@ export const deleteProcedure = async (id: string) => {
 export const addConsultationHistoryEntry = async (entry: Omit<ConsultationHistoryEntry, 'id' | 'created_at' | 'completion_timestamp'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('consultation_history').insert({ ...entry, completion_timestamp: new Date().toISOString() });
+    return client.from('consultation_history').insert({ ...entry, completion_timestamp: new Date().toISOString() } as any);
 };
 
 export const getConsultationHistory = async (filters: { patientSearchTerm?: string; dentistId?: string; startDate?: string; endDate?: string }) => {
@@ -993,7 +993,7 @@ export const getConfigurationValue = async (key: string): Promise<{ data: string
 export const updateConfigurationValue = async (key: string, value: string) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('configurations').upsert({ key, value });
+    return client.from('configurations').upsert({ key, value } as any);
 };
 
 // --- CHANGELOG FUNCTIONS ---
@@ -1007,7 +1007,7 @@ export const getChangelog = async (): Promise<{ data: ChangelogEntry[] | null, e
 export const addNotification = async (notification: Omit<Notification, 'id' | 'created_at' | 'is_read'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('notifications').insert(notification);
+    return client.from('notifications').insert(notification as any);
 };
 
 export const getUnreadNotificationsForDentist = async (dentistId: string) => {
@@ -1019,7 +1019,7 @@ export const getUnreadNotificationsForDentist = async (dentistId: string) => {
 export const markNotificationsAsRead = async (notificationIds: string[]) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('notifications').update({ is_read: true }).in('id', notificationIds);
+    return client.from('notifications').update({ is_read: true } as any).in('id', notificationIds);
 };
 
 export const subscribeToNotificationsForDentist = (dentistId: string, callback: (payload: Notification) => void): RealtimeChannel | null => {
@@ -1046,7 +1046,7 @@ export const getMessagesBetweenUsers = async (userId1: string, userId2: string) 
 export const sendMessage = async (message: Omit<ChatMessage, 'id' | 'created_at' | 'is_read'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('chat_messages').insert(message).select().single();
+    return client.from('chat_messages').insert(message as any).select().single();
 };
 
 export const markMessagesAsRead = async (messageIds: string[], readerId: string) => {
@@ -1054,7 +1054,7 @@ export const markMessagesAsRead = async (messageIds: string[], readerId: string)
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
     return client
       .from('chat_messages')
-      .update({ is_read: true })
+      .update({ is_read: true } as any)
       .in('id', messageIds)
       .eq('recipient_id', readerId); // Ensure you can only mark messages sent to you
 };

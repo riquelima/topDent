@@ -44,7 +44,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   useEffect(() => {
     try {
         // Use a reliable, high-quality CDN link for the sound
-        const audio = new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_f441b7f72f.mp3');
+        const audio = new Audio('https://cdn.pixabay.com/download/audio/2022/10/28/audio_974df19enk.mp3');
         audio.volume = 1.0;
         audio.preload = 'auto'; // Ensures the browser starts loading the audio file as soon as possible
         audioRef.current = audio;
