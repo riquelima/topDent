@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, ChangeEvent, FormEvent, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -473,7 +474,7 @@ export const PatientAnamnesisPage: React.FC = () => {
   );
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div>
       <Card 
         title={
           <div className="flex justify-between items-center">

@@ -64,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, userRole, userName, un
 
   return (
     <header className="bg-[#141414] shadow-md fixed w-full top-0 z-50 border-b border-gray-700/50">
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="px-4 sm:px-6 lg:px-8">
         <div className="relative flex items-center justify-between h-20">
           {/* Left section: Logo and Welcome */}
           <div className="flex items-center">

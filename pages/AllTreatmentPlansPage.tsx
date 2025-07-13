@@ -170,7 +170,7 @@ export const AllTreatmentPlansPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div>
         <Card title="Erro" className="bg-[#1a1a1a]"><p className="text-red-500 text-center py-4">{error}</p>
           <div className="text-center mt-4"><Button onClick={() => navigate(NavigationPath.Home)} leftIcon={<ArrowUturnLeftIcon />} variant="secondary">Voltar ao Início</Button></div>
         </Card>

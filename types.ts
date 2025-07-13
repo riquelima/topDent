@@ -194,6 +194,14 @@ export interface ChatMessage {
   file_type?: string | null;
 }
 
+export interface DentistNote {
+  id: string;
+  dentist_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export enum NavigationPath {
   Home = "/",
   NewPatient = "/new-patient",

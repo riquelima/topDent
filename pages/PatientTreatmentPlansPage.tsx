@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -160,7 +161,7 @@ export const PatientTreatmentPlansPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div>
       <Card 
         title={
           <div className="flex justify-between items-center">

@@ -341,7 +341,7 @@ export const NewPatientPage: React.FC = () => {
 
   if (pageError) {
      return (
-        <div className="max-w-6xl mx-auto"> {/* Changed from max-w-4xl */}
+        <div>
             <Card title="Erro" className="bg-[#1a1a1a]" titleClassName="text-white">
                 <p className="text-red-500 text-center py-4">{pageError}</p>
                 <div className="text-center mt-4">
@@ -353,7 +353,7 @@ export const NewPatientPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto"> {/* Changed from max-w-4xl */}
+    <div>
       <Card title={<span className="text-white">{pageTitle}</span>} className="bg-[#1a1a1a]">
         <form onSubmit={handleSubmit} className="space-y-6">
           <h3 className="text-lg font-medium text-[#00bcd4] border-b border-gray-700 pb-2 mb-4">Dados Pessoais</h3>

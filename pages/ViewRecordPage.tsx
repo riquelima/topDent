@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -251,7 +252,7 @@ export const ViewRecordPage: React.FC = () => {
             <p className="text-[#b0b0b0] mt-2 text-lg">Digite o nome ou CPF do paciente para visualizar o prontuário completo.</p>
         </div>
       )}
-      <div className={`flex flex-col sm:flex-row gap-4 ${isInitialSearchState && !cameFromDentistDashboard ? 'w-full max-w-4xl items-center' : 'items-end'}`}>
+      <div className={`flex flex-col sm:flex-row gap-4 ${isInitialSearchState && !cameFromDentistDashboard ? 'w-full items-center' : 'items-end'}`}>
         <div className={`relative flex-grow w-full ${isInitialSearchState && !cameFromDentistDashboard ? '' : 'sm:w-auto'}`} ref={dropdownRef}>
           {!(isInitialSearchState && !cameFromDentistDashboard) && <label htmlFor="patientSearchInput" className="block text-sm font-medium text-[#b0b0b0] mb-1">Paciente</label>}
           <div className="flex">

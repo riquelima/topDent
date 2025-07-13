@@ -380,7 +380,7 @@ export const TreatmentPlanPage: React.FC = () => {
   }
   if (pageError) {
     return (
-        <div className="max-w-6xl mx-auto"><Card title="Erro" className="bg-[#1a1a1a]" titleClassName="text-white">
+        <div><Card title="Erro" className="bg-[#1a1a1a]" titleClassName="text-white">
             <p className="text-red-500 text-center py-4">{pageError}</p>
             <div className="text-center mt-4"><Button onClick={() => navigate(-1)} leftIcon={<ArrowUturnLeftIcon />} variant="secondary">Voltar</Button></div>
         </Card></div>
@@ -394,7 +394,7 @@ export const TreatmentPlanPage: React.FC = () => {
   const pageTitle = isEditMode ? "Editar Plano de Tratamento" : "Novo Plano de Tratamento";
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div>
       <Card title={ <div className="flex justify-between items-center w-full"> <span className="text-xl font-semibold text-white">{pageTitle}</span> <Link to={NavigationPath.AllTreatmentPlans}><Button variant="ghost" size="sm">Ver Todos os Planos</Button></Link> </div> } className="bg-[#1a1a1a]">
         <form onSubmit={handleSubmit} className="space-y-8">
           

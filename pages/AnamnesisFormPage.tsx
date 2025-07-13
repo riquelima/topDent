@@ -204,7 +204,7 @@ export const AnamnesisFormPage: React.FC = () => {
 
 
   return (
-    <div className="max-w-6xl mx-auto"> {/* Changed from max-w-4xl */}
+    <div>
       <Card title="Formulário de Anamnese (Histórico Médico)">
         <form onSubmit={handleSubmit} className="space-y-8">
           

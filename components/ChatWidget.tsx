@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { Card } from './ui/Card';
@@ -35,6 +34,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   const audioUnlockedRef = useRef(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const widgetRef = useRef<HTMLDivElement>(null); // Ref for the main widget container
 
   // File sending state
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -155,6 +155,21 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+  
+  // Effect to close widget on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
+            setIsOpen(false);
+        }
+    };
+    if (isOpen) {
+        document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     setNewMessage(prev => prev + emojiData.emoji);
@@ -301,7 +316,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   return (
     <>
       {isOpen && (
-        <div className="fixed bottom-24 right-8 w-full max-w-[1060px] h-[700px] bg-[#1a1a1a] rounded-xl shadow-2xl flex flex-col z-50 border border-gray-700/50 animate-slide-up-widget">
+        <div ref={widgetRef} className="fixed bottom-24 right-8 w-full max-w-[1060px] h-[700px] bg-[#1a1a1a] rounded-xl shadow-2xl flex flex-col z-50 border border-gray-700/50 animate-slide-up-widget">
           <header className="p-4 border-b border-gray-700/50 flex justify-between items-center bg-[#1f1f1f] rounded-t-xl">
             <h2 className="text-xl font-semibold text-white">Chat</h2>
             <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-full hover:bg-gray-600 transition-colors">

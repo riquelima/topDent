@@ -24,6 +24,7 @@ import { NavigationPath, ChatMessage } from './types';
 import { Button } from './components/ui/Button';
 import { ToastProvider } from './contexts/ToastContext';
 import { ChangelogModal } from './components/ChangelogModal';
+import { DentistChangelogModal } from './components/DentistChangelogModal';
 import { ChatWidget } from './components/ChatWidget';
 import { DentistChatWidget } from './components/DentistChatWidget';
 
@@ -46,7 +47,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ onLogout, userRole, userName, chi
     <div className="flex flex-col min-h-screen bg-[#0e0e0e] text-white selection:bg-[#00bcd4] selection:text-black">
       <Header onLogout={onLogout} userRole={userRole} userName={userName} />
       <main className={`flex-grow pt-28 pb-12 ${mainPadding}`}>
-        <div className="max-w-screen-2xl mx-auto"> 
+        <div>
            {children}
         </div>
       </main>
@@ -73,6 +74,7 @@ const App: React.FC = () => {
   const [userIdForApi, setUserIdForApi] = useState<string | null>(null); 
   const [userUsername, setUserUsername] = useState<string | null>(null);
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
+  const [isDentistChangelogModalOpen, setIsDentistChangelogModalOpen] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
@@ -117,6 +119,9 @@ const App: React.FC = () => {
     if (role === 'admin') {
         setIsChangelogModalOpen(true);
     }
+    if (role === 'dentist') {
+      setIsDentistChangelogModalOpen(true);
+    }
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -125,6 +130,7 @@ const App: React.FC = () => {
     setUserUsername(null);
     setUserDisplayFullName(null);
     setIsChangelogModalOpen(false);
+    setIsDentistChangelogModalOpen(false);
     try {
       localStorage.removeItem(SESSION_STORAGE_KEY);
     } catch (error) {
@@ -134,6 +140,10 @@ const App: React.FC = () => {
 
   const handleCloseChangelogModal = () => {
     setIsChangelogModalOpen(false);
+  };
+  
+  const handleCloseDentistChangelogModal = () => {
+    setIsDentistChangelogModalOpen(false);
   };
 
   const ProtectedRoute: React.FC<{children: JSX.Element; adminOnly?: boolean}> = ({ children, adminOnly = false }) => {
@@ -181,6 +191,7 @@ const App: React.FC = () => {
     <ToastProvider>
       <HashRouter>
         {userRole === 'admin' && <ChangelogModal isOpen={isChangelogModalOpen} onClose={handleCloseChangelogModal} />}
+        {userRole === 'dentist' && <DentistChangelogModal isOpen={isDentistChangelogModalOpen} onClose={handleCloseDentistChangelogModal} />}
         <Routes>
           <Route
             path="/login"

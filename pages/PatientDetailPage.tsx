@@ -88,7 +88,7 @@ export const PatientDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto"> {/* Changed from max-w-3xl */}
+    <div>
       <Card title={`Detalhes de: ${patient.fullName}`}>
         <div className="space-y-6">
           <div>
