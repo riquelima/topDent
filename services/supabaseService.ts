@@ -20,6 +20,14 @@ import {
     DentistUser
 } from '../types'; 
 
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
 // The recursive type definition for Json can cause TypeScript to hit its recursion limit
 // when used with the Supabase client's generics. Using 'any' directly avoids this.
 // export type Json = any; // This alias is removed to use 'any' directly.
@@ -231,10 +239,10 @@ export type Database = {
             patient_cpf: string;
             description: string;
             procedures_performed: string | null;
-            files: { name: string; url: string; }[] | null;
+            files: Json | null;
             dentist_signature: string | null;
             prescribed_medication: string | null;
-            payments: PaymentInput[] | null;
+            payments: Json | null;
             updated_at?: string;
         },
         Insert: {
@@ -243,10 +251,10 @@ export type Database = {
             patient_cpf: string;
             description: string;
             procedures_performed?: string | null;
-            files?: { name: string; url: string; }[] | null;
+            files?: Json | null;
             dentist_signature?: string | null;
             prescribed_medication?: string | null;
-            payments?: PaymentInput[] | null;
+            payments?: Json | null;
             updated_at?: string;
         },
         Update: {
@@ -255,10 +263,10 @@ export type Database = {
             patient_cpf?: string;
             description?: string;
             procedures_performed?: string | null;
-            files?: { name: string; url: string; }[] | null;
+            files?: Json | null;
             dentist_signature?: string | null;
             prescribed_medication?: string | null;
-            payments?: PaymentInput[] | null;
+            payments?: Json | null;
             updated_at?: string;
         }
       },
@@ -681,14 +689,14 @@ export const getBloodPressureReadingsByPatientCpf = async (patientCpf: string): 
 export const addTreatmentPlan = async (planData: Omit<SupabaseTreatmentPlanData, 'id' | 'created_at'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return client.from('treatment_plans').insert(planData).select();
+    return client.from('treatment_plans').insert(planData as any).select();
 };
 
 export const updateTreatmentPlan = async (planId: string, planData: Partial<SupabaseTreatmentPlanData>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
     const updatePayload = { ...planData, updated_at: new Date().toISOString() };
-    return client.from('treatment_plans').update(updatePayload).eq('id', planId).select().single();
+    return client.from('treatment_plans').update(updatePayload as any).eq('id', planId).select().single();
 };
 
 export const getTreatmentPlanById = async (planId: string) => {
@@ -1039,7 +1047,7 @@ export const getMessagesBetweenUsers = async (userId1: string, userId2: string) 
     return client
       .from('chat_messages')
       .select('*')
-      .or(`(sender_id.eq.${userId1},recipient_id.eq.${userId2}),(sender_id.eq.${userId2},recipient_id.eq.${userId1})`)
+      .or(`and(sender_id.eq.${userId1},recipient_id.eq.${userId2}),and(sender_id.eq.${userId2},recipient_id.eq.${userId1})`)
       .order('created_at', { ascending: true });
 };
 

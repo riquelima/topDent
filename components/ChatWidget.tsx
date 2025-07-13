@@ -42,6 +42,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
 
   useEffect(() => {
     try {
+        // Use a more reliable audio source
         const audio = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1153-pristine.mp3');
         audio.volume = 1.0;
         notificationSoundRef.current = audio;
