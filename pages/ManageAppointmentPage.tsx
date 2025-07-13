@@ -489,4 +489,114 @@ export const ManageAppointmentPage: React.FC = () => {
                   onChange={(e) => {setDentistSearchTerm(e.target.value); if(e.target.value.trim() !== '') setIsDentistDropdownOpen(true); else setIsDentistDropdownOpen(false);}}
                   onFocus={() => {if (availableDentists.length > 0) setIsDentistDropdownOpen(true);}}
                   placeholder="Buscar Dentista" required disabled={isLoading}
-                  containerClassName="flex-grow mb-0" className="rounded-
+                  containerClassName="flex-grow mb-0" className="rounded-r-none h-[46px]"
+                  prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />}
+                />
+                <Button type="button" onClick={() => setIsDentistDropdownOpen(!isDentistDropdownOpen)}
+                  className="px-3 bg-gray-700 hover:bg-gray-600 border border-l-0 border-gray-600 rounded-l-none rounded-r-md h-[46px]"
+                  aria-expanded={isDentistDropdownOpen} title="Selecionar Dentista" disabled={isLoading}
+                ><ChevronUpDownIcon className="w-5 h-5 text-gray-400" /></Button>
+              </div>
+              {isDentistDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 w-full bg-gray-700 border border-gray-600 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                  {filteredDropdownDentists.length > 0 ?
+                    <ul>{filteredDropdownDentists.map(d => (
+                      <li key={d.id} onClick={() => handleDentistSelect(d)}
+                        className="px-3 py-2 text-sm text-white hover:bg-teal-500 hover:text-black cursor-pointer"
+                      >{d.full_name}</li>))}
+                    </ul> : <p className="text-sm text-gray-400 text-center py-2">Nenhum dentista encontrado.</p>}
+                </div>
+              )}
+            </div>
+
+            {isEditMode && (
+              <Select
+                label="Status *" value={status}
+                onChange={(e) => setStatus(e.target.value as Appointment['status'])}
+                options={statusOptions} disabled={isLoading} containerClassName="mb-0"
+              />
+            )}
+            <DatePicker
+              label="Data da Consulta *" value={appointmentDate}
+              onChange={(e) => setAppointmentDate(e.target.value)} required disabled={isLoading}
+            />
+            <Input
+              label="Hora da Consulta (HH:MM) *" value={appointmentTime}
+              onChange={handleTimeInputChange} required disabled={isLoading}
+              prefixIcon={<ClockIcon className="w-5 h-5 text-gray-400" />}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Procedimento(s) *</label>
+            <div className="p-4 bg-gray-800 rounded-lg border border-gray-700 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {allSelectableProcedures.map((proc) => (
+                <label key={proc} className="flex items-center space-x-2 text-white cursor-pointer hover:text-teal-300">
+                  <input
+                    type="checkbox"
+                    checked={!!selectedProcedures[proc]}
+                    onChange={(e) => handleProcedureChange(proc, e.target.checked)}
+                    className="form-checkbox h-5 w-5 text-teal-500 bg-gray-700 border-gray-600 rounded focus:ring-teal-400"
+                    disabled={isLoading}
+                  />
+                  <span>{proc}</span>
+                </label>
+              ))}
+               <label key={OTHER_PROCEDURE_KEY} className="flex items-center space-x-2 text-white cursor-pointer hover:text-teal-300">
+                  <input
+                    type="checkbox"
+                    checked={isOtherSelected}
+                    onChange={(e) => handleOtherProcedureChange(e.target.checked)}
+                    className="form-checkbox h-5 w-5 text-teal-500 bg-gray-700 border-gray-600 rounded focus:ring-teal-400"
+                    disabled={isLoading}
+                  />
+                  <span>{OTHER_PROCEDURE_KEY}</span>
+                </label>
+            </div>
+            {isOtherSelected && (
+              <Input
+                containerClassName="mt-4"
+                label="Especificar Outro(s) Procedimento(s)"
+                value={otherProcedureText}
+                onChange={(e) => setOtherProcedureText(e.target.value)}
+                placeholder="Ex: Limpeza, Aplicação de flúor"
+                disabled={isLoading}
+              />
+            )}
+          </div>
+
+          <Textarea
+            label="Observações Adicionais" value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={4} placeholder="Notas sobre o agendamento, estado do paciente, etc." disabled={isLoading}
+          />
+          
+          <fieldset className="p-4 border border-dashed border-gray-600 rounded-lg">
+            <legend className="px-2 text-sm font-medium text-gray-400">Criar Retorno (Opcional)</legend>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <DatePicker
+                    label="Data do Retorno" value={returnDate}
+                    onChange={(e) => setReturnDate(e.target.value)} disabled={isLoading}
+                />
+                <Input
+                    label="Hora do Retorno (HH:MM)" value={returnTime}
+                    onChange={handleReturnTimeChange} disabled={isLoading}
+                    prefixIcon={<ClockIcon className="w-5 h-5 text-gray-400" />}
+                />
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Preencha para criar um novo agendamento de retorno automaticamente.</p>
+          </fieldset>
+
+          <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
+            <Button type="button" variant="ghost" onClick={() => navigate(NavigationPath.Appointments)} leftIcon={<ArrowUturnLeftIcon />} disabled={isLoading}>
+              Voltar para Agendamentos
+            </Button>
+            <Button type="submit" variant="primary" disabled={isLoading}>
+              {isLoading ? (isEditMode ? 'Atualizando...' : 'Salvando...') : (isEditMode ? 'Atualizar Agendamento' : 'Salvar Agendamento')}
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
+};
