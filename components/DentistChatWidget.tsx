@@ -40,9 +40,9 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
 
   useEffect(() => {
     try {
-        // Use a more reliable audio source
-        const audio = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1153-pristine.mp3');
+        const audio = new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_f441b7f72f.mp3');
         audio.volume = 1.0;
+        audio.preload = 'auto'; // Garante pré-carregamento
         notificationSoundRef.current = audio;
     } catch(e) {
         console.error("Failed to initialize audio for dentist chat:", e);
@@ -52,11 +52,28 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   const totalUnreadCount = useMemo(() => unreadMessages.length, [unreadMessages]);
 
   const playNotificationSound = useCallback(() => {
-    if (notificationSoundRef.current && audioUnlockedRef.current) {
-        notificationSoundRef.current.currentTime = 0;
-        notificationSoundRef.current.play().catch(error => {
+    const audio = notificationSoundRef.current;
+    if (audioUnlockedRef.current && audio) {
+        audio.currentTime = 0;
+        audio.play().catch(error => {
             console.warn("Dentist chat notification sound failed to play:", error);
         });
+    } else {
+        // Fallback usando Web Audio API (para burlar restrições do autoplay)
+        try {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = ctx.createOscillator();
+            const gain = ctx.createGain();
+            oscillator.connect(gain);
+            gain.connect(ctx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(1000, ctx.currentTime); // tom agudo
+            gain.gain.setValueAtTime(0.1, ctx.currentTime); // volume
+            oscillator.start();
+            oscillator.stop(ctx.currentTime + 0.1); // 100ms
+        } catch (e) {
+            console.error("Audio fallback failed", e);
+        }
     }
   }, []);
 
@@ -149,19 +166,16 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   }, [adminUser, dentistId, showToast, unreadMessages]);
 
   const toggleChat = () => {
-    if (!audioUnlockedRef.current) {
+    if (!audioUnlockedRef.current && notificationSoundRef.current) {
         const audio = notificationSoundRef.current;
-        if (audio) {
-            audio.play().then(() => {
-                audio.pause();
-                audio.currentTime = 0;
-                audioUnlockedRef.current = true;
-                console.log("Audio context unlocked successfully for DentistChat.");
-            }).catch(error => {
-                console.warn("Dentist audio context unlock failed. Notifications may be silent.", error);
-                showToast("Sons de notificação podem estar bloqueados pelo navegador.", 'warning');
-            });
-        }
+        audio.play().then(() => {
+            audio.pause();
+            audio.currentTime = 0;
+            audioUnlockedRef.current = true;
+            console.log("🔊 Áudio desbloqueado.");
+        }).catch(() => {
+            showToast("Clique para desbloquear o som de notificação.", "warning");
+        });
     }
     
     const nextIsOpenState = !isOpen;

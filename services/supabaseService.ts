@@ -20,17 +20,9 @@ import {
     DentistUser
 } from '../types'; 
 
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[];
-
 // The recursive type definition for Json can cause TypeScript to hit its recursion limit
 // when used with the Supabase client's generics. Using 'any' directly avoids this.
-// export type Json = any; // This alias is removed to use 'any' directly.
+export type Json = any;
 
 export type Database = {
   public: {
