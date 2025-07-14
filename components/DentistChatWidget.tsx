@@ -42,7 +42,7 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
 
   useEffect(() => {
     try {
-        const audio = new Audio('https://cdn.pixabay.com/download/audio/2022/10/28/audio_974df19enk.mp3');
+        const audio = new Audio('/arpegio.mp3');
         audio.volume = 1.0;
         audio.preload = 'auto';
         audioRef.current = audio;
@@ -91,11 +91,11 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     const client = getSupabaseClient();
     if (!client) return;
 
-    const handleNewMessage = (payload: any) => {
+    const handleNewMessage = async (payload: any) => {
       const newMessage = payload.new as ChatMessage;
       if (isOpenRef.current) {
         setMessages(prev => [...prev, newMessage]);
-        markMessagesAsRead([newMessage.id], dentistId);
+        await markMessagesAsRead([newMessage.id], dentistId);
         setUnreadMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
       } else {
         playNotificationSound();
