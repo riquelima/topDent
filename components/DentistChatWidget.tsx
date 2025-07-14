@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
-import { PaperAirplaneIcon, CheckIcon, CheckDoubleIcon, XMarkIcon, FaceSmileIcon, PaperclipIcon, DocumentTextIcon } from './icons/HeroIcons';
+import { PaperAirplaneIcon, XMarkIcon, FaceSmileIcon, PaperclipIcon, DocumentTextIcon } from './icons/HeroIcons';
 import { Dentist, ChatMessage } from '../types';
 import { getAdminUserId, getMessagesBetweenUsers, sendMessage, markMessagesAsRead, getUnreadMessages, uploadChatFile, getSupabaseClient } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
@@ -318,14 +318,10 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
                         )}
                         {msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
                         <div className="flex items-center justify-end text-right mt-1 opacity-70">
-                          <p className="text-xs">{formatIsoToSaoPauloTime(msg.created_at)}</p>
-                          {msg.sender_id === dentistId && (
-                            <span className="ml-2">
-                              {msg.is_read
-                                ? <span title="Lido"><CheckDoubleIcon className="w-4 h-4 text-cyan-300 transition-all" /></span>
-                                : <span title="Enviado"><CheckIcon className="w-4 h-4 text-gray-400 transition-all" /></span>}
-                            </span>
-                          )}
+                            <p className="text-xs">{formatIsoToSaoPauloTime(msg.created_at)}</p>
+                            {msg.sender_id === dentistId && msg.is_read && (
+                                <span className="ml-2 text-xs text-cyan-300 font-semibold">Lido</span>
+                            )}
                         </div>
                       </div>
                     </div>
