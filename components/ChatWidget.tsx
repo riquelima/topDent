@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { PaperAirplaneIcon, XMarkIcon, FaceSmileIcon, PaperclipIcon, DocumentTextIcon } from './icons/HeroIcons';
+import { PaperAirplaneIcon, XMarkIcon, FaceSmileIcon, PaperclipIcon, DocumentTextIcon, CheckIcon } from './icons/HeroIcons';
 import { Dentist, ChatMessage } from '../types';
 import { getDentists, getMessagesBetweenUsers, sendMessage, markMessagesAsRead, getUnreadMessages, uploadChatFile, getSupabaseClient } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
@@ -110,7 +109,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
         if (isOpenRef.current && selectedDentistRef.current?.id === newMessage.sender_id) {
             setMessages(prev => [...prev, newMessage]);
             await markMessagesAsRead([newMessage.id], adminId);
-            setUnreadMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
         } else {
             playNotificationSound();
             setUnreadMessages(prev => [...prev, newMessage]);
@@ -119,26 +117,30 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
 
     const handleMessageUpdate = (payload: any) => {
       const updatedMessage = payload.new as ChatMessage;
-      // Check if the update is for a message sent by the admin
-      // and its status has been changed to 'read'.
-      if (
-        updatedMessage.sender_id === adminId &&
-        updatedMessage.is_read === true
-      ) {
-        setMessages(prevMessages =>
-          prevMessages.map(msg =>
-            msg.id === updatedMessage.id
-              ? { ...msg, is_read: true }
-              : msg
-          )
-        );
+      
+      if (updatedMessage.sender_id !== adminId || updatedMessage.is_read !== true) {
+          return;
       }
+      
+      setMessages(prevMessages => {
+          const messageExists = prevMessages.some(msg => msg.id === updatedMessage.id);
+          const isAlreadyMarkedRead = prevMessages.some(msg => msg.id === updatedMessage.id && msg.is_read === true);
+
+          if (messageExists && !isAlreadyMarkedRead) {
+              return prevMessages.map(msg =>
+                  msg.id === updatedMessage.id
+                      ? { ...msg, is_read: true }
+                      : msg
+              );
+          }
+          return prevMessages;
+      });
     };
 
     const channel = client
-      .channel(`chat_widget_admin_channel_v4_${adminId}`) // Use a new channel name to force re-subscription
+      .channel(`admin_chat_${adminId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${adminId}` }, handleNewMessage)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, handleMessageUpdate) // No filter here
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, handleMessageUpdate)
       .subscribe();
   
     return () => {
@@ -194,17 +196,27 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
       showToast('Erro ao carregar mensagens.', 'error');
       setMessages([]);
     } else {
-      const fetchedMessages = data || [];
-      setMessages(fetchedMessages);
-      
-      const idsToMarkAsRead = fetchedMessages
-        .filter(msg => msg.recipient_id === adminId && !msg.is_read)
-        .map(msg => msg.id);
+        const fetchedMessages = data || [];
+        const idsToMarkAsRead = fetchedMessages
+            .filter(msg => msg.recipient_id === adminId && !msg.is_read)
+            .map(msg => msg.id);
 
-      if (idsToMarkAsRead.length > 0) {
-        await markMessagesAsRead(idsToMarkAsRead, adminId);
-        setUnreadMessages(prev => prev.filter(msg => !idsToMarkAsRead.includes(msg.id)));
-      }
+        if (idsToMarkAsRead.length > 0) {
+            const { error: markError } = await markMessagesAsRead(idsToMarkAsRead, adminId);
+            if (markError) {
+                showToast("Erro ao marcar mensagens como lidas.", "error");
+                setMessages(fetchedMessages);
+            } else {
+                const updatedMessages = fetchedMessages.map(msg => 
+                    idsToMarkAsRead.includes(msg.id) ? { ...msg, is_read: true } : msg
+                );
+                setMessages(updatedMessages);
+                setUnreadMessages(prev => prev.filter(msg => msg.sender_id !== dentist.id));
+            }
+        } else {
+            setMessages(fetchedMessages);
+            setUnreadMessages(prev => prev.filter(msg => msg.sender_id !== dentist.id));
+        }
     }
 
     setIsLoading(prevState => ({ ...prevState, messages: false }));
@@ -364,8 +376,10 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
                             {msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
                             <div className="flex items-center justify-end text-right mt-1 opacity-70">
                                 <p className="text-xs">{formatIsoToSaoPauloTime(msg.created_at)}</p>
-                                {msg.sender_id === adminId && msg.is_read && (
-                                    <span className="ml-2 text-xs text-cyan-300 font-semibold">Lido</span>
+                                {msg.sender_id === adminId && (
+                                  msg.is_read
+                                      ? <span title="Lido" className="ml-2 text-xs text-cyan-300 font-semibold">Lido</span>
+                                      : <span title="Enviado" className="ml-2"><CheckIcon className="w-4 h-4 text-gray-400" /></span>
                                 )}
                             </div>
                           </div>

@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
-import { PaperAirplaneIcon, XMarkIcon, FaceSmileIcon, PaperclipIcon, DocumentTextIcon } from './icons/HeroIcons';
+import { PaperAirplaneIcon, XMarkIcon, FaceSmileIcon, PaperclipIcon, DocumentTextIcon, CheckIcon } from './icons/HeroIcons';
 import { Dentist, ChatMessage } from '../types';
 import { getAdminUserId, getMessagesBetweenUsers, sendMessage, markMessagesAsRead, getUnreadMessages, uploadChatFile, getSupabaseClient } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
@@ -105,26 +104,30 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
 
     const handleMessageUpdate = (payload: any) => {
       const updatedMessage = payload.new as ChatMessage;
-      // Check if the update is for a message sent by the dentist
-      // and its status has been changed to 'read'.
-      if (
-        updatedMessage.sender_id === dentistId &&
-        updatedMessage.is_read === true
-      ) {
-        setMessages(prevMessages =>
-          prevMessages.map(msg =>
-            msg.id === updatedMessage.id
-              ? { ...msg, is_read: true }
-              : msg
-          )
-        );
+
+      if (updatedMessage.sender_id !== dentistId || updatedMessage.is_read !== true) {
+          return;
       }
+      
+      setMessages(prevMessages => {
+          const messageExists = prevMessages.some(msg => msg.id === updatedMessage.id);
+          const isAlreadyMarkedRead = prevMessages.some(msg => msg.id === updatedMessage.id && msg.is_read === true);
+
+          if (messageExists && !isAlreadyMarkedRead) {
+              return prevMessages.map(msg =>
+                  msg.id === updatedMessage.id
+                      ? { ...msg, is_read: true }
+                      : msg
+              );
+          }
+          return prevMessages;
+      });
     };
   
     const channel = client
-      .channel(`chat_widget_dentist_channel_v4_${dentistId}`) // Use a new channel name to force re-subscription
+      .channel(`dentist_chat_${dentistId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${dentistId}` }, handleNewMessage)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, handleMessageUpdate) // No filter here
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, handleMessageUpdate)
       .subscribe();
   
     return () => {
@@ -167,17 +170,26 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
       showToast('Erro ao carregar mensagens.', 'error');
       setMessages([]);
     } else {
-      const fetchedMessages = data || [];
-      setMessages(fetchedMessages);
+        const fetchedMessages = data || [];
+        const idsToMarkAsRead = fetchedMessages
+            .filter(msg => msg.recipient_id === dentistId && !msg.is_read)
+            .map(msg => msg.id);
 
-      const idsToMarkAsRead = fetchedMessages
-        .filter(msg => msg.recipient_id === dentistId && !msg.is_read)
-        .map(msg => msg.id);
-
-      if (idsToMarkAsRead.length > 0) {
-        await markMessagesAsRead(idsToMarkAsRead, dentistId);
-        setUnreadMessages(prev => prev.filter(msg => !idsToMarkAsRead.includes(msg.id)));
-      }
+        if (idsToMarkAsRead.length > 0) {
+            const { error: markError } = await markMessagesAsRead(idsToMarkAsRead, dentistId);
+            if (markError) {
+                showToast("Erro ao marcar mensagens como lidas.", "error");
+                setMessages(fetchedMessages);
+            } else {
+                const updatedMessages = fetchedMessages.map(msg => 
+                    idsToMarkAsRead.includes(msg.id) ? { ...msg, is_read: true } : msg
+                );
+                setMessages(updatedMessages);
+                setUnreadMessages(prev => prev.filter(msg => !idsToMarkAsRead.includes(msg.id)));
+            }
+        } else {
+            setMessages(fetchedMessages);
+        }
     }
     setIsLoading(prevState => ({ ...prevState, messages: false }));
   }, [adminUser, dentistId, showToast]);
@@ -319,8 +331,10 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
                         {msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
                         <div className="flex items-center justify-end text-right mt-1 opacity-70">
                             <p className="text-xs">{formatIsoToSaoPauloTime(msg.created_at)}</p>
-                            {msg.sender_id === dentistId && msg.is_read && (
-                                <span className="ml-2 text-xs text-cyan-300 font-semibold">Lido</span>
+                            {msg.sender_id === dentistId && (
+                                msg.is_read
+                                    ? <span title="Lido" className="ml-2 text-xs text-cyan-300 font-semibold">Lido</span>
+                                    : <span title="Enviado" className="ml-2"><CheckIcon className="w-4 h-4 text-gray-400" /></span>
                             )}
                         </div>
                       </div>
