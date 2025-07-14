@@ -1071,17 +1071,29 @@ export const getMessagesBetweenUsers = async (userId1: string, userId2: string) 
 export const sendMessage = async (message: Omit<ChatMessage, 'id' | 'created_at' | 'is_read'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+    if (!message.sender_id || !message.recipient_id) {
+        return { data: null, error: { message: "Sender and Recipient are required." } };
+    }
     return (client.from('chat_messages') as any).insert(message).select().single();
 };
 
 export const markMessagesAsRead = async (messageIds: string[], readerId: string) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return (client
-      .from('chat_messages') as any)
-      .update({ is_read: true })
-      .in('id', messageIds)
-      .eq('recipient_id', readerId); // Ensure you can only mark messages sent to you
+    if (!readerId || !messageIds || !Array.isArray(messageIds) || messageIds.length === 0) {
+        return { data: null, error: { message: "Invalid parameters for marking messages as read." }};
+    }
+
+    const { data, error } = await client.rpc('mark_messages_as_read_by_recipient', {
+        message_ids: messageIds,
+        reader_id_param: readerId
+    });
+
+    if (error) {
+        console.error('Error calling RPC mark_messages_as_read_by_recipient:', error);
+    }
+    
+    return { data, error };
 };
 
 export const getUnreadMessages = async (recipientId: string) => {

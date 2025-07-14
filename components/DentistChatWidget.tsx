@@ -105,27 +105,23 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     const handleMessageUpdate = (payload: any) => {
       const updatedMessage = payload.new as ChatMessage;
 
-      if (updatedMessage.sender_id !== dentistId || updatedMessage.is_read !== true) {
-          return;
-      }
-      
-      setMessages(prevMessages => {
-          const messageExists = prevMessages.some(msg => msg.id === updatedMessage.id);
-          const isAlreadyMarkedRead = prevMessages.some(msg => msg.id === updatedMessage.id && msg.is_read === true);
-
-          if (messageExists && !isAlreadyMarkedRead) {
-              return prevMessages.map(msg =>
-                  msg.id === updatedMessage.id
-                      ? { ...msg, is_read: true }
-                      : msg
-              );
+      if (updatedMessage.sender_id === dentistId && updatedMessage.is_read === true) {
+        setMessages(prevMessages => {
+          const isAlreadyUpdated = prevMessages.find(m => m.id === updatedMessage.id)?.is_read;
+          if (isAlreadyUpdated) {
+            return prevMessages;
           }
-          return prevMessages;
-      });
+          return prevMessages.map(msg =>
+            msg.id === updatedMessage.id
+              ? { ...msg, is_read: true }
+              : msg
+          );
+        });
+      }
     };
   
     const channel = client
-      .channel(`dentist_chat_${dentistId}`)
+      .channel(`dentist_chat_update_${dentistId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${dentistId}` }, handleNewMessage)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, handleMessageUpdate)
       .subscribe();
@@ -167,8 +163,8 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     const { data, error } = await getMessagesBetweenUsers(dentistId, adminUser.id!);
 
     if (error) {
-      showToast('Erro ao carregar mensagens.', 'error');
-      setMessages([]);
+        showToast('Erro ao carregar mensagens.', 'error');
+        setMessages([]);
     } else {
         const fetchedMessages = data || [];
         const idsToMarkAsRead = fetchedMessages
