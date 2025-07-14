@@ -90,32 +90,43 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   useEffect(() => {
     const client = getSupabaseClient();
     if (!client) return;
-
+  
     const handleNewMessage = async (payload: any) => {
-      const newMessage = payload.new as ChatMessage;
-      if (isOpenRef.current) {
-        setMessages(prev => [...prev, newMessage]);
-        await markMessagesAsRead([newMessage.id], dentistId);
-        setUnreadMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
-      } else {
-        playNotificationSound();
-        setUnreadMessages(prev => [...prev, newMessage]);
-      }
+        const newMessage = payload.new as ChatMessage;
+        if (isOpenRef.current) {
+            setMessages(prev => [...prev, newMessage]);
+            await markMessagesAsRead([newMessage.id], dentistId);
+            setUnreadMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
+        } else {
+            playNotificationSound();
+            setUnreadMessages(prev => [...prev, newMessage]);
+        }
     };
 
     const handleMessageUpdate = (payload: any) => {
       const updatedMessage = payload.new as ChatMessage;
-      setMessages(prev =>
-        prev.map(m => (m.id === updatedMessage.id ? { ...m, is_read: updatedMessage.is_read } : m))
-      );
+      // Check if the update is for a message sent by the dentist
+      // and its status has been changed to 'read'.
+      if (
+        updatedMessage.sender_id === dentistId &&
+        updatedMessage.is_read === true
+      ) {
+        setMessages(prevMessages =>
+          prevMessages.map(msg =>
+            msg.id === updatedMessage.id
+              ? { ...msg, is_read: true }
+              : msg
+          )
+        );
+      }
     };
-
+  
     const channel = client
-      .channel(`chat_dentist_${dentistId}`)
+      .channel(`chat_widget_dentist_channel_v4_${dentistId}`) // Use a new channel name to force re-subscription
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${dentistId}` }, handleNewMessage)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `sender_id=eq.${dentistId}` }, handleMessageUpdate)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, handleMessageUpdate) // No filter here
       .subscribe();
-
+  
     return () => {
       client.removeChannel(channel);
     };
@@ -150,20 +161,26 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     setIsLoading(prevState => ({ ...prevState, messages: true }));
     setMessages([]);
 
-    const idsToMark = unreadMessages.map(msg => msg.id);
-    if (idsToMark.length > 0) {
-      await markMessagesAsRead(idsToMark, dentistId);
-      setUnreadMessages([]);
-    }
-    
     const { data, error } = await getMessagesBetweenUsers(dentistId, adminUser.id!);
+
     if (error) {
       showToast('Erro ao carregar mensagens.', 'error');
+      setMessages([]);
     } else {
-      setMessages(data || []);
+      const fetchedMessages = data || [];
+      setMessages(fetchedMessages);
+
+      const idsToMarkAsRead = fetchedMessages
+        .filter(msg => msg.recipient_id === dentistId && !msg.is_read)
+        .map(msg => msg.id);
+
+      if (idsToMarkAsRead.length > 0) {
+        await markMessagesAsRead(idsToMarkAsRead, dentistId);
+        setUnreadMessages(prev => prev.filter(msg => !idsToMarkAsRead.includes(msg.id)));
+      }
     }
     setIsLoading(prevState => ({ ...prevState, messages: false }));
-  }, [adminUser, dentistId, showToast, unreadMessages]);
+  }, [adminUser, dentistId, showToast]);
 
   const toggleChat = () => {
     if (!audioUnlockedRef.current && audioRef.current) {
@@ -195,7 +212,6 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     const sentMessages: ChatMessage[] = [];
   
     try {
-      // Logic to send text and files as separate messages if both exist
       if (textContent) {
         const { data, error } = await sendMessage({
           sender_id: dentistId,
@@ -210,14 +226,14 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
         const { data: uploadData, error: uploadError } = await uploadChatFile(file, dentistId);
         if (uploadError) {
           showToast(`Falha no upload de ${file.name}.`, 'error');
-          continue; // Skip to next file
+          continue;
         }
   
         if (uploadData?.publicUrl) {
           const { data, error } = await sendMessage({
             sender_id: dentistId,
             recipient_id: adminUser.id,
-            content: null, // Each file is a separate message without text
+            content: null,
             file_url: uploadData.publicUrl,
             file_name: file.name,
             file_type: file.type,
@@ -228,7 +244,6 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
       }
     } catch (error: any) {
       showToast(error.message, 'error');
-      // Restore inputs on failure
       setNewMessage(textContent);
       setAttachedFiles(filesToSend);
     } finally {

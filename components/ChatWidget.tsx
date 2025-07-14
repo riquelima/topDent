@@ -106,30 +106,41 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     if (!client) return;
 
     const handleNewMessage = async (payload: any) => {
-      const newMessage = payload.new as ChatMessage;
-      if (isOpenRef.current && selectedDentistRef.current?.id === newMessage.sender_id) {
-        setMessages(prev => [...prev, newMessage]);
-        await markMessagesAsRead([newMessage.id], adminId);
-        setUnreadMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
-      } else {
-        playNotificationSound();
-        setUnreadMessages(prev => [...prev, newMessage]);
-      }
+        const newMessage = payload.new as ChatMessage;
+        if (isOpenRef.current && selectedDentistRef.current?.id === newMessage.sender_id) {
+            setMessages(prev => [...prev, newMessage]);
+            await markMessagesAsRead([newMessage.id], adminId);
+            setUnreadMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
+        } else {
+            playNotificationSound();
+            setUnreadMessages(prev => [...prev, newMessage]);
+        }
     };
 
     const handleMessageUpdate = (payload: any) => {
       const updatedMessage = payload.new as ChatMessage;
-      setMessages(prev =>
-        prev.map(m => (m.id === updatedMessage.id ? { ...m, is_read: updatedMessage.is_read } : m))
-      );
+      // Check if the update is for a message sent by the admin
+      // and its status has been changed to 'read'.
+      if (
+        updatedMessage.sender_id === adminId &&
+        updatedMessage.is_read === true
+      ) {
+        setMessages(prevMessages =>
+          prevMessages.map(msg =>
+            msg.id === updatedMessage.id
+              ? { ...msg, is_read: true }
+              : msg
+          )
+        );
+      }
     };
 
     const channel = client
-      .channel(`chat_admin_${adminId}`)
+      .channel(`chat_widget_admin_channel_v4_${adminId}`) // Use a new channel name to force re-subscription
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${adminId}` }, handleNewMessage)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `sender_id=eq.${adminId}` }, handleMessageUpdate)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, handleMessageUpdate) // No filter here
       .subscribe();
-
+  
     return () => {
       client.removeChannel(channel);
     };
@@ -177,23 +188,27 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     setIsLoading(prevState => ({ ...prevState, messages: true }));
     setMessages([]);
 
-    const idsToMark = unreadMessages
-        .filter(msg => msg.sender_id === dentist.id)
-        .map(msg => msg.id);
-    
-    if (idsToMark.length > 0) {
-        await markMessagesAsRead(idsToMark, adminId);
-        setUnreadMessages(prev => prev.filter(msg => !idsToMark.includes(msg.id)));
-    }
-
     const { data, error } = await getMessagesBetweenUsers(adminId, dentist.id!);
+
     if (error) {
       showToast('Erro ao carregar mensagens.', 'error');
+      setMessages([]);
     } else {
-      setMessages(data || []);
+      const fetchedMessages = data || [];
+      setMessages(fetchedMessages);
+      
+      const idsToMarkAsRead = fetchedMessages
+        .filter(msg => msg.recipient_id === adminId && !msg.is_read)
+        .map(msg => msg.id);
+
+      if (idsToMarkAsRead.length > 0) {
+        await markMessagesAsRead(idsToMarkAsRead, adminId);
+        setUnreadMessages(prev => prev.filter(msg => !idsToMarkAsRead.includes(msg.id)));
+      }
     }
+
     setIsLoading(prevState => ({ ...prevState, messages: false }));
-  }, [adminId, showToast, unreadMessages, selectedDentist?.id]);
+  }, [adminId, showToast, selectedDentist?.id]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,7 +224,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     const sentMessages: ChatMessage[] = [];
   
     try {
-      // Logic to send text and files as separate messages if both exist
       if (textContent) {
         const { data, error } = await sendMessage({
           sender_id: adminId,
@@ -224,14 +238,14 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
         const { data: uploadData, error: uploadError } = await uploadChatFile(file, adminId);
         if (uploadError) {
           showToast(`Falha no upload de ${file.name}.`, 'error');
-          continue; // Skip to next file
+          continue; 
         }
   
         if (uploadData?.publicUrl) {
           const { data, error } = await sendMessage({
             sender_id: adminId,
             recipient_id: selectedDentist.id,
-            content: null, // Each file is a separate message without text
+            content: null,
             file_url: uploadData.publicUrl,
             file_name: file.name,
             file_type: file.type,
@@ -242,7 +256,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
       }
     } catch (error: any) {
       showToast(error.message, 'error');
-      // Restore inputs on failure
       setNewMessage(textContent);
       setAttachedFiles(filesToSend);
     } finally {
