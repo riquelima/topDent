@@ -122,7 +122,7 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   }, [dentistId, playNotificationSound]);
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
   }, []);
 
   useEffect(scrollToBottom, [messages]);
@@ -304,7 +304,13 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
                         {msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
                         <div className="flex items-center justify-end text-right mt-1 opacity-70">
                           <p className="text-xs">{formatIsoToSaoPauloTime(msg.created_at)}</p>
-                          {msg.sender_id === dentistId && (<span className="ml-2">{msg.is_read ? <CheckDoubleIcon className="w-4 h-4 text-cyan-300" /> : <CheckIcon className="w-4 h-4 text-gray-400" />}</span>)}
+                          {msg.sender_id === dentistId && (
+                            <span className="ml-2">
+                              {msg.is_read
+                                ? <span title="Lido"><CheckDoubleIcon className="w-4 h-4 text-cyan-300 transition-all" /></span>
+                                : <span title="Enviado"><CheckIcon className="w-4 h-4 text-gray-400 transition-all" /></span>}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
