@@ -1,10 +1,10 @@
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { RealtimeChannel } from '@supabase/supabase-js';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
 import { PaperAirplaneIcon, CheckIcon, CheckDoubleIcon, XMarkIcon, FaceSmileIcon, PaperclipIcon, DocumentTextIcon } from './icons/HeroIcons';
 import { Dentist, ChatMessage } from '../types';
-import { getAdminUserId, getMessagesBetweenUsers, sendMessage, markMessagesAsRead, getUnreadMessages, subscribeToMessages, uploadChatFile } from '../services/supabaseService';
+import { getAdminUserId, getMessagesBetweenUsers, sendMessage, markMessagesAsRead, getUnreadMessages, uploadChatFile, getSupabaseClient } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import { formatIsoToSaoPauloTime } from '../src/utils/formatDate';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
@@ -32,58 +32,47 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   const audioUnlockedRef = useRef(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
-  const widgetRef = useRef<HTMLDivElement>(null); // Ref for the main widget container
+  const widgetRef = useRef<HTMLDivElement>(null);
 
-  // File sending state
+  const isOpenRef = useRef(false);
+  
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     try {
-        // Use a reliable, high-quality CDN link for the sound
         const audio = new Audio('https://cdn.pixabay.com/download/audio/2022/10/28/audio_974df19enk.mp3');
         audio.volume = 1.0;
-        audio.preload = 'auto'; // Ensures the browser starts loading the audio file as soon as possible
+        audio.preload = 'auto';
         audioRef.current = audio;
     } catch(e) {
         console.error("Failed to initialize audio for dentist chat:", e);
     }
   }, []);
 
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
   const totalUnreadCount = useMemo(() => unreadMessages.length, [unreadMessages]);
 
   const playNotificationSound = useCallback(() => {
     const audio = audioRef.current;
-    if (audio) {
+    if (audio && audioUnlockedRef.current) {
         audio.currentTime = 0;
-        audio.play().catch(error => {
-            console.warn("Dentist chat notification sound failed to play:", error);
-            // Fallback using Web Audio API if direct play fails
-            try {
-                const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                const oscillator = ctx.createOscillator();
-                const gain = ctx.createGain();
-                oscillator.connect(gain);
-                gain.connect(ctx.destination);
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(1000, ctx.currentTime);
-                gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                oscillator.start();
-                oscillator.stop(ctx.currentTime + 0.1);
-            } catch (fallbackError) {
-                console.error("Audio fallback failed for dentist", fallbackError);
-            }
-        });
+        audio.play().catch(error => console.warn("Dentist chat notification sound failed to play:", error));
     }
   }, []);
 
   useEffect(() => {
-    let chatSub: RealtimeChannel | null = null;
-    
     const setup = async () => {
       setIsLoading(prevState => ({ ...prevState, admin: true }));
-      const adminRes = await getAdminUserId();
+      const [adminRes, unreadRes] = await Promise.all([
+          getAdminUserId(),
+          getUnreadMessages(dentistId)
+      ]);
+
       if (adminRes.error || !adminRes.data) {
         showToast('Não foi possível conectar ao chat.', 'error');
       } else {
@@ -91,70 +80,65 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
       }
       setIsLoading(prevState => ({ ...prevState, admin: false }));
 
-      const unreadRes = await getUnreadMessages(dentistId);
       if (unreadRes.data) {
         setUnreadMessages(unreadRes.data);
       }
-
-      chatSub = subscribeToMessages(dentistId, (newMessagePayload) => {
-        playNotificationSound();
-        setUnreadMessages(prev => [...prev, newMessagePayload]);
-      });
-
-      if (chatSub) chatSub.subscribe();
     };
-
     setup();
-    return () => {
-      if (chatSub) chatSub.unsubscribe();
+  }, [dentistId, showToast]);
+
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const handleNewMessage = (payload: any) => {
+      const newMessage = payload.new as ChatMessage;
+      if (isOpenRef.current) {
+        setMessages(prev => [...prev, newMessage]);
+        markMessagesAsRead([newMessage.id], dentistId);
+        setUnreadMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
+      } else {
+        playNotificationSound();
+        setUnreadMessages(prev => [...prev, newMessage]);
+      }
     };
-  }, [dentistId, showToast, playNotificationSound]);
+
+    const handleMessageUpdate = (payload: any) => {
+      const updatedMessage = payload.new as ChatMessage;
+      setMessages(prev =>
+        prev.map(m => (m.id === updatedMessage.id ? { ...m, is_read: updatedMessage.is_read } : m))
+      );
+    };
+
+    const channel = client
+      .channel(`chat_dentist_${dentistId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${dentistId}` }, handleNewMessage)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `sender_id=eq.${dentistId}` }, handleMessageUpdate)
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [dentistId, playNotificationSound]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
   useEffect(scrollToBottom, [messages]);
-  
-  useEffect(() => {
-    if (isOpen && adminUser) {
-        const newMessagesFromAdmin = unreadMessages.filter(msg => msg.sender_id === adminUser.id);
-        if (newMessagesFromAdmin.length > 0) {
-            setMessages(prev => [...prev, ...newMessagesFromAdmin]);
-            const idsToMark = newMessagesFromAdmin.map(m => m.id);
-            markMessagesAsRead(idsToMark, dentistId).then(({ error }) => {
-                if (!error) {
-                    setUnreadMessages(prev => prev.filter(msg => !idsToMark.includes(msg.id)));
-                }
-            });
-        }
-    }
-  }, [unreadMessages, adminUser, dentistId, isOpen]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
         setIsPickerOpen(false);
       }
+       if (widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
+            setIsOpen(false);
+        }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  
-  // Effect to close widget on outside click
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-        if (widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
-            setIsOpen(false);
-        }
-    };
-    if (isOpen) {
-        document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     setNewMessage(prev => prev + emojiData.emoji);
@@ -168,8 +152,8 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
 
     const idsToMark = unreadMessages.map(msg => msg.id);
     if (idsToMark.length > 0) {
-      const { error: markError } = await markMessagesAsRead(idsToMark, dentistId);
-      if (!markError) setUnreadMessages([]);
+      await markMessagesAsRead(idsToMark, dentistId);
+      setUnreadMessages([]);
     }
     
     const { data, error } = await getMessagesBetweenUsers(dentistId, adminUser.id!);
@@ -183,15 +167,11 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
 
   const toggleChat = () => {
     if (!audioUnlockedRef.current && audioRef.current) {
-        const audio = audioRef.current;
-        audio.play().then(() => {
-            audio.pause();
-            audio.currentTime = 0;
+        audioRef.current.play().then(() => {
+            audioRef.current?.pause();
+            audioRef.current!.currentTime = 0;
             audioUnlockedRef.current = true;
-            console.log("🔊 Áudio desbloqueado para notificações futuras (dentista).");
-        }).catch((err) => {
-            console.warn("Tentativa de desbloqueio de áudio falhou (esperado na primeira interação):", err);
-        });
+        }).catch(() => {});
     }
     
     const nextIsOpenState = !isOpen;
@@ -204,63 +184,57 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((!newMessage.trim() && attachedFiles.length === 0) || !adminUser?.id) return;
-
+  
     setIsSending(true);
     const textContent = newMessage.trim();
     const filesToSend = [...attachedFiles];
-
+  
     setNewMessage('');
     setAttachedFiles([]);
-
+  
+    const sentMessages: ChatMessage[] = [];
+  
     try {
-      let contentForFirstMessage = textContent;
-
-      for (const [index, file] of filesToSend.entries()) {
-        const { data: uploadData, error: uploadError } = await uploadChatFile(file, dentistId);
-        if (uploadError) {
-          const errorMessage = (uploadError.message || '').toLowerCase();
-          if (errorMessage.includes('bucket not found')) {
-              showToast("Erro: Repositório de arquivos 'chat-files' não foi encontrado. Por favor, crie-o no seu painel Supabase Storage.", 'error', 10000);
-          } else if (errorMessage.includes('security policy') || errorMessage.includes('permission denied') || errorMessage.includes('unauthorized')) {
-               showToast("Erro de Permissão (RLS). É necessário criar uma 'Policy' no seu painel Supabase para permitir uploads no bucket 'chat-files'.", 'error', 15000);
-          } else {
-              showToast(`Falha ao enviar o arquivo ${file.name}: ${uploadError.message || 'Erro desconhecido'}`, 'error');
-          }
-          console.error(`Error uploading file ${file.name}:`, JSON.stringify(uploadError, null, 2));
-          continue;
-        }
-
-        if (uploadData) {
-          const messagePayload: Omit<ChatMessage, 'id' | 'created_at' | 'is_read'> = {
-            sender_id: dentistId,
-            recipient_id: adminUser.id,
-            content: contentForFirstMessage,
-            file_url: uploadData.publicUrl,
-            file_name: file.name,
-            file_type: file.type,
-          };
-          const { data: sentMsg, error: sendError } = await sendMessage(messagePayload);
-          if (sendError) throw new Error(`Falha ao enviar mensagem do arquivo ${file.name}: ${sendError.message}`);
-          if (sentMsg) setMessages(prev => [...prev, sentMsg]);
-
-          contentForFirstMessage = '';
-        }
-      }
-
-      if (textContent && filesToSend.length === 0) {
-        const { data: sentMsg, error } = await sendMessage({
+      // Logic to send text and files as separate messages if both exist
+      if (textContent) {
+        const { data, error } = await sendMessage({
           sender_id: dentistId,
           recipient_id: adminUser.id,
           content: textContent,
         });
-        if (error) throw new Error(`Falha ao enviar mensagem de texto: ${error.message}`);
-        if (sentMsg) setMessages(prev => [...prev, sentMsg]);
+        if (error) throw new Error("Falha ao enviar mensagem de texto.");
+        if (data) sentMessages.push(data);
+      }
+  
+      for (const file of filesToSend) {
+        const { data: uploadData, error: uploadError } = await uploadChatFile(file, dentistId);
+        if (uploadError) {
+          showToast(`Falha no upload de ${file.name}.`, 'error');
+          continue; // Skip to next file
+        }
+  
+        if (uploadData?.publicUrl) {
+          const { data, error } = await sendMessage({
+            sender_id: dentistId,
+            recipient_id: adminUser.id,
+            content: null, // Each file is a separate message without text
+            file_url: uploadData.publicUrl,
+            file_name: file.name,
+            file_type: file.type,
+          });
+          if (error) throw new Error(`Falha ao enviar o arquivo ${file.name}.`);
+          if (data) sentMessages.push(data);
+        }
       }
     } catch (error: any) {
-      showToast(error?.message || 'Ocorreu um erro inesperado ao enviar.', 'error');
+      showToast(error.message, 'error');
+      // Restore inputs on failure
       setNewMessage(textContent);
       setAttachedFiles(filesToSend);
     } finally {
+      if (sentMessages.length > 0) {
+        setMessages(prev => [...prev, ...sentMessages]);
+      }
       setIsSending(false);
     }
   };
@@ -292,7 +266,6 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
             setAttachedFiles(prev => [...prev, ...Array.from(e.target.files)]);
         }
     };
-
 
   return (
     <>
