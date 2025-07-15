@@ -1,11 +1,12 @@
 
-
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select'; 
-import { PlusIcon, PencilIcon, TrashIcon, BellIcon } from '../components/icons/HeroIcons'; 
+import { Input } from '../components/ui/Input';
+import { Modal } from '../components/ui/Modal';
+import { PlusIcon, PencilIcon, TrashIcon, BellIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon } from '../components/icons/HeroIcons'; 
 import { Appointment, DentistUser, NavigationPath, ConsultationHistoryEntry } from '../types'; 
 import { getAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry, getProcedures } from '../services/supabaseService'; 
 import { isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
@@ -37,7 +38,7 @@ interface AppointmentToDelete {
   details: string;
 }
 
-type DateFilter = 'all' | 'today' | 'upcoming';
+type DateFilter = 'all' | 'today' | 'upcoming' | 'custom';
 
 export const AppointmentsPage: React.FC = () => {
   const { showToast } = useToast(); 
@@ -58,11 +59,34 @@ export const AppointmentsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<Appointment['status'] | ''>('');
   const [procedureFilter, setProcedureFilter] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [customDate, setCustomDate] = useState('');
   
   const [availableProcedures, setAvailableProcedures] = useState<string[]>([]);
   const [notifiedAppointments, setNotifiedAppointments] = useState<Set<string>>(new Set());
 
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
+
+  // New state for the calendar popup
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
+  
+  // State for the calendar popup's month view - moved to top level
+  const [calendarCurrentMonth, setCalendarCurrentMonth] = useState(new Date());
+
+  const [arrivalModalInfo, setArrivalModalInfo] = useState<{
+    isOpen: boolean;
+    appointment: Appointment | null;
+    step: 'select_type' | 'fill_details';
+    healthPlanName: string;
+    gto: string;
+  }>({
+    isOpen: false,
+    appointment: null,
+    step: 'select_type',
+    healthPlanName: '',
+    gto: '',
+  });
+
 
   const fetchPageData = useCallback(async () => {
     setIsLoading(true);
@@ -134,6 +158,11 @@ export const AppointmentsPage: React.FC = () => {
       case 'upcoming': 
         processedAppointments = processedAppointments.filter(appt => appt.appointment_date > today);
         break;
+      case 'custom':
+        if(customDate) {
+          processedAppointments = processedAppointments.filter(appt => appt.appointment_date === customDate);
+        }
+        break;
     }
 
     // Sorting
@@ -158,7 +187,7 @@ export const AppointmentsPage: React.FC = () => {
     }
     
     return processedAppointments;
-  }, [allAppointments, selectedDentistId, statusFilter, dateFilter, dentists, procedureFilter]);
+  }, [allAppointments, selectedDentistId, statusFilter, dateFilter, dentists, procedureFilter, customDate]);
   
   const appointmentsByDate = useMemo(() => {
     return filteredAndSortedAppointments.reduce<Record<string, Appointment[]>>((acc, appt) => {
@@ -170,6 +199,29 @@ export const AppointmentsPage: React.FC = () => {
       return acc;
     }, {});
   }, [filteredAndSortedAppointments]);
+
+  // Handle outside clicks for the calendar popup
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
+        setIsCalendarOpen(false);
+      }
+    };
+    if (isCalendarOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isCalendarOpen]);
+  
+  // Sync the calendar's display month when it's opened.
+  useEffect(() => {
+    if (isCalendarOpen) {
+      // If a custom date is selected, start the calendar there. Otherwise, start on today's month.
+      setCalendarCurrentMonth(customDate ? new Date(customDate + "T12:00:00") : new Date());
+    }
+  }, [isCalendarOpen, customDate]);
 
   const handleStatusChange = async (appointment: Appointment) => {
     if (isUpdatingStatus) return;
@@ -208,23 +260,33 @@ export const AppointmentsPage: React.FC = () => {
     }
     navigate(NavigationPath.NewAppointment, { state: { patientCpf: appointment.patient_cpf, patientName: appointment.patient_name } });
   };
+  
+  const sendArrivalNotification = async (type: 'private' | 'health_plan') => {
+    const { appointment, healthPlanName, gto } = arrivalModalInfo;
+    if (!appointment) return;
 
-  const handleNotifyArrival = async (appointment: Appointment) => {
-    if (!appointment.dentist_id || !appointment.dentist_name) {
-        showToast('Este agendamento não possui um dentista responsável definido.', 'error');
-        return;
-    }
-    let paymentInfo = '';
-    if (appointment.patient_cpf) {
-        const { data: patientData } = await getPatientByCpf(appointment.patient_cpf);
-        if (patientData) {
-            if (patientData.payment_type === 'health_plan') paymentInfo = '(Plano de Saúde)';
-            else if (patientData.payment_type === 'private') paymentInfo = '(Particular)';
+    let message = `Paciente ${appointment.patient_name} chegou para a consulta.`;
+    
+    if (type === 'private') {
+        message += `\nTipo: Consulta Particular`;
+    } else if (type === 'health_plan') {
+        if (!healthPlanName.trim() || !gto.trim()) {
+            showToast('Plano e GTO são obrigatórios.', 'error');
+            return;
         }
+        message += `\nTipo: Plano de Saúde\nPlano: ${healthPlanName.trim()}\nNº GTO: ${gto.trim()}`;
+    } else {
+      return;
     }
-    const notificationMessage = `Paciente ${appointment.patient_name} chegou para a consulta ${paymentInfo}.`;
+
     setNotifiedAppointments(prev => new Set(prev).add(appointment.id));
-    const { error } = await addNotification({ dentist_id: appointment.dentist_id, message: notificationMessage, appointment_id: appointment.id });
+
+    const { error } = await addNotification({
+        dentist_id: appointment.dentist_id!,
+        message,
+        appointment_id: appointment.id,
+    });
+
     if (error) {
         const detail = error.message ? `: ${error.message}` : '.';
         showToast(`Falha ao enviar notificação${detail}`, 'error', 6000);
@@ -232,6 +294,22 @@ export const AppointmentsPage: React.FC = () => {
     } else {
         showToast(`Notificação enviada para ${appointment.dentist_name}!`, 'success');
     }
+    
+    setArrivalModalInfo({ isOpen: false, appointment: null, step: 'select_type', healthPlanName: '', gto: '' });
+  };
+
+  const handleNotifyArrival = (appointment: Appointment) => {
+    if (!appointment.dentist_id || !appointment.dentist_name) {
+        showToast('Este agendamento não possui um dentista responsável definido.', 'error');
+        return;
+    }
+    setArrivalModalInfo({
+        isOpen: true,
+        appointment,
+        step: 'select_type',
+        healthPlanName: '',
+        gto: '',
+    });
   };
   
   const requestDeleteAppointment = (id: string, details: string) => {
@@ -254,12 +332,80 @@ export const AppointmentsPage: React.FC = () => {
     closeConfirmDeleteModal();
   };
 
+  const handleDateFilterChange = (filter: 'today' | 'upcoming' | 'all') => {
+    setDateFilter(filter);
+    setCustomDate('');
+    setIsCalendarOpen(false);
+  };
+
+  const handleCustomDateSelect = (date: string) => {
+    setCustomDate(date);
+    setDateFilter('custom');
+    setIsCalendarOpen(false);
+  };
+  
+  const appointmentDatesSet = useMemo(() => {
+    return new Set(allAppointments.map(a => a.appointment_date));
+  }, [allAppointments]);
+
   const dentistOptions = [{ value: '', label: 'Todos os Dentistas' }, ...dentists.map(d => ({ value: d.id, label: d.full_name }))];
   const statusOptions = [{ value: '', label: 'Todos os Status' }, ...Object.entries(statusLabelMap).map(([value, label]) => ({ value, label }))];
   const procedureOptions = [{ value: '', label: 'Todos os Procedimentos' }, ...availableProcedures.map(p => ({ value: p, label: p }))];
   
   if (isLoading && allAppointments.length === 0) return <div className="text-center py-10 text-[#b0b0b0]">Carregando agendamentos...</div>;
   if (error) return <div className="text-center py-10 text-red-500">{error}</div>;
+
+  const renderCalendarPopup = () => {
+    // This is no longer a component and does not call hooks
+    const handlePrevMonth = () => setCalendarCurrentMonth(new Date(calendarCurrentMonth.getFullYear(), calendarCurrentMonth.getMonth() - 1, 1));
+    const handleNextMonth = () => setCalendarCurrentMonth(new Date(calendarCurrentMonth.getFullYear(), calendarCurrentMonth.getMonth() + 1, 1));
+
+    const year = calendarCurrentMonth.getFullYear();
+    const month = calendarCurrentMonth.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date();
+
+    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    const paddingDays = Array.from({ length: firstDayOfMonth });
+
+    return (
+        <div ref={calendarRef} className="absolute top-full right-0 mt-2 bg-[#1f1f1f] border border-gray-700 rounded-lg shadow-2xl z-20 p-4 w-72">
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={handlePrevMonth} className="p-1.5 rounded-full hover:bg-gray-700"><ChevronLeftIcon className="w-5 h-5 text-white" /></button>
+                <h3 className="font-semibold text-base text-white">
+                    {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(calendarCurrentMonth).replace(/^\w/, c => c.toUpperCase())}
+                </h3>
+                <button onClick={handleNextMonth} className="p-1.5 rounded-full hover:bg-gray-700"><ChevronRightIcon className="w-5 h-5 text-white" /></button>
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-400 mb-2">
+                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => <div key={day}>{day}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+                {paddingDays.map((_, i) => <div key={`pad-${i}`} />)}
+                {days.map(day => {
+                    const date = new Date(year, month, day);
+                    const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isToday = date.toDateString() === today.toDateString();
+                    const isSelected = dateString === customDate;
+                    const hasAppointment = appointmentDatesSet.has(dateString);
+
+                    return (
+                        <button
+                            key={day}
+                            onClick={() => handleCustomDateSelect(dateString)}
+                            className={`w-full aspect-square rounded-full text-sm flex items-center justify-center relative transition-colors duration-150
+                              ${isSelected ? 'bg-teal-500 text-black font-bold' : isToday ? 'bg-gray-700 text-white' : 'hover:bg-gray-700 text-gray-200'}`}
+                        >
+                            {day}
+                            {hasAppointment && <span className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-black' : 'bg-teal-400'}`} />}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+  };
 
   return (
     <div className="space-y-8">
@@ -268,15 +414,21 @@ export const AppointmentsPage: React.FC = () => {
         <Button onClick={() => navigate(NavigationPath.NewAppointment)} leftIcon={<PlusIcon />} disabled={isLoading || isDeleting} variant="primary">Novo Agendamento</Button>
       </div>
 
-      <Card title="Filtros e Visualização" className="bg-[#1a1a1a]" titleClassName="text-white">
+      <Card title="Filtros e Visualização" className="bg-[#1a1a1a] overflow-visible" titleClassName="text-white">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           <Select label="Filtrar por dentista" value={selectedDentistId} onChange={e => setSelectedDentistId(e.target.value)} options={dentistOptions} disabled={isLoadingDentists || isLoading} containerClassName="mb-0"/>
           <Select label="Filtrar por procedimento" value={procedureFilter} onChange={e => setProcedureFilter(e.target.value)} options={procedureOptions} disabled={isLoading} containerClassName="mb-0"/>
           <Select label="Filtrar por status" value={statusFilter} onChange={e => setStatusFilter(e.target.value as Appointment['status'] | '')} options={statusOptions} disabled={isLoading} containerClassName="mb-0"/>
-          <div className="flex-shrink-0 flex items-center space-x-2 bg-[#1f1f1f] p-1 rounded-lg w-full justify-around lg:justify-end h-[calc(100%-24px)] mt-auto">
-            <Button size="sm" variant={dateFilter === 'today' ? 'primary' : 'ghost'} onClick={() => setDateFilter('today')} disabled={isLoading}>Hoje</Button>
-            <Button size="sm" variant={dateFilter === 'upcoming' ? 'primary' : 'ghost'} onClick={() => setDateFilter('upcoming')} disabled={isLoading}>Próximos</Button>
-            <Button size="sm" variant={dateFilter === 'all' ? 'primary' : 'ghost'} onClick={() => setDateFilter('all')} disabled={isLoading}>Todos</Button>
+          <div className="relative">
+            <div className="flex-shrink-0 flex items-center space-x-2 bg-[#1f1f1f] p-1 rounded-lg w-full justify-around lg:justify-end h-[calc(100%-24px)] mt-auto">
+              <Button size="sm" variant={dateFilter === 'today' ? 'primary' : 'ghost'} onClick={() => handleDateFilterChange('today')} disabled={isLoading}>Hoje</Button>
+              <Button size="sm" variant={dateFilter === 'upcoming' ? 'primary' : 'ghost'} onClick={() => handleDateFilterChange('upcoming')} disabled={isLoading}>Próximos</Button>
+              <Button size="sm" variant={dateFilter === 'all' ? 'primary' : 'ghost'} onClick={() => handleDateFilterChange('all')} disabled={isLoading}>Todos</Button>
+              <Button size="sm" variant={dateFilter === 'custom' ? 'primary' : 'ghost'} onClick={() => setIsCalendarOpen(prev => !prev)} disabled={isLoading} leftIcon={<CalendarDaysIcon className="w-4 h-4 mr-1" />}>
+                {customDate ? isoToDdMmYyyy(customDate) : 'Data'}
+              </Button>
+            </div>
+            {isCalendarOpen && renderCalendarPopup()}
           </div>
         </div>
       </Card>
@@ -325,6 +477,55 @@ export const AppointmentsPage: React.FC = () => {
           </table>
         </div>
       )}
+
+      <Modal
+        isOpen={arrivalModalInfo.isOpen}
+        onClose={() => setArrivalModalInfo(prev => ({ ...prev, isOpen: false }))}
+        title={`Notificar Chegada de ${arrivalModalInfo.appointment?.patient_name || ''}`}
+        footer={
+          arrivalModalInfo.step === 'fill_details' ? (
+            <div className="flex justify-end space-x-3 w-full">
+              <Button type="button" variant="ghost" onClick={() => setArrivalModalInfo(prev => ({...prev, step: 'select_type'}))}>
+                Voltar
+              </Button>
+              <Button type="submit" form="healthPlanForm" variant="primary">
+                Enviar Notificação
+              </Button>
+            </div>
+          ) : null
+        }
+      >
+        {arrivalModalInfo.step === 'select_type' ? (
+          <div className="space-y-4">
+            <p className="text-center text-lg text-white">Qual o tipo da consulta?</p>
+            <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+                <Button fullWidth variant="primary" onClick={() => sendArrivalNotification('private')}>Consulta Particular</Button>
+                <Button fullWidth variant="ghost" onClick={() => setArrivalModalInfo(prev => ({...prev, step: 'fill_details'}))}>Consulta Plano de Saúde</Button>
+            </div>
+          </div>
+        ) : (
+          <form id="healthPlanForm" onSubmit={(e) => { e.preventDefault(); sendArrivalNotification('health_plan'); }}>
+            <div className="space-y-4">
+              <p className="text-lg font-semibold text-white">Detalhes do Plano de Saúde</p>
+              <Input 
+                label="Nome do Plano"
+                value={arrivalModalInfo.healthPlanName}
+                onChange={e => setArrivalModalInfo(prev => ({ ...prev, healthPlanName: e.target.value }))}
+                placeholder="Ex: Bradesco Saúde"
+                required autoFocus
+              />
+              <Input 
+                label="Número da GTO"
+                value={arrivalModalInfo.gto}
+                onChange={e => setArrivalModalInfo(prev => ({ ...prev, gto: e.target.value }))}
+                placeholder="Ex: 123456789"
+                required
+              />
+            </div>
+          </form>
+        )}
+      </Modal>
+
       {appointmentToDelete && (
         <ConfirmationModal isOpen={isConfirmDeleteModalOpen} onClose={closeConfirmDeleteModal} onConfirm={executeDeleteAppointment} title="Confirmar Exclusão de Agendamento" message={<p>Tem certeza que deseja excluir o agendamento: <strong className="text-[#00bcd4]">{appointmentToDelete.details}</strong>? Esta ação é irreversível.</p>} confirmButtonText="Excluir Agendamento" isLoading={isDeleting} />
       )}

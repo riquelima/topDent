@@ -654,10 +654,35 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
                   </Button>
               </div>
             }>
-          <div className="text-center py-6 px-4 animate-pulse-once">
-            <BellIcon className="w-20 h-20 text-yellow-400 mx-auto mb-5" />
-            <p className="text-xl font-semibold text-white">{arrivalNotification.message}</p>
-          </div>
+            <div className="text-center py-6 px-4">
+              <BellIcon className="w-20 h-20 text-yellow-400 mx-auto mb-5 animate-pulse" />
+              {(() => {
+                const lines = arrivalNotification.message.split('\n');
+                const mainMessage = lines[0];
+                const details = lines.slice(1);
+                return (
+                    <>
+                        <p className="text-xl font-semibold text-white mb-4">{mainMessage}</p>
+                        {details.length > 0 && (
+                            <div className="text-left bg-[#1f1f1f] p-4 rounded-lg border border-gray-700 space-y-2 max-w-sm mx-auto">
+                                {details.map((line, index) => {
+                                    const parts = line.split(':');
+                                    if (parts.length < 2) return null;
+                                    const label = parts[0];
+                                    const value = parts.slice(1).join(':').trim();
+                                    return (
+                                        <div key={index} className="flex justify-between items-start">
+                                            <span className="font-semibold text-teal-400 mr-2">{label}:</span>
+                                            <span className="text-gray-200 text-right">{value}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </>
+                );
+              })()}
+            </div>
         </Modal>
       )}
 

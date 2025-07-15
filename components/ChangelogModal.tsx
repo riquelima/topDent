@@ -31,6 +31,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
               release_date: '2025-07-15',
               version: 'v10.1.0',
               changes: [
+                'Notificação de Chegada Detalhada: Ao notificar a chegada de um paciente, agora é possível especificar o tipo de consulta (Particular ou Plano de Saúde) e, se for plano, inserir o nome e o número da GTO.',
                 'Ativação de Som Unificada: Adicionado um botão "Ativar Som" nos dashboards do admin e do dentista para desbloquear o áudio de forma confiável em todo o sistema.',
                 'Correção de Áudio: Resolvido o problema que impedia o som de notificação de tocar devido a políticas de áudio do navegador.',
                 'Melhoria na Aparência: Corrigido o texto do botão "Ativar Som" para garantir a visibilidade (fonte branca sobre fundo preto).',

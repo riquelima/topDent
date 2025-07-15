@@ -17,18 +17,19 @@ const dentistChangelogEntries: ChangelogEntry[] = [
       release_date: '2025-07-15',
       version: 'v10.1.0',
       changes: [
+        'Notificação de Chegada Detalhada: O aviso de chegada do paciente agora inclui detalhes sobre o tipo de consulta (Particular ou Plano de Saúde), incluindo o nome do plano e o número da GTO, quando aplicável.',
         'Notificações Personalizadas: Agora, cada dentista pode ter um som de notificação de chegada de paciente exclusivo, configurado pelo administrador.',
         'Ativação de Som Simplificada: O botão "Ativar Som" no seu dashboard agora habilita todas as notificações sonoras, incluindo as do chat, com um único clique.',
         'Correção de Áudio: Resolvido o problema que impedia o som de notificação de tocar.',
       ]
   },
   {
-      id: 'dentist-release-14-07-2023',
-      created_at: new Date('2023-07-14T18:00:00Z').toISOString(),
-      release_date: '2023-07-14',
+      id: 'dentist-release-14-07-2025',
+      created_at: new Date('2025-07-14T18:00:00Z').toISOString(),
+      release_date: '2025-07-14',
       version: 'v10.0.0',
       changes: [
-        'Alerta de Chegada de Paciente: A notificação de chegada de paciente agora exibe um modal de aviso e toca o som "smile.mp3" de forma mais confiável.',
+        'Alerta de Chegada de Paciente: A notificação de chegada de paciente agora exibe um modal de aviso e toca o som de notificação de forma mais confiável.',
         'Ativação de Som: O sistema agora garante que os sons de notificação sejam ativados após a primeira interação do usuário na tela, resolvendo problemas de bloqueio pelo navegador.',
         'Layout do Widget de Anotações: Corrigida a sobreposição do widget de anotações com o ícone de notificações.',
         'Correção de Chat: Implementadas melhorias para garantir que o status "Lido" seja exibido corretamente e que a conversa role para a última mensagem ao ser aberta.',
