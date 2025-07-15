@@ -263,11 +263,20 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     if ((window as any).isAudioUnlocked) {
       const audio = document.getElementById('notification-sound') as HTMLAudioElement;
       if (audio) {
-        // Determine the correct sound file based on the dentist's name
-        const soundFile = dentistDisplayFullName === 'Dentista Teste' 
-            ? '/dentistateste.mp3' 
-            : '/arpegio.mp3';
+        // Map dentist names to their custom notification sounds
+        const dentistSoundMap: Record<string, string> = {
+          'Dentista Teste': '/dentistateste.mp3',
+          'Alessandra Luzia': '/alessandra.mp3',
+          'Azenaldo Júnior': '/azenaldo.mp3',
+          'Carolina Rosa Barros Oliveira': '/carolina.mp3',
+          'Jemima Oliveira': '/jemima.mp3',
+          'Luciana Rocha Marins Ramos': '/luciana.mp3',
+          'Vanessa Vandita': '/vanessa.mp3',
+        };
 
+        // Determine the correct sound file, defaulting to arpegio.mp3
+        const soundFile = dentistSoundMap[dentistDisplayFullName] || '/arpegio.mp3';
+        
         // Only update src if it's different to avoid re-loading unnecessarily
         if (audio.src !== window.location.origin + soundFile) {
             audio.src = soundFile;
