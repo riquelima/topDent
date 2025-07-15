@@ -170,7 +170,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
         // Fire and forget, log error on failure
         markMessagesAsRead(idsToMarkAsRead, adminId).then(({ error: markError }) => {
             if (markError) {
-                console.error(`Silent error marking messages as read for dentist ${dentistId}:`, JSON.stringify(markError, null, 2));
+                console.error("Silent error marking messages as read for dentist ${dentistId}:", JSON.stringify(markError, null, 2));
                 // Note: We are not reverting the UI state to keep the experience smooth.
                 // The unread count will be corrected on the next app load/refresh.
             }

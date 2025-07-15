@@ -1,3 +1,4 @@
+
 // services/supabaseService.ts
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { 
