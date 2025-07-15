@@ -228,12 +228,44 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const [arrivalNotification, setArrivalNotification] = useState<Notification | null>(null);
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
   const arrivalAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUnlockedRef = useRef(false);
 
   const todayDateString = getTodayInSaoPaulo();
   const formattedDate = isoToDdMmYyyy(todayDateString);
   const dayOfWeek = useMemo(() => {
     const spDate = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
     return new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(spDate).replace(/^\w/, (c) => c.toUpperCase());
+  }, []);
+
+  useEffect(() => {
+    try {
+        const audio = new Audio('/smile.mp3');
+        audio.volume = 1.0;
+        audio.preload = 'auto';
+        arrivalAudioRef.current = audio;
+    } catch(e) {
+        console.error("Failed to initialize arrival audio:", e);
+    }
+
+    const unlockAudio = () => {
+      if (arrivalAudioRef.current && !audioUnlockedRef.current) {
+        const audio = arrivalAudioRef.current;
+        audio.muted = true;
+        audio.play().then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.muted = false;
+          audioUnlockedRef.current = true;
+          console.log("Audio context unlocked by user gesture.");
+        }).catch(() => {});
+      }
+    };
+    
+    window.addEventListener('click', unlockAudio, { once: true });
+
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+    };
   }, []);
   
   const playArrivalSound = useCallback(() => {
@@ -248,37 +280,23 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   
     if (playPromise !== undefined) {
       playPromise.catch(error => {
-        // Autoplay was prevented. This is a common browser security policy.
-        console.warn("Audio playback blocked by browser. Setting up one-time listener.", error);
-        
-        // Inform the user and set up a one-time listener to play on the next interaction.
-        showToast("Som de notificação bloqueado. Clique na tela para ativar.", "info", 6000);
-        
-        const playOnFirstInteraction = () => {
-            // Re-attempt to play the sound.
-            const secondPlayPromise = audio.play();
-            if(secondPlayPromise !== undefined) {
-                secondPlayPromise.catch(err => console.error("Secondary audio play attempt failed:", err));
-            }
-            // The listener is automatically removed due to { once: true }, so no manual cleanup needed.
-        };
-        
-        // Use { once: true } to automatically remove the listener after it runs.
-        window.addEventListener('click', playOnFirstInteraction, { once: true });
+        if (!audioUnlockedRef.current) {
+          console.warn("Audio playback blocked by browser. Setting up reactive listener as fallback.", error);
+          showToast("Som de notificação bloqueado. Clique na tela para ativar.", "info", 6000);
+          
+          const playOnFirstInteraction = () => {
+              audio.play().then(() => {
+                  audioUnlockedRef.current = true;
+              }).catch(err => console.error("Secondary audio play attempt failed:", err));
+          };
+          window.addEventListener('click', playOnFirstInteraction, { once: true });
+        } else {
+            console.error("Audio playback failed even though context should be unlocked.", error);
+            showToast("Erro ao tocar o som da notificação.", "error");
+        }
       });
     }
   }, [showToast]);
-
-  useEffect(() => {
-    try {
-        const audio = new Audio('/smile.mp3');
-        audio.volume = 1.0;
-        audio.preload = 'auto';
-        arrivalAudioRef.current = audio;
-    } catch(e) {
-        console.error("Failed to initialize arrival audio:", e)
-    }
-  }, []);
   
 
   const handleNewNotification = useCallback((newNotification: Notification) => {
