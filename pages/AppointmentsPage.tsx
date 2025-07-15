@@ -226,7 +226,8 @@ export const AppointmentsPage: React.FC = () => {
     setNotifiedAppointments(prev => new Set(prev).add(appointment.id));
     const { error } = await addNotification({ dentist_id: appointment.dentist_id, message: notificationMessage, appointment_id: appointment.id });
     if (error) {
-        showToast('Falha ao enviar notificação.', 'error');
+        const detail = error.message ? `: ${error.message}` : '.';
+        showToast(`Falha ao enviar notificação${detail}`, 'error', 6000);
         setNotifiedAppointments(prev => { const newSet = new Set(prev); newSet.delete(appointment.id); return newSet; });
     } else {
         showToast(`Notificação enviada para ${appointment.dentist_name}!`, 'success');
