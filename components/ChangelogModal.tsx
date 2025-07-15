@@ -26,6 +26,18 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
         } else {
           const hardcodedEntries: ChangelogEntry[] = [
             {
+              id: 'manual-entry-15-07-2025',
+              created_at: new Date('2025-07-15T10:00:00Z').toISOString(),
+              release_date: '2025-07-15',
+              version: 'v10.1.0',
+              changes: [
+                'Ativação de Som Unificada: Adicionado um botão "Ativar Som" nos dashboards do admin e do dentista para desbloquear o áudio de forma confiável em todo o sistema.',
+                'Correção de Áudio: Resolvido o problema que impedia o som de notificação de tocar devido a políticas de áudio do navegador.',
+                'Melhoria na Aparência: Corrigido o texto do botão "Ativar Som" para garantir a visibilidade (fonte branca sobre fundo preto).',
+                'Notificações Personalizadas: Implementada a lógica para tocar sons de notificação específicos para cada dentista.',
+              ]
+            },
+            {
               id: 'manual-entry-14-07-2025',
               created_at: new Date('2025-07-14T10:00:00Z').toISOString(),
               release_date: '2025-07-14',

@@ -15,6 +15,8 @@ import {
     EyeIcon,
     ListBulletIcon,
     BellIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
 } from '../components/icons/HeroIcons';
 import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
 import { NavigationPath, Appointment, ConsultationHistoryEntry, Notification } from '../types';
@@ -210,6 +212,97 @@ const ShortcutCard: React.FC<ShortcutCardProps> = ({ title, icon, to, onClick, c
 
   return to ? <Link to={to} {...buttonProps}>{content}</Link> : <button {...buttonProps}>{content}</button>;
 };
+
+const CalendarAgenda: React.FC<{ appointments: Appointment[]; onViewPatient: (cpf: string) => void }> = ({ appointments, onViewPatient }) => {
+  const [currentDate, setCurrentDate] = useState(new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })));
+  const [selectedDate, setSelectedDate] = useState(new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })));
+
+  const appointmentDates = useMemo(() => {
+    return new Set(appointments.map(a => a.appointment_date));
+  }, [appointments]);
+
+  const handlePrevMonth = () => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  const handleNextMonth = () => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  const handleDateClick = (day: number) => setSelectedDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+
+  const appointmentsForSelectedDay = useMemo(() => {
+    const selectedDateString = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+    return appointments
+      .filter(a => a.appointment_date === selectedDateString)
+      .sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
+  }, [selectedDate, appointments]);
+
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const paddingDays = Array.from({ length: firstDayOfMonth });
+
+  return (
+    <Card className="bg-[#1f1f1f] shadow-xl flex flex-col">
+       <div className="flex items-center text-xl font-semibold text-teal-400 p-4 border-b border-gray-700">
+        <img src="https://cdn-icons-png.flaticon.com/512/11152/11152688.png" alt="Agenda Completa" className="w-6 h-6 mr-3" />
+        Agenda Completa
+      </div>
+      <div className="p-4 flex-1 flex flex-col">
+        <div className="flex justify-between items-center mb-4">
+          <button onClick={handlePrevMonth} className="p-2 rounded-full hover:bg-gray-700"><ChevronLeftIcon className="w-5 h-5 text-white" /></button>
+          <h3 className="font-semibold text-lg text-white">
+            {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(currentDate).replace(/^\w/, c => c.toUpperCase())}
+          </h3>
+          <button onClick={handleNextMonth} className="p-2 rounded-full hover:bg-gray-700"><ChevronRightIcon className="w-5 h-5 text-white" /></button>
+        </div>
+        <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-400 mb-2">
+          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => <div key={day}>{day}</div>)}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {paddingDays.map((_, i) => <div key={`pad-${i}`} />)}
+          {days.map(day => {
+            const date = new Date(year, month, day);
+            const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const isToday = date.toDateString() === today.toDateString();
+            const isSelected = date.toDateString() === selectedDate.toDateString();
+            const hasAppointment = appointmentDates.has(dateString);
+
+            return (
+              <button
+                key={day}
+                onClick={() => handleDateClick(day)}
+                className={`w-full aspect-square rounded-full text-sm flex items-center justify-center relative transition-colors duration-150
+                  ${isSelected ? 'bg-teal-500 text-black font-bold' : isToday ? 'bg-gray-700 text-white' : 'hover:bg-gray-700 text-gray-200'}`}
+              >
+                {day}
+                {hasAppointment && <span className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-black' : 'bg-teal-400'}`} />}
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-4 border-t border-gray-700 pt-4 flex-1 overflow-y-auto">
+          <h4 className="font-semibold text-white mb-2">Agendamentos para {isoToDdMmYyyy(selectedDate.toISOString().split('T')[0])}</h4>
+          {appointmentsForSelectedDay.length > 0 ? (
+            <ul className="space-y-2">
+              {appointmentsForSelectedDay.map(appt => (
+                <li key={appt.id} onClick={() => appt.patient_cpf && onViewPatient(appt.patient_cpf)} className="p-3 rounded-md bg-[#2a2a2a] hover:bg-gray-700/80 cursor-pointer">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold text-white">{appt.patient_name}</p>
+                      <p className="text-xs text-gray-400">{appt.procedure}</p>
+                    </div>
+                    <p className="text-sm font-bold text-teal-400">{formatToHHMM(appt.appointment_time)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-sm text-center text-gray-500 py-4">Nenhum agendamento para esta data.</p>}
+        </div>
+      </div>
+    </Card>
+  );
+};
+
 
 export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dentistId, dentistUsername, dentistDisplayFullName }) => {
   const { showToast } = useToast();
@@ -503,7 +596,10 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             <VerticalAgendaCard title="Agenda Hoje" icon={<img src="https://cdn-icons-png.flaticon.com/512/1136/1136922.png" alt="Agenda Hoje" />} appointments={todayAppointments} isLoading={isLoading} error={error} onUpdateStatus={handleUpdateStatus} isUpdatingStatus={isUpdatingStatus} dentistId={dentistId} showDate={false} onViewPatient={handleViewPatient}/>
             <VerticalAgendaCard title="Agenda da Semana" icon={<img src="https://cdn-icons-png.flaticon.com/512/8295/8295170.png" alt="Agenda da Semana" />} appointments={weekAppointments} isLoading={isLoading} error={error} onUpdateStatus={handleUpdateStatus} isUpdatingStatus={isUpdatingStatus} dentistId={dentistId} showDate={true} onViewPatient={handleViewPatient}/>
-            <VerticalAgendaCard title="Agenda Completa" icon={<img src="https://cdn-icons-png.flaticon.com/512/11152/11152688.png" alt="Agenda Completa" />} appointments={allAppointmentsData} isLoading={isLoading} error={error} onUpdateStatus={handleUpdateStatus} isUpdatingStatus={isUpdatingStatus} dentistId={dentistId} showDate={true} onViewPatient={handleViewPatient}/>
+            <CalendarAgenda 
+              appointments={allAppointmentsData} 
+              onViewPatient={handleViewPatient}
+            />
           </div>
         </section>
       </div>

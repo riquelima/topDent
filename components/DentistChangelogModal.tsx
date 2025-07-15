@@ -12,6 +12,17 @@ interface DentistChangelogModalProps {
 
 const dentistChangelogEntries: ChangelogEntry[] = [
   {
+      id: 'dentist-release-15-07-2025',
+      created_at: new Date('2025-07-15T18:00:00Z').toISOString(),
+      release_date: '2025-07-15',
+      version: 'v10.1.0',
+      changes: [
+        'Notificações Personalizadas: Agora, cada dentista pode ter um som de notificação de chegada de paciente exclusivo, configurado pelo administrador.',
+        'Ativação de Som Simplificada: O botão "Ativar Som" no seu dashboard agora habilita todas as notificações sonoras, incluindo as do chat, com um único clique.',
+        'Correção de Áudio: Resolvido o problema que impedia o som de notificação de tocar.',
+      ]
+  },
+  {
       id: 'dentist-release-14-07-2023',
       created_at: new Date('2023-07-14T18:00:00Z').toISOString(),
       release_date: '2023-07-14',
