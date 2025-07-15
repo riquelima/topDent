@@ -241,23 +241,38 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     const audio = arrivalAudioRef.current;
     if (audio && audioUnlockedRef.current) {
         audio.currentTime = 0;
-        audio.play().catch((err) => console.warn("🔇 Arrival sound blocked:", err));
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.error("Error playing arrival sound:", error);
+                showToast("Não foi possível tocar o som de notificação.", "warning", 3000);
+            });
+        }
+    } else {
+        console.warn(`Sound not played. Unlocked: ${audioUnlockedRef.current}, Audio Ready: ${!!audio}`);
     }
-  }, []);
+  }, [showToast]);
   
-    // Effect to unlock audio context on first user interaction anywhere
   useEffect(() => {
     const unlockAudio = () => {
-      if (!audioUnlockedRef.current && arrivalAudioRef.current) {
-        arrivalAudioRef.current.play().then(() => {
+      if (audioUnlockedRef.current || !arrivalAudioRef.current) {
+        return;
+      }
+      
+      console.log("Attempting to unlock audio context...");
+      const playPromise = arrivalAudioRef.current.play();
+
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
           arrivalAudioRef.current?.pause();
           arrivalAudioRef.current!.currentTime = 0;
           audioUnlockedRef.current = true;
-          console.log("Audio context unlocked for patient arrivals.");
-        }).catch(() => {});
-        // Remove listener after first successful interaction
-        window.removeEventListener('click', unlockAudio);
-        window.removeEventListener('keydown', unlockAudio);
+          console.log("✅ Audio context unlocked successfully.");
+          window.removeEventListener('click', unlockAudio);
+          window.removeEventListener('keydown', unlockAudio);
+        }).catch(error => {
+          console.warn("Audio unlock failed on this attempt. Waiting for another user interaction.", error);
+        });
       }
     };
 

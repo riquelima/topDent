@@ -1039,7 +1039,22 @@ export const getChangelog = async (): Promise<{ data: ChangelogEntry[] | null, e
 export const addNotification = async (notification: Omit<Notification, 'id' | 'created_at' | 'is_read'>) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return (client.from('notifications') as any).insert(notification);
+
+    const { dentist_id, message, appointment_id } = notification;
+
+    // Call the secure RPC function instead of a direct insert to bypass RLS issues
+    const { data, error } = await client.rpc('create_notification' as any, {
+        p_dentist_id: dentist_id,
+        p_message: message,
+        p_appointment_id: appointment_id || null
+    });
+    
+    if (error) {
+        // Log detailed error for debugging
+        console.error("Error calling RPC create_notification:", JSON.stringify(error, null, 2));
+    }
+    
+    return { data, error };
 };
 
 export const getUnreadNotificationsForDentist = async (dentistId: string) => {
