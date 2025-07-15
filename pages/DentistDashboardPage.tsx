@@ -240,7 +240,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   useEffect(() => {
     try {
-        const audio = new Audio('/smile.mp3');
+        const audio = new Audio('/arpegio.mp3');
         audio.volume = 1.0;
         audio.preload = 'auto';
         arrivalAudioRef.current = audio;
