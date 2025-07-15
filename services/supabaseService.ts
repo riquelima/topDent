@@ -498,7 +498,15 @@ export type Database = {
       }
     };
     Views: {};
-    Functions: {};
+    Functions: {
+      mark_messages_as_read_by_recipient: {
+        Args: {
+          message_ids: string[];
+          reader_id_param: string;
+        };
+        Returns: undefined;
+      };
+    };
     Enums: {};
     CompositeTypes: {};
   }
@@ -1095,6 +1103,7 @@ export const markMessagesAsRead = async (messageIds: string[], readerId: string)
     
     return { data, error };
 };
+
 
 export const getUnreadMessages = async (recipientId: string) => {
     const client = getSupabaseClient();

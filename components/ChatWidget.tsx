@@ -118,7 +118,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     const handleMessageUpdate = (payload: any) => {
       const updatedMessage = payload.new as ChatMessage;
       
-      // The filter on the subscription should handle this, but an extra check is good.
       if (updatedMessage.sender_id === adminId && updatedMessage.is_read === true) {
         setMessages(prevMessages =>
           prevMessages.map(msg =>
@@ -139,7 +138,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
           event: 'UPDATE',
           schema: 'public',
           table: 'chat_messages',
-          filter: `sender_id=eq.${adminId}`, // Specific filter for read receipts
+          filter: `sender_id=eq.${adminId}`,
         },
         handleMessageUpdate
       )
@@ -156,18 +155,40 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
 
   useLayoutEffect(scrollToBottom, [messages]);
   
+  const markConversationAsRead = useCallback(async (dentistId: string | null) => {
+    if (!dentistId) return;
+
+    const idsToMarkAsRead = unreadMessages
+        .filter(msg => msg.sender_id === dentistId)
+        .map(msg => msg.id);
+
+    if (idsToMarkAsRead.length > 0) {
+        const { error: markError } = await markMessagesAsRead(idsToMarkAsRead, adminId);
+        if (markError) {
+            console.error("Failed to mark messages as read on close:", markError);
+        } else {
+            setUnreadMessages(prev => prev.filter(msg => msg.sender_id !== dentistId));
+        }
+    }
+  }, [adminId, unreadMessages]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
-        setIsPickerOpen(false);
-      }
-      if (widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+        if (widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
+            if (isOpenRef.current) {
+                markConversationAsRead(selectedDentistRef.current?.id || null);
+                setIsPickerOpen(false);
+                setIsOpen(false);
+            }
+        } else if (isPickerOpen && pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+            setIsPickerOpen(false);
+        }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isPickerOpen, markConversationAsRead]);
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     setNewMessage(prev => prev + emojiData.emoji);

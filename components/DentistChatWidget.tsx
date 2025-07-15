@@ -125,7 +125,7 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
           event: 'UPDATE',
           schema: 'public',
           table: 'chat_messages',
-          filter: `sender_id=eq.${dentistId}`, // Specific filter for read receipts
+          filter: `sender_id=eq.${dentistId}`,
         },
         handleMessageUpdate
       )
@@ -141,19 +141,37 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   }, []);
 
   useLayoutEffect(scrollToBottom, [messages]);
+  
+  const markConversationAsRead = useCallback(async () => {
+    const idsToMarkAsRead = unreadMessages.map(msg => msg.id);
+
+    if (idsToMarkAsRead.length > 0) {
+        const { error: markError } = await markMessagesAsRead(idsToMarkAsRead, dentistId);
+        if (markError) {
+            console.error("Failed to mark messages as read on close:", markError);
+        } else {
+            setUnreadMessages([]);
+        }
+    }
+  }, [dentistId, unreadMessages]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
-        setIsPickerOpen(false);
-      }
-       if (widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
-            setIsOpen(false);
+        if (widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
+            if (isOpenRef.current) {
+                markConversationAsRead();
+                setIsPickerOpen(false);
+                setIsOpen(false);
+            }
+        } else if (isPickerOpen && pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+            setIsPickerOpen(false);
         }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isPickerOpen, markConversationAsRead]);
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     setNewMessage(prev => prev + emojiData.emoji);
