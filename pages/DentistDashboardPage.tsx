@@ -246,23 +246,27 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     } catch(e) {
         console.error("Failed to initialize arrival audio:", e);
     }
-
+  
+    // Proactive Audio Unlock: This is the most reliable way to enable audio playback.
+    // We listen for the first user interaction and then play & pause a sound to unlock the AudioContext.
     const unlockAudio = () => {
       if (arrivalAudioRef.current && !audioUnlockedRef.current) {
-        const audio = arrivalAudioRef.current;
-        audio.muted = true;
-        audio.play().then(() => {
-          audio.pause();
-          audio.currentTime = 0;
-          audio.muted = false;
+        // The play-then-pause is a more reliable unlock method than playing a muted sound.
+        arrivalAudioRef.current.play().then(() => {
+            if (arrivalAudioRef.current) {
+                arrivalAudioRef.current.pause();
+                arrivalAudioRef.current.currentTime = 0;
+            }
           audioUnlockedRef.current = true;
-          console.log("Audio context unlocked by user gesture.");
-        }).catch(() => {});
+          console.log("Audio context unlocked successfully by user interaction.");
+        }).catch((error) => {
+          console.warn("Audio context unlock failed. Notifications may be silent.", error);
+        });
       }
     };
     
     window.addEventListener('click', unlockAudio, { once: true });
-
+  
     return () => {
       window.removeEventListener('click', unlockAudio);
     };
@@ -274,27 +278,18 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
       console.error("Audio element for notification sound is not available.");
       return;
     }
-  
-    audio.currentTime = 0;
-    const playPromise = audio.play();
-  
-    if (playPromise !== undefined) {
-      playPromise.catch(error => {
-        if (!audioUnlockedRef.current) {
-          console.warn("Audio playback blocked by browser. Setting up reactive listener as fallback.", error);
-          showToast("Som de notificação bloqueado. Clique na tela para ativar.", "info", 6000);
-          
-          const playOnFirstInteraction = () => {
-              audio.play().then(() => {
-                  audioUnlockedRef.current = true;
-              }).catch(err => console.error("Secondary audio play attempt failed:", err));
-          };
-          window.addEventListener('click', playOnFirstInteraction, { once: true });
-        } else {
-            console.error("Audio playback failed even though context should be unlocked.", error);
+    
+    // Only play if the audio context has been unlocked by a user interaction.
+    if (audioUnlockedRef.current) {
+        audio.currentTime = 0;
+        audio.play().catch(error => {
+            console.error("Audio playback failed even after context was unlocked:", error);
             showToast("Erro ao tocar o som da notificação.", "error");
-        }
-      });
+        });
+    } else {
+        // Fallback for cases where the proactive unlock hasn't happened yet.
+        console.warn("Audio not unlocked. Sound will not play until user interacts with the page.");
+        showToast("Som de notificação desativado. Clique na tela para ativar.", "info", 6000);
     }
   }, [showToast]);
   
