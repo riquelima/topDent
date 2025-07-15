@@ -810,6 +810,16 @@ export const updateAppointmentStatus = async (id: string, status: Appointment['s
     return (client.from('appointments') as any).update({ status, updated_at: new Date().toISOString() }).eq('id', id).select().single();
 };
 
+export const updateAppointmentsForPatientNameChange = async (patientCpf: string, newPatientName: string) => {
+    const client = getSupabaseClient();
+    if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+    return await (client
+        .from('appointments') as any)
+        .update({ patient_name: newPatientName, updated_at: new Date().toISOString() })
+        .eq('patient_cpf', patientCpf);
+};
+
 export const getAppointmentsByPatientCpf = async (cpf: string) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
