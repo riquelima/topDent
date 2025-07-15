@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -118,25 +118,31 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     const handleMessageUpdate = (payload: any) => {
       const updatedMessage = payload.new as ChatMessage;
       
+      // The filter on the subscription should handle this, but an extra check is good.
       if (updatedMessage.sender_id === adminId && updatedMessage.is_read === true) {
-        setMessages(prevMessages => {
-          const isAlreadyUpdated = prevMessages.find(m => m.id === updatedMessage.id)?.is_read;
-          if (isAlreadyUpdated) {
-              return prevMessages;
-          }
-          return prevMessages.map(msg =>
+        setMessages(prevMessages =>
+          prevMessages.map(msg =>
             msg.id === updatedMessage.id
               ? { ...msg, is_read: true }
               : msg
-          );
-        });
+          )
+        );
       }
     };
 
     const channel = client
-      .channel(`admin_chat_update_${adminId}`)
+      .channel(`admin_chat_realtime_${adminId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${adminId}` }, handleNewMessage)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, handleMessageUpdate)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `sender_id=eq.${adminId}`, // Specific filter for read receipts
+        },
+        handleMessageUpdate
+      )
       .subscribe();
   
     return () => {
@@ -148,7 +154,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
   }, []);
 
-  useEffect(scrollToBottom, [messages]);
+  useLayoutEffect(scrollToBottom, [messages]);
   
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
 import { PaperAirplaneIcon, XMarkIcon, FaceSmileIcon, PaperclipIcon, DocumentTextIcon, CheckIcon } from './icons/HeroIcons';
@@ -106,24 +106,29 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
       const updatedMessage = payload.new as ChatMessage;
 
       if (updatedMessage.sender_id === dentistId && updatedMessage.is_read === true) {
-        setMessages(prevMessages => {
-          const isAlreadyUpdated = prevMessages.find(m => m.id === updatedMessage.id)?.is_read;
-          if (isAlreadyUpdated) {
-            return prevMessages;
-          }
-          return prevMessages.map(msg =>
+        setMessages(prevMessages =>
+          prevMessages.map(msg =>
             msg.id === updatedMessage.id
               ? { ...msg, is_read: true }
               : msg
-          );
-        });
+          )
+        );
       }
     };
   
     const channel = client
-      .channel(`dentist_chat_update_${dentistId}`)
+      .channel(`dentist_chat_realtime_${dentistId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${dentistId}` }, handleNewMessage)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, handleMessageUpdate)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `sender_id=eq.${dentistId}`, // Specific filter for read receipts
+        },
+        handleMessageUpdate
+      )
       .subscribe();
   
     return () => {
@@ -135,7 +140,7 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
   }, []);
 
-  useEffect(scrollToBottom, [messages]);
+  useLayoutEffect(scrollToBottom, [messages]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
