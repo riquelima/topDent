@@ -261,18 +261,28 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   const playArrivalSound = useCallback(() => {
     if ((window as any).isAudioUnlocked) {
-        const audio = document.getElementById('notification-sound') as HTMLAudioElement;
-        if (audio) {
-            audio.currentTime = 0;
-            audio.play().catch(error => {
-                console.error("Audio playback failed:", error);
-                showToast("Erro ao tocar o som da notificação.", "error");
-            });
+      const audio = document.getElementById('notification-sound') as HTMLAudioElement;
+      if (audio) {
+        // Determine the correct sound file based on the dentist's name
+        const soundFile = dentistDisplayFullName === 'Dentista Teste' 
+            ? '/dentistateste.mp3' 
+            : '/arpegio.mp3';
+
+        // Only update src if it's different to avoid re-loading unnecessarily
+        if (audio.src !== window.location.origin + soundFile) {
+            audio.src = soundFile;
         }
+        
+        audio.currentTime = 0;
+        audio.play().catch(error => {
+          console.error("Audio playback failed:", error);
+          showToast("Erro ao tocar o som da notificação.", "error");
+        });
+      }
     } else {
-        console.warn("Audio not unlocked. Sound will not play until user clicks the activation button.");
+      console.warn("Audio not unlocked. Sound will not play until user clicks the activation button.");
     }
-  }, [showToast]);
+  }, [showToast, dentistDisplayFullName]);
   
 
   const handleNewNotification = useCallback((newNotification: Notification) => {
