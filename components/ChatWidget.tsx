@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -169,7 +170,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
         // Fire and forget, log error on failure
         markMessagesAsRead(idsToMarkAsRead, adminId).then(({ error: markError }) => {
             if (markError) {
-                console.error(`Silent error marking messages as read for dentist ${dentistId}:`, markError);
+                console.error(`Silent error marking messages as read for dentist ${dentistId}:`, JSON.stringify(markError, null, 2));
                 // Note: We are not reverting the UI state to keep the experience smooth.
                 // The unread count will be corrected on the next app load/refresh.
             }
@@ -244,7 +245,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
         if (idsToMarkAsRead.length > 0) {
             markMessagesAsRead(idsToMarkAsRead, adminId).then(({ error: markError }) => {
                 if (markError) {
-                    console.error("Background error marking messages as read:", markError);
+                    console.error("Background error marking messages as read:", JSON.stringify(markError, null, 2));
                     // Do not show a toast to the user
                 }
             });

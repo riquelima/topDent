@@ -1098,7 +1098,7 @@ export const markMessagesAsRead = async (messageIds: string[], readerId: string)
     });
 
     if (error) {
-        console.error('Error calling RPC mark_messages_as_read_by_recipient:', error);
+        console.error('Error calling RPC mark_messages_as_read_by_recipient:', JSON.stringify(error, null, 2));
     }
     
     return { data, error };

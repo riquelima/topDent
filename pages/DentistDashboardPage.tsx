@@ -228,7 +228,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const [arrivalNotification, setArrivalNotification] = useState<Notification | null>(null);
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
   const arrivalAudioRef = useRef<HTMLAudioElement | null>(null);
-  const arrivalAudioUnlockedRef = useRef(false);
+  const audioUnlockedRef = useRef(false);
 
   const todayDateString = getTodayInSaoPaulo();
   const formattedDate = isoToDdMmYyyy(todayDateString);
@@ -237,6 +237,39 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     return new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(spDate).replace(/^\w/, (c) => c.toUpperCase());
   }, []);
   
+  const playArrivalSound = useCallback(() => {
+    const audio = arrivalAudioRef.current;
+    if (audio && audioUnlockedRef.current) {
+        audio.currentTime = 0;
+        audio.play().catch((err) => console.warn("🔇 Arrival sound blocked:", err));
+    }
+  }, []);
+  
+    // Effect to unlock audio context on first user interaction anywhere
+  useEffect(() => {
+    const unlockAudio = () => {
+      if (!audioUnlockedRef.current && arrivalAudioRef.current) {
+        arrivalAudioRef.current.play().then(() => {
+          arrivalAudioRef.current?.pause();
+          arrivalAudioRef.current!.currentTime = 0;
+          audioUnlockedRef.current = true;
+          console.log("Audio context unlocked for patient arrivals.");
+        }).catch(() => {});
+        // Remove listener after first successful interaction
+        window.removeEventListener('click', unlockAudio);
+        window.removeEventListener('keydown', unlockAudio);
+      }
+    };
+
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('keydown', unlockAudio);
+
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
+
   useEffect(() => {
     try {
         const audio = new Audio('/smile.mp3');
@@ -248,22 +281,15 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     }
   }, []);
   
-  const playArrivalSound = useCallback(() => {
-    const audio = arrivalAudioRef.current;
-    if (audio && arrivalAudioUnlockedRef.current) {
-        audio.currentTime = 0;
-        audio.play().catch((err) => console.warn("🔇 Arrival sound blocked:", err));
-    }
-  }, []);
 
   const handleNewNotification = useCallback((newNotification: Notification) => {
-    playArrivalSound();
     if (!notificationIdsRef.current.has(newNotification.id)) {
+        playArrivalSound();
         notificationIdsRef.current.add(newNotification.id);
         setNotifications(prev => [newNotification, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        setArrivalNotification(newNotification);
+        setIsArrivalModalOpen(true);
     }
-    setArrivalNotification(newNotification);
-    setIsArrivalModalOpen(true);
   }, [playArrivalSound]);
 
   useEffect(() => {
@@ -344,14 +370,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   };
 
   const handleToggleNotificationPanel = () => {
-    // Unlock audio context on first user interaction with this panel
-    if (!arrivalAudioUnlockedRef.current && arrivalAudioRef.current) {
-        arrivalAudioRef.current.play().then(() => {
-            arrivalAudioRef.current?.pause();
-            arrivalAudioRef.current!.currentTime = 0;
-            arrivalAudioUnlockedRef.current = true;
-        }).catch(() => {});
-    }
     setIsNotificationPanelOpen(prev => !prev);
   };
 
@@ -446,19 +464,19 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   return (
     <>
+      <div className="fixed top-24 right-8 z-40">
+          <button onClick={handleToggleNotificationPanel} className="relative p-2 rounded-full text-gray-300 hover:text-white bg-[#1f1f1f] border border-gray-600 shadow-lg hover:bg-gray-700 transition-colors">
+              <BellIcon className="w-7 h-7" />
+              {notifications.length > 0 && (
+                  <span className="absolute top-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#1f1f1f]">
+                    {notifications.length}
+                  </span>
+              )}
+          </button>
+      </div>
       <div className="space-y-10">
         <div className="relative text-center">
           <h1 className="text-3xl md:text-4xl font-bold">Olá {dentistDisplayFullName}, seja bem vindo(a).</h1>
-          <div className="absolute top-0 right-0">
-              <button onClick={handleToggleNotificationPanel} className="relative p-2 rounded-full text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
-                  <BellIcon className="w-7 h-7" />
-                  {notifications.length > 0 && (
-                      <span className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-[#0e0e0e]">
-                        {notifications.length}
-                      </span>
-                  )}
-              </button>
-          </div>
         </div>
         <p className="text-center text-lg text-gray-400 -mt-8">Aqui está sua agenda {formattedDate} - {dayOfWeek}</p>
         

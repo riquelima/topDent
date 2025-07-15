@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
@@ -152,7 +153,7 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
         // Fire and forget, log error on failure
         markMessagesAsRead(idsToMarkAsRead, dentistId).then(({ error: markError }) => {
             if (markError) {
-                console.error("Silent error marking messages as read on close:", markError);
+                console.error("Silent error marking messages as read on close:", JSON.stringify(markError, null, 2));
             }
         });
     }
@@ -204,7 +205,7 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
         if (idsToMarkAsRead.length > 0) {
             markMessagesAsRead(idsToMarkAsRead, dentistId).then(({ error: markError }) => {
                 if (markError) {
-                    console.error("Background error marking messages as read:", markError);
+                    console.error("Background error marking messages as read:", JSON.stringify(markError, null, 2));
                 }
             });
         }

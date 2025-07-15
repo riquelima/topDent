@@ -131,7 +131,7 @@ export const DentistNotesWidget: React.FC<DentistNotesWidgetProps> = ({ dentistI
     <>
       <button
         onClick={() => setIsExpanded(true)}
-        className={`fixed top-24 right-6 bg-white text-black p-3 rounded-full shadow-lg z-40 hover:scale-110 transition-all duration-300 ${isExpanded ? 'opacity-0 scale-0' : 'opacity-100 scale-100'}`}
+        className={`fixed top-40 right-8 bg-white text-black p-3 rounded-full shadow-lg z-40 hover:scale-110 transition-all duration-300 ${isExpanded ? 'opacity-0 scale-0' : 'opacity-100 scale-100'}`}
         aria-label="Abrir Anotações"
         title="Abrir Anotações"
       >
