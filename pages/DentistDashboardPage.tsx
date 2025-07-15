@@ -227,21 +227,44 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   const [arrivalNotification, setArrivalNotification] = useState<Notification | null>(null);
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
+  const arrivalAudioRef = useRef<HTMLAudioElement | null>(null);
+  const arrivalAudioUnlockedRef = useRef(false);
+
   const todayDateString = getTodayInSaoPaulo();
   const formattedDate = isoToDdMmYyyy(todayDateString);
   const dayOfWeek = useMemo(() => {
     const spDate = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
     return new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(spDate).replace(/^\w/, (c) => c.toUpperCase());
   }, []);
+  
+  useEffect(() => {
+    try {
+        const audio = new Audio('/smile.mp3');
+        audio.volume = 1.0;
+        audio.preload = 'auto';
+        arrivalAudioRef.current = audio;
+    } catch(e) {
+        console.error("Failed to initialize arrival audio:", e)
+    }
+  }, []);
+  
+  const playArrivalSound = useCallback(() => {
+    const audio = arrivalAudioRef.current;
+    if (audio && arrivalAudioUnlockedRef.current) {
+        audio.currentTime = 0;
+        audio.play().catch((err) => console.warn("🔇 Arrival sound blocked:", err));
+    }
+  }, []);
 
   const handleNewNotification = useCallback((newNotification: Notification) => {
+    playArrivalSound();
     if (!notificationIdsRef.current.has(newNotification.id)) {
         notificationIdsRef.current.add(newNotification.id);
         setNotifications(prev => [newNotification, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
     }
     setArrivalNotification(newNotification);
     setIsArrivalModalOpen(true);
-  }, []);
+  }, [playArrivalSound]);
 
   useEffect(() => {
     let notificationSub: ReturnType<typeof subscribeToNotificationsForDentist> | null = null;
@@ -321,6 +344,14 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   };
 
   const handleToggleNotificationPanel = () => {
+    // Unlock audio context on first user interaction with this panel
+    if (!arrivalAudioUnlockedRef.current && arrivalAudioRef.current) {
+        arrivalAudioRef.current.play().then(() => {
+            arrivalAudioRef.current?.pause();
+            arrivalAudioRef.current!.currentTime = 0;
+            arrivalAudioUnlockedRef.current = true;
+        }).catch(() => {});
+    }
     setIsNotificationPanelOpen(prev => !prev);
   };
 

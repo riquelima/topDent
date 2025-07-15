@@ -162,13 +162,18 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
         .filter(msg => msg.sender_id === dentistId)
         .map(msg => msg.id);
 
+    // Optimistic UI update
+    setUnreadMessages(prev => prev.filter(msg => msg.sender_id !== dentistId));
+
     if (idsToMarkAsRead.length > 0) {
-        const { error: markError } = await markMessagesAsRead(idsToMarkAsRead, adminId);
-        if (markError) {
-            console.error("Failed to mark messages as read on close:", markError);
-        } else {
-            setUnreadMessages(prev => prev.filter(msg => msg.sender_id !== dentistId));
-        }
+        // Fire and forget, log error on failure
+        markMessagesAsRead(idsToMarkAsRead, adminId).then(({ error: markError }) => {
+            if (markError) {
+                console.error(`Silent error marking messages as read for dentist ${dentistId}:`, markError);
+                // Note: We are not reverting the UI state to keep the experience smooth.
+                // The unread count will be corrected on the next app load/refresh.
+            }
+        });
     }
   }, [adminId, unreadMessages]);
 
@@ -206,44 +211,46 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     setIsOpen(!isOpen);
   };
 
-  const handleSelectDentist = useCallback(async (dentist: Dentist) => {
-    if (selectedDentist?.id === dentist.id) return;
+    const handleSelectDentist = useCallback(async (dentist: Dentist) => {
+    if (selectedDentistRef.current?.id === dentist.id) return;
+
+    // Mark previous conversation as read optimistically
+    if (selectedDentistRef.current) {
+      markConversationAsRead(selectedDentistRef.current.id);
+    }
 
     setSelectedDentist(dentist);
     setIsLoading(prevState => ({ ...prevState, messages: true }));
-    setMessages([]);
+    setMessages([]); // Clear messages for the new conversation
+
+    // Immediately clear the unread count for the new selection from the UI
+    setUnreadMessages(prev => prev.filter(msg => msg.sender_id !== dentist.id));
 
     const { data, error } = await getMessagesBetweenUsers(adminId, dentist.id!);
+    setIsLoading(prevState => ({ ...prevState, messages: false }));
 
     if (error) {
         showToast('Erro ao carregar mensagens.', 'error');
         setMessages([]);
     } else {
         const fetchedMessages = data || [];
+        setMessages(fetchedMessages);
+
+        // In the background, tell the server to mark these as read
         const idsToMarkAsRead = fetchedMessages
             .filter(msg => msg.recipient_id === adminId && !msg.is_read)
             .map(msg => msg.id);
-
+            
         if (idsToMarkAsRead.length > 0) {
-            const { error: markError } = await markMessagesAsRead(idsToMarkAsRead, adminId);
-            if (markError) {
-                showToast("Erro ao marcar mensagens como lidas.", "error");
-                setMessages(fetchedMessages);
-            } else {
-                const updatedMessages = fetchedMessages.map(msg => 
-                    idsToMarkAsRead.includes(msg.id) ? { ...msg, is_read: true } : msg
-                );
-                setMessages(updatedMessages);
-                setUnreadMessages(prev => prev.filter(msg => msg.sender_id !== dentist.id));
-            }
-        } else {
-            setMessages(fetchedMessages);
-            setUnreadMessages(prev => prev.filter(msg => msg.sender_id !== dentist.id));
+            markMessagesAsRead(idsToMarkAsRead, adminId).then(({ error: markError }) => {
+                if (markError) {
+                    console.error("Background error marking messages as read:", markError);
+                    // Do not show a toast to the user
+                }
+            });
         }
     }
-
-    setIsLoading(prevState => ({ ...prevState, messages: false }));
-  }, [adminId, showToast, selectedDentist?.id]);
+  }, [adminId, showToast, markConversationAsRead]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -145,13 +145,16 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   const markConversationAsRead = useCallback(async () => {
     const idsToMarkAsRead = unreadMessages.map(msg => msg.id);
 
+    // Optimistic UI update
+    setUnreadMessages([]);
+
     if (idsToMarkAsRead.length > 0) {
-        const { error: markError } = await markMessagesAsRead(idsToMarkAsRead, dentistId);
-        if (markError) {
-            console.error("Failed to mark messages as read on close:", markError);
-        } else {
-            setUnreadMessages([]);
-        }
+        // Fire and forget, log error on failure
+        markMessagesAsRead(idsToMarkAsRead, dentistId).then(({ error: markError }) => {
+            if (markError) {
+                console.error("Silent error marking messages as read on close:", markError);
+            }
+        });
     }
   }, [dentistId, unreadMessages]);
 
@@ -184,33 +187,28 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     setMessages([]);
 
     const { data, error } = await getMessagesBetweenUsers(dentistId, adminUser.id!);
+    setIsLoading(prevState => ({ ...prevState, messages: false }));
 
     if (error) {
         showToast('Erro ao carregar mensagens.', 'error');
         setMessages([]);
     } else {
         const fetchedMessages = data || [];
+        setMessages(fetchedMessages);
+
+        // In the background, tell the server to mark these as read
         const idsToMarkAsRead = fetchedMessages
             .filter(msg => msg.recipient_id === dentistId && !msg.is_read)
             .map(msg => msg.id);
-
+            
         if (idsToMarkAsRead.length > 0) {
-            const { error: markError } = await markMessagesAsRead(idsToMarkAsRead, dentistId);
-            if (markError) {
-                showToast("Erro ao marcar mensagens como lidas.", "error");
-                setMessages(fetchedMessages);
-            } else {
-                const updatedMessages = fetchedMessages.map(msg => 
-                    idsToMarkAsRead.includes(msg.id) ? { ...msg, is_read: true } : msg
-                );
-                setMessages(updatedMessages);
-                setUnreadMessages(prev => prev.filter(msg => !idsToMarkAsRead.includes(msg.id)));
-            }
-        } else {
-            setMessages(fetchedMessages);
+            markMessagesAsRead(idsToMarkAsRead, dentistId).then(({ error: markError }) => {
+                if (markError) {
+                    console.error("Background error marking messages as read:", markError);
+                }
+            });
         }
     }
-    setIsLoading(prevState => ({ ...prevState, messages: false }));
   }, [adminUser, dentistId, showToast]);
 
   const toggleChat = () => {
@@ -224,8 +222,12 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     
     const nextIsOpenState = !isOpen;
     setIsOpen(nextIsOpenState);
-    if (nextIsOpenState && adminUser) {
+    if (nextIsOpenState) {
+      // Optimistically clear unread count.
+      setUnreadMessages([]);
+      if (adminUser) {
         fetchMessages();
+      }
     }
   };
 
