@@ -228,7 +228,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const [arrivalNotification, setArrivalNotification] = useState<Notification | null>(null);
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
   const arrivalAudioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUnlockedRef = useRef(false);
 
   const todayDateString = getTodayInSaoPaulo();
   const formattedDate = isoToDdMmYyyy(todayDateString);
@@ -239,51 +238,36 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   
   const playArrivalSound = useCallback(() => {
     const audio = arrivalAudioRef.current;
-    if (audio && audioUnlockedRef.current) {
-        audio.currentTime = 0;
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                console.error("Error playing arrival sound:", error);
-                showToast("Não foi possível tocar o som de notificação.", "warning", 3000);
-            });
-        }
-    } else {
-        console.warn(`Sound not played. Unlocked: ${audioUnlockedRef.current}, Audio Ready: ${!!audio}`);
+    if (!audio) {
+      console.error("Audio element for notification sound is not available.");
+      return;
+    }
+  
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+  
+    if (playPromise !== undefined) {
+      playPromise.catch(error => {
+        // Autoplay was prevented. This is a common browser security policy.
+        console.warn("Audio playback blocked by browser. Setting up one-time listener.", error);
+        
+        // Inform the user and set up a one-time listener to play on the next interaction.
+        showToast("Som de notificação bloqueado. Clique na tela para ativar.", "info", 6000);
+        
+        const playOnFirstInteraction = () => {
+            // Re-attempt to play the sound.
+            const secondPlayPromise = audio.play();
+            if(secondPlayPromise !== undefined) {
+                secondPlayPromise.catch(err => console.error("Secondary audio play attempt failed:", err));
+            }
+            // The listener is automatically removed due to { once: true }, so no manual cleanup needed.
+        };
+        
+        // Use { once: true } to automatically remove the listener after it runs.
+        window.addEventListener('click', playOnFirstInteraction, { once: true });
+      });
     }
   }, [showToast]);
-  
-  useEffect(() => {
-    const unlockAudio = () => {
-      if (audioUnlockedRef.current || !arrivalAudioRef.current) {
-        return;
-      }
-      
-      console.log("Attempting to unlock audio context...");
-      const playPromise = arrivalAudioRef.current.play();
-
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          arrivalAudioRef.current?.pause();
-          arrivalAudioRef.current!.currentTime = 0;
-          audioUnlockedRef.current = true;
-          console.log("✅ Audio context unlocked successfully.");
-          window.removeEventListener('click', unlockAudio);
-          window.removeEventListener('keydown', unlockAudio);
-        }).catch(error => {
-          console.warn("Audio unlock failed on this attempt. Waiting for another user interaction.", error);
-        });
-      }
-    };
-
-    window.addEventListener('click', unlockAudio);
-    window.addEventListener('keydown', unlockAudio);
-
-    return () => {
-      window.removeEventListener('click', unlockAudio);
-      window.removeEventListener('keydown', unlockAudio);
-    };
-  }, []);
 
   useEffect(() => {
     try {

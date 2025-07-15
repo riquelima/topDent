@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { XMarkIcon, CheckIcon } from './icons/HeroIcons';
@@ -28,6 +25,18 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
           setError('Não foi possível carregar as atualizações.');
         } else {
           const hardcodedEntries: ChangelogEntry[] = [
+            {
+              id: 'manual-entry-14-07-2025',
+              created_at: new Date('2025-07-14T10:00:00Z').toISOString(),
+              release_date: '2025-07-14',
+              version: 'v9.0.0',
+              changes: [
+                'Notificações de Chegada: Corrigido o envio de notificações de chegada de paciente, que agora são recebidas em tempo real pelo dentista.',
+                'Funcionalidade de "Lido" no Chat: A confirmação de leitura no chat agora é atualizada em tempo real de forma confiável.',
+                'Correções de Banco de Dados: Aplicadas diversas correções no banco de dados para resolver erros de "coluna não encontrada" e falhas de permissão.',
+                'Scroll Automático do Chat: Ao abrir uma conversa, a visualização agora rola automaticamente para a mensagem mais recente.',
+              ]
+            },
             {
               id: 'manual-entry-consolidated-13-07-2025',
               created_at: new Date('2025-07-13T10:00:00Z').toISOString(),

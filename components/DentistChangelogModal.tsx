@@ -12,6 +12,18 @@ interface DentistChangelogModalProps {
 
 const dentistChangelogEntries: ChangelogEntry[] = [
   {
+      id: 'dentist-release-14-07-2023',
+      created_at: new Date('2023-07-14T18:00:00Z').toISOString(),
+      release_date: '2023-07-14',
+      version: 'v10.0.0',
+      changes: [
+        'Alerta de Chegada de Paciente: A notificação de chegada de paciente agora exibe um modal de aviso e toca o som "smile.mp3" de forma mais confiável.',
+        'Ativação de Som: O sistema agora garante que os sons de notificação sejam ativados após a primeira interação do usuário na tela, resolvendo problemas de bloqueio pelo navegador.',
+        'Layout do Widget de Anotações: Corrigida a sobreposição do widget de anotações com o ícone de notificações.',
+        'Correção de Chat: Implementadas melhorias para garantir que o status "Lido" seja exibido corretamente e que a conversa role para a última mensagem ao ser aberta.',
+      ]
+  },
+  {
     id: 'dentist-release-13-07-2025',
     created_at: new Date('2025-07-13T18:00:00Z').toISOString(),
     release_date: '2025-07-13',
@@ -30,6 +42,8 @@ const dentistChangelogEntries: ChangelogEntry[] = [
 export const DentistChangelogModal: React.FC<DentistChangelogModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
+  const sortedEntries = [...dentistChangelogEntries].sort((a, b) => new Date(b.release_date).getTime() - new Date(a.release_date).getTime());
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[2000] p-4 animate-fade-in" onClick={onClose}>
       <div
@@ -47,8 +61,8 @@ export const DentistChangelogModal: React.FC<DentistChangelogModalProps> = ({ is
           </button>
         </header>
         <main className="p-6 overflow-y-auto space-y-6">
-          {dentistChangelogEntries.length > 0 ? (
-            dentistChangelogEntries.map(entry => (
+          {sortedEntries.length > 0 ? (
+            sortedEntries.map(entry => (
               <div key={entry.id}>
                 <h3 className="text-lg font-semibold text-[#00bcd4]">
                   {isoToDdMmYyyy(entry.release_date)}
