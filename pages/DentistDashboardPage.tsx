@@ -229,6 +229,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
   const arrivalAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioUnlockedRef = useRef(false);
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState(audioUnlockedRef.current);
 
   const todayDateString = getTodayInSaoPaulo();
   const formattedDate = isoToDdMmYyyy(todayDateString);
@@ -246,32 +247,24 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     } catch(e) {
         console.error("Failed to initialize arrival audio:", e);
     }
-  
-    // Proactive Audio Unlock: This is the most reliable way to enable audio playback.
-    // We listen for the first user interaction and then play & pause a sound to unlock the AudioContext.
-    const unlockAudio = () => {
-      if (arrivalAudioRef.current && !audioUnlockedRef.current) {
-        // The play-then-pause is a more reliable unlock method than playing a muted sound.
-        arrivalAudioRef.current.play().then(() => {
-            if (arrivalAudioRef.current) {
-                arrivalAudioRef.current.pause();
-                arrivalAudioRef.current.currentTime = 0;
-            }
-          audioUnlockedRef.current = true;
-          console.log("Audio context unlocked successfully by user interaction.");
-        }).catch((error) => {
-          console.warn("Audio context unlock failed. Notifications may be silent.", error);
-        });
-      }
-    };
-    
-    window.addEventListener('click', unlockAudio, { once: true });
-  
-    return () => {
-      window.removeEventListener('click', unlockAudio);
-    };
   }, []);
   
+  const unlockAudioManually = useCallback(async () => {
+    if (arrivalAudioRef.current && !audioUnlockedRef.current) {
+        try {
+            await arrivalAudioRef.current.play();
+            arrivalAudioRef.current.pause();
+            arrivalAudioRef.current.currentTime = 0;
+            audioUnlockedRef.current = true;
+            setIsAudioUnlocked(true); // This will re-render and hide the button
+            showToast("🔊 Notificações sonoras ativadas!", "success");
+        } catch (error) {
+            console.warn("Erro ao desbloquear áudio manualmente", error);
+            showToast("❌ Não foi possível ativar o som. Por favor, interaja com a página e tente novamente.", "error", 6000);
+        }
+    }
+  }, [showToast]);
+
   const playArrivalSound = useCallback(() => {
     const audio = arrivalAudioRef.current;
     if (!audio) {
@@ -279,7 +272,6 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
       return;
     }
     
-    // Only play if the audio context has been unlocked by a user interaction.
     if (audioUnlockedRef.current) {
         audio.currentTime = 0;
         audio.play().catch(error => {
@@ -287,9 +279,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             showToast("Erro ao tocar o som da notificação.", "error");
         });
     } else {
-        // Fallback for cases where the proactive unlock hasn't happened yet.
-        console.warn("Audio not unlocked. Sound will not play until user interacts with the page.");
-        showToast("Som de notificação desativado. Clique na tela para ativar.", "info", 6000);
+        console.warn("Audio not unlocked. Sound will not play until user clicks the activation button.");
     }
   }, [showToast]);
   
@@ -510,6 +500,19 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
       <DentistNotesWidget dentistId={dentistId} />
       
+      {!isAudioUnlocked && (
+        <div className="fixed bottom-6 left-6 bg-yellow-500 text-black px-4 py-3 rounded-lg shadow-lg z-50 flex items-center space-x-4 animate-pulse">
+            <BellIcon className="w-6 h-6" />
+            <div>
+                <p className="text-sm font-semibold">Ativar o som das notificações</p>
+                <p className="text-xs">Clique no botão para ouvir os alertas.</p>
+            </div>
+            <Button onClick={unlockAudioManually} className="bg-black text-white px-3 py-1 rounded-md text-sm">
+                Ativar Som
+            </Button>
+        </div>
+      )}
+
       {isNotificationPanelOpen && (
           <div className="fixed top-24 right-8 w-80 bg-gray-800 rounded-lg shadow-2xl z-50 border border-gray-700 animate-fade-in-down">
               <div className="flex justify-between items-center p-3 border-b border-gray-700">
