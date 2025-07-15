@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -30,8 +29,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [unreadMessages, setUnreadMessages] = useState<ChatMessage[]>([]);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUnlockedRef = useRef(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -42,17 +39,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    try {
-        const audio = new Audio('/arpegio.mp3');
-        audio.volume = 1.0;
-        audio.preload = 'auto';
-        audioRef.current = audio;
-    } catch(e) {
-        console.error("Failed to initialize audio:", e)
-    }
-  }, []);
   
   useEffect(() => {
     selectedDentistRef.current = selectedDentist;
@@ -72,10 +58,12 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   }, [unreadMessages]);
 
   const playNotificationSound = useCallback(() => {
-    const audio = audioRef.current;
-    if (audio && audioUnlockedRef.current) {
-        audio.currentTime = 0;
-        audio.play().catch((err) => console.warn("🔇 Som bloqueado:", err));
+    if ((window as any).isAudioUnlocked) {
+        const audio = document.getElementById('notification-sound') as HTMLAudioElement;
+        if (audio) {
+            audio.currentTime = 0;
+            audio.play().catch((err) => console.warn("🔇 Som bloqueado:", err));
+        }
     }
   }, []);
   
@@ -202,12 +190,17 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
   };
 
   const handleToggleChat = () => {
-    if (!audioUnlockedRef.current && audioRef.current) {
-        audioRef.current.play().then(() => {
-            audioRef.current?.pause();
-            audioRef.current!.currentTime = 0;
-            audioUnlockedRef.current = true;
-        }).catch(() => {});
+    if (!(window as any).isAudioUnlocked) {
+        const audio = document.getElementById('notification-sound') as HTMLAudioElement;
+        if (audio) {
+            audio.play().then(() => {
+                if (audio) {
+                    audio.pause();
+                    audio.currentTime = 0;
+                }
+                (window as any).isAudioUnlocked = true;
+            }).catch(() => {});
+        }
     }
     setIsOpen(!isOpen);
   };

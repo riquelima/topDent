@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -227,9 +228,8 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
 
   const [arrivalNotification, setArrivalNotification] = useState<Notification | null>(null);
   const [isArrivalModalOpen, setIsArrivalModalOpen] = useState(false);
-  const arrivalAudioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUnlockedRef = useRef(false);
-  const [isAudioUnlocked, setIsAudioUnlocked] = useState(audioUnlockedRef.current);
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState(!!(window as any).isAudioUnlocked);
+
 
   const todayDateString = getTodayInSaoPaulo();
   const formattedDate = isoToDdMmYyyy(todayDateString);
@@ -237,47 +237,38 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
     const spDate = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
     return new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(spDate).replace(/^\w/, (c) => c.toUpperCase());
   }, []);
-
-  useEffect(() => {
-    try {
-        const audio = new Audio('/arpegio.mp3');
-        audio.volume = 1.0;
-        audio.preload = 'auto';
-        arrivalAudioRef.current = audio;
-    } catch(e) {
-        console.error("Failed to initialize arrival audio:", e);
-    }
-  }, []);
   
   const unlockAudioManually = useCallback(async () => {
-    if (arrivalAudioRef.current && !audioUnlockedRef.current) {
-        try {
-            await arrivalAudioRef.current.play();
-            arrivalAudioRef.current.pause();
-            arrivalAudioRef.current.currentTime = 0;
-            audioUnlockedRef.current = true;
-            setIsAudioUnlocked(true); // This will re-render and hide the button
-            showToast("🔊 Notificações sonoras ativadas!", "success");
-        } catch (error) {
-            console.warn("Erro ao desbloquear áudio manualmente", error);
-            showToast("❌ Não foi possível ativar o som. Por favor, interaja com a página e tente novamente.", "error", 6000);
+    if (!(window as any).isAudioUnlocked) {
+        const audio = document.getElementById('notification-sound') as HTMLAudioElement;
+        if (audio) {
+            try {
+                await audio.play();
+                audio.pause();
+                audio.currentTime = 0;
+                (window as any).isAudioUnlocked = true;
+                setIsAudioUnlocked(true);
+                showToast("🔊 Notificações sonoras ativadas!", "success");
+            } catch (error) {
+                console.warn("Erro ao desbloquear áudio manualmente", error);
+                showToast("❌ Não foi possível ativar o som. Por favor, interaja com a página e tente novamente.", "error", 6000);
+            }
+        } else {
+            showToast("❌ Player de áudio não encontrado no sistema.", "error");
         }
     }
   }, [showToast]);
 
   const playArrivalSound = useCallback(() => {
-    const audio = arrivalAudioRef.current;
-    if (!audio) {
-      console.error("Audio element for notification sound is not available.");
-      return;
-    }
-    
-    if (audioUnlockedRef.current) {
-        audio.currentTime = 0;
-        audio.play().catch(error => {
-            console.error("Audio playback failed even after context was unlocked:", error);
-            showToast("Erro ao tocar o som da notificação.", "error");
-        });
+    if ((window as any).isAudioUnlocked) {
+        const audio = document.getElementById('notification-sound') as HTMLAudioElement;
+        if (audio) {
+            audio.currentTime = 0;
+            audio.play().catch(error => {
+                console.error("Audio playback failed:", error);
+                showToast("Erro ao tocar o som da notificação.", "error");
+            });
+        }
     } else {
         console.warn("Audio not unlocked. Sound will not play until user clicks the activation button.");
     }
@@ -507,7 +498,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
                 <p className="text-sm font-semibold">Ativar o som das notificações</p>
                 <p className="text-xs">Clique no botão para ouvir os alertas.</p>
             </div>
-            <Button onClick={unlockAudioManually} className="bg-black text-white px-3 py-1 rounded-md text-sm">
+            <Button variant="secondary" onClick={unlockAudioManually} className="bg-black hover:bg-gray-800 px-3 py-1 rounded-md text-sm">
                 Ativar Som
             </Button>
         </div>

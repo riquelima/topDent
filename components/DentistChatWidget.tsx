@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
@@ -28,8 +27,6 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [unreadMessages, setUnreadMessages] = useState<ChatMessage[]>([]);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUnlockedRef = useRef(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -41,27 +38,18 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    try {
-        const audio = new Audio('/arpegio.mp3');
-        audio.volume = 1.0;
-        audio.preload = 'auto';
-        audioRef.current = audio;
-    } catch(e) {
-        console.error("Failed to initialize audio for dentist chat:", e);
-    }
-  }, []);
-
-  useEffect(() => {
     isOpenRef.current = isOpen;
   }, [isOpen]);
 
   const totalUnreadCount = useMemo(() => unreadMessages.length, [unreadMessages]);
 
   const playNotificationSound = useCallback(() => {
-    const audio = audioRef.current;
-    if (audio && audioUnlockedRef.current) {
-        audio.currentTime = 0;
-        audio.play().catch(error => console.warn("Dentist chat notification sound failed to play:", error));
+    if ((window as any).isAudioUnlocked) {
+        const audio = document.getElementById('notification-sound') as HTMLAudioElement;
+        if (audio) {
+            audio.currentTime = 0;
+            audio.play().catch(error => console.warn("Dentist chat notification sound failed to play:", error));
+        }
     }
   }, []);
 
@@ -213,12 +201,17 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   }, [adminUser, dentistId, showToast]);
 
   const toggleChat = () => {
-    if (!audioUnlockedRef.current && audioRef.current) {
-        audioRef.current.play().then(() => {
-            audioRef.current?.pause();
-            audioRef.current!.currentTime = 0;
-            audioUnlockedRef.current = true;
-        }).catch(() => {});
+    if (!(window as any).isAudioUnlocked) {
+        const audio = document.getElementById('notification-sound') as HTMLAudioElement;
+        if (audio) {
+            audio.play().then(() => {
+                if (audio) {
+                    audio.pause();
+                    audio.currentTime = 0;
+                }
+                (window as any).isAudioUnlocked = true;
+            }).catch(() => {});
+        }
     }
     
     const nextIsOpenState = !isOpen;

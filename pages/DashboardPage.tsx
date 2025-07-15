@@ -147,6 +147,28 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
   const [isDeleteReminderConfirmModalOpen, setIsDeleteReminderConfirmModalOpen] = useState(false);
   const [reminderToDelete, setReminderToDelete] = useState<Reminder | null>(null);
 
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState(!!(window as any).isAudioUnlocked);
+
+  const unlockAudioManually = useCallback(async () => {
+    if (!(window as any).isAudioUnlocked) {
+        const audio = document.getElementById('notification-sound') as HTMLAudioElement;
+        if (audio) {
+            try {
+                await audio.play();
+                audio.pause();
+                audio.currentTime = 0;
+                (window as any).isAudioUnlocked = true;
+                setIsAudioUnlocked(true);
+                showToast("🔊 Notificações sonoras ativadas!", "success");
+            } catch (error) {
+                console.warn("Erro ao desbloquear áudio manualmente", error);
+                showToast("❌ Não foi possível ativar o som. Por favor, interaja com a página e tente novamente.", "error", 6000);
+            }
+        } else {
+            showToast("❌ Player de áudio não encontrado no sistema.", "error");
+        }
+    }
+  }, [showToast]);
 
   const fetchDashboardData = useCallback(async () => {
     setIsLoadingUpcomingAppointments(true);
@@ -513,6 +535,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
           </section>
         </div>
       </div>
+
+      {!isAudioUnlocked && (
+        <div className="fixed bottom-6 left-6 bg-yellow-500 text-black px-4 py-3 rounded-lg shadow-lg z-50 flex items-center space-x-4 animate-pulse">
+            <BellIcon className="w-6 h-6" />
+            <div>
+                <p className="text-sm font-semibold">Ativar o som das notificações</p>
+                <p className="text-xs">Clique no botão para ouvir os alertas.</p>
+            </div>
+            <Button variant="secondary" onClick={unlockAudioManually} className="bg-black hover:bg-gray-800 px-3 py-1 rounded-md text-sm">
+                Ativar Som
+            </Button>
+        </div>
+      )}
 
        {/* Add Reminder Modal */}
         <Modal
