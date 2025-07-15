@@ -1,4 +1,3 @@
-
 // services/supabaseService.ts
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { 
@@ -1059,10 +1058,11 @@ export const subscribeToNotificationsForDentist = (dentistId: string, callback: 
     const client = getSupabaseClient();
     if (!client) return null;
     return (client as any)
-        .channel(`public:notifications:dentist_id=eq.${dentistId}`)
+        .channel(`dentist-notifications-${dentistId}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `dentist_id=eq.${dentistId}` }, (payload) => {
             callback(payload.new as Notification);
-        });
+        })
+        .subscribe();
 };
 
 // --- CHAT FUNCTIONS ---
