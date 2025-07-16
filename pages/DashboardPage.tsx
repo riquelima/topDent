@@ -512,7 +512,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                         speed="1"
                         autoplay
                         loop
-                        className="w-14 h-14 mr-3"
+                        style={{width: '56px', height: '56px', marginRight: '12px'}}
                         aria-label="Ícone animado de Próximos Agendamentos"
                     ></dotlottie-wc>
                     Próximos Agendamentos
@@ -581,7 +581,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                                 speed="1"
                                 autoplay
                                 loop
-                                className="w-10 h-10 mr-3"
+                                style={{width: '40px', height: '40px', marginRight: '12px'}}
                                 aria-label="Ícone animado de Lembretes Globais"
                             ></dotlottie-wc>
                             Lembretes Globais
@@ -653,7 +653,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                                 speed="1"
                                 autoplay
                                 loop
-                                className="w-10 h-10 mr-3"
+                                style={{width: '40px', height: '40px', marginRight: '12px'}}
                                 aria-label="Ícone animado de Lembretes de Retorno"
                             ></dotlottie-wc>
                              Lembretes de Retorno
@@ -691,7 +691,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                                         <img src="https://raw.githubusercontent.com/riquelima/topDent/refs/heads/main/368d6855-50b1-41da-9d0b-c10e5d2b1e19.png" alt="WhatsApp" className="w-6 h-6" />
                                     </Button>
                                     <Button size="sm" variant="ghost" className="p-2 rounded-full hover:bg-yellow-500/20" onClick={() => handleRebookPatient(patient)} title="Reagendar">
-                                      <img src="https://cdn-icons-png.flaticon.com/512/16655/16655637.png" alt="Reagendar" className="w-5 h-5"/>
+                                      <img src="https://cdn-icons-png.flaticon.com/512/4856/4856659.png" alt="Reagendar" className="w-5 h-5"/>
                                     </Button>
                                     <Button size="sm" variant="ghost" className="p-2 rounded-full hover:bg-red-500/20" onClick={() => requestDismissReminder(patient)} title="Dispensar Lembrete">
                                       <TrashIcon className="w-5 h-5 text-red-400"/>
@@ -716,7 +716,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                             speed="1"
                             autoplay
                             loop
-                            className="w-10 h-10 mr-3"
+                            style={{width: '40px', height: '40px', marginRight: '12px'}}
                             aria-label="Ícone animado de Estatísticas Rápidas"
                         ></dotlottie-wc>
                         Estatísticas Rápidas

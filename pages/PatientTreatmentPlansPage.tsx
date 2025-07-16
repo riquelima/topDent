@@ -1,6 +1,7 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ArrowUturnLeftIcon, PlusIcon, TrashIcon, PencilIcon, DocumentTextIcon } from '../components/icons/HeroIcons'; 
@@ -30,6 +31,8 @@ export const PatientTreatmentPlansPage: React.FC = () => {
   const { patientId } = useParams<{ patientId: string }>(); 
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const location = useLocation();
+  const cameFromDentistDashboard = location.state?.fromDentistDashboard;
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [treatmentPlans, setTreatmentPlans] = useState<SupabaseTreatmentPlanData[]>([]);
@@ -86,7 +89,7 @@ export const PatientTreatmentPlansPage: React.FC = () => {
 
   const handleEditPlan = (planId: string | undefined) => {
     if (!planId) return;
-    navigate(NavigationPath.EditTreatmentPlan.replace(':planId', planId));
+    navigate(NavigationPath.EditTreatmentPlan.replace(':planId', planId), { state: location.state });
   };
 
   const requestDeletePlan = (plan: SupabaseTreatmentPlanData) => {
@@ -167,7 +170,7 @@ export const PatientTreatmentPlansPage: React.FC = () => {
           <div className="flex justify-between items-center">
             <span className="text-white">Planos de Tratamento de {patient?.fullName}</span>
             {patientId && (
-              <Link to={NavigationPath.TreatmentPlan} state={{ patientCpf: patientId, patientFullName: patient.fullName }}>
+              <Link to={NavigationPath.TreatmentPlan} state={{ ...location.state, patientCpf: patientId, patientFullName: patient.fullName }}>
                 <Button leftIcon={<PlusIcon className="w-5 h-5"/>} disabled={isDeleting}>
                   Novo Plano
                 </Button>
@@ -242,10 +245,15 @@ export const PatientTreatmentPlansPage: React.FC = () => {
           </div>
         )}
 
-        <div className="mt-8 pt-6 border-t border-gray-700 text-center">
+        <div className="mt-8 pt-6 border-t border-gray-700 text-center flex justify-center items-center space-x-4">
             <Button onClick={() => navigate(`/patient/${patientId}`)} leftIcon={<ArrowUturnLeftIcon />}>
                 Voltar para Detalhes do Paciente
             </Button>
+            {cameFromDentistDashboard && (
+                <Button onClick={() => navigate(NavigationPath.Home)} leftIcon={<ArrowUturnLeftIcon />} variant="secondary">
+                    Voltar para Dashboard
+                </Button>
+            )}
         </div>
       </Card>
       

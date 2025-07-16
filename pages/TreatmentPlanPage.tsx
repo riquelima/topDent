@@ -17,6 +17,7 @@ import {
     getPatients 
 } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
+import type { UserRole } from '../App';
 
 const STORAGE_BUCKET_NAME = 'treatmentfiles'; 
 
@@ -67,9 +68,22 @@ export const TreatmentPlanPage: React.FC = () => {
   const [payments, setPayments] = useState<PaymentInput[]>([{ value: '', payment_method: '', payment_date: '', description: '' }]);
 
   const cameFromDentistDashboard = location.state?.fromDentistDashboard;
+  const [userRole, setUserRole] = useState<UserRole>(null);
   
   const [localImagePreviews, setLocalImagePreviews] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    // This effect runs once to get the user role for robust navigation
+    try {
+      const persistedSession = localStorage.getItem('topDentUserSession_v1');
+      if (persistedSession) {
+        const sessionData = JSON.parse(persistedSession);
+        setUserRole(sessionData.userRole || null);
+      }
+    } catch (error) {
+      console.error("Could not parse user session from localStorage.", error);
+    }
+  }, []);
 
   const fetchPatientsForDropdown = useCallback(async () => {
     if (isEditMode) return; 
@@ -207,8 +221,8 @@ export const TreatmentPlanPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientCPF.trim() && !cameFromDentistDashboard) { 
-        showToast("CPF do Paciente é obrigatório se não estiver criando um plano geral a partir do dashboard do dentista.", "error");
+    if (!patientCPF || !patientCPF.trim()) {
+        showToast("É necessário selecionar um paciente para o plano de tratamento.", "error");
         return;
     }
     if(!description.trim()){
@@ -227,7 +241,7 @@ export const TreatmentPlanPage: React.FC = () => {
         return;
     }
 
-    const cpfForFilePath = patientCPF || (cameFromDentistDashboard ? location.state?.dentistUsernameContext || 'geral' : 'unknown_patient');
+    const cpfForFilePath = patientCPF || (userRole === 'dentist' ? location.state?.dentistUsernameContext || 'geral' : 'unknown_patient');
 
     if (newlySelectedFiles.length > 0) {
       const uploadPromises = newlySelectedFiles.map(async (file) => {
@@ -291,22 +305,17 @@ export const TreatmentPlanPage: React.FC = () => {
         const { error } = await updateTreatmentPlan(planId, updatePayload);
         if (error) throw error;
         showToast('Plano de Tratamento atualizado com sucesso!', 'success');
-        if (cameFromDentistDashboard) {
+        if (userRole === 'dentist') {
           navigate(NavigationPath.Home);
         } else {
           navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', originalPatientCpf || patientCPF));
         }
       } else {
-        if (!planDataPayload.patient_cpf && !cameFromDentistDashboard) {
-            showToast('CPF do Paciente é obrigatório para novo plano.', 'error');
-            setIsLoading(false);
-            return;
-        }
         const { error } = await addTreatmentPlan(planDataPayload as Omit<SupabaseTreatmentPlanData, 'id' | 'created_at'>);
         if (error) throw error;
         showToast('Plano de Tratamento salvo com sucesso!', 'success');
         clearForm();
-        if (cameFromDentistDashboard) {
+        if (userRole === 'dentist') {
           navigate(NavigationPath.Home);
         } else if (patientCPF) {
           navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', patientCPF));
@@ -349,32 +358,6 @@ export const TreatmentPlanPage: React.FC = () => {
     }
   };
 
-  const handleBackNavigation = () => {
-    if (cameFromDentistDashboard) {
-        navigate(NavigationPath.Home); 
-        return;
-    }
-    if (isEditMode && originalPatientCpf) {
-      navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', originalPatientCpf));
-    } else if (!isEditMode && patientCPF) {
-      navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', patientCPF));
-    } else {
-      navigate(NavigationPath.AllTreatmentPlans);
-    }
-  };
-  
-  let backButtonText = "Voltar";
-  if (cameFromDentistDashboard) {
-      backButtonText = "Voltar para Dashboard";
-  } else if (isEditMode && originalPatientCpf) {
-      backButtonText = "Voltar para Planos do Paciente";
-  } else if (!isEditMode && patientCPF) {
-      backButtonText = "Voltar para Planos do Paciente";
-  } else {
-      backButtonText = "Voltar para Lista de Planos";
-  }
-
-
   if (isLoading && isEditMode && !description) { 
     return <div className="text-center py-10 text-[#b0b0b0]">Carregando plano para edição...</div>;
   }
@@ -410,15 +393,15 @@ export const TreatmentPlanPage: React.FC = () => {
                         if(e.target.value.trim() !== '') setIsPatientDropdownOpen(true); else setIsPatientDropdownOpen(false);
                     }}
                     placeholder="Buscar por Nome ou CPF" 
-                    required={!cameFromDentistDashboard} 
-                    disabled={isLoading || isEditMode || cameFromDentistDashboard && isEditMode} 
+                    required={userRole !== 'dentist'}
+                    disabled={isLoading || isEditMode || (userRole === 'dentist' && isEditMode)} 
                     containerClassName="mb-0 flex-grow" 
                     className="rounded-r-none h-[46px]" 
                     prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400"/>}
                 />
-              <Button type="button" onClick={() => setIsPatientDropdownOpen(!isPatientDropdownOpen)} className="px-3 bg-[#1f1f1f] hover:bg-gray-700 border border-l-0 border-gray-700 rounded-l-none rounded-r-md h-[46px]" aria-expanded={isPatientDropdownOpen} aria-haspopup="listbox" title="Selecionar Paciente" disabled={isLoading || isEditMode || isLoadingPatients || (cameFromDentistDashboard && isEditMode)}><ChevronUpDownIcon className="w-5 h-5 text-gray-400" /></Button>
+              <Button type="button" onClick={() => setIsPatientDropdownOpen(!isPatientDropdownOpen)} className="px-3 bg-[#1f1f1f] hover:bg-gray-700 border border-l-0 border-gray-700 rounded-l-none rounded-r-md h-[46px]" aria-expanded={isPatientDropdownOpen} aria-haspopup="listbox" title="Selecionar Paciente" disabled={isLoading || isEditMode || isLoadingPatients || (userRole === 'dentist' && isEditMode)}><ChevronUpDownIcon className="w-5 h-5 text-gray-400" /></Button>
             </div>
-            {isPatientDropdownOpen && !(isEditMode || (cameFromDentistDashboard && isEditMode)) && (<div className="absolute top-full left-0 right-0 mt-1 w-full bg-[#1f1f1f] border border-gray-700 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+            {isPatientDropdownOpen && !(isEditMode || (userRole === 'dentist' && isEditMode)) && (<div className="absolute top-full left-0 right-0 mt-1 w-full bg-[#1f1f1f] border border-gray-700 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
                 {isLoadingPatients ? <p className="text-sm text-gray-400 text-center py-2">Carregando pacientes...</p> : filteredDropdownPatients.length > 0 ? <ul>{filteredDropdownPatients.map(p => (<li key={p.id} onClick={() => handlePatientSelect(p)} className="px-3 py-2 text-sm text-white hover:bg-[#00bcd4] hover:text-black cursor-pointer" role="option" aria-selected={patientCPF === p.cpf}>{p.fullName} <span className="text-xs text-gray-400">({p.cpf})</span></li>))}</ul> : <p className="text-sm text-gray-400 text-center py-2">Nenhum paciente encontrado.</p>}
             </div>)}
           </div>
@@ -499,12 +482,23 @@ export const TreatmentPlanPage: React.FC = () => {
             <Button 
               type="button" 
               variant="ghost" 
-              onClick={handleBackNavigation} 
+              onClick={() => navigate(-1)} 
               leftIcon={<ArrowUturnLeftIcon />} 
               disabled={isLoading}
             >
-              {backButtonText}
+              Voltar
             </Button>
+            {cameFromDentistDashboard && (
+              <Button 
+                  type="button" 
+                  variant="secondary" 
+                  onClick={() => navigate(NavigationPath.Home)} 
+                  leftIcon={<ArrowUturnLeftIcon />} 
+                  disabled={isLoading}
+              >
+                  Voltar para Dashboard
+              </Button>
+            )}
             {!isEditMode && (<Button type="button" variant="danger" onClick={() => clearForm(true)} disabled={isLoading}>Limpar Plano</Button>)}
             <Button type="submit" variant="primary" disabled={isLoading}>{isLoading ? 'Salvando...' : (isEditMode ? 'Atualizar Plano' : 'Salvar Plano de Tratamento')}</Button>
           </div>
