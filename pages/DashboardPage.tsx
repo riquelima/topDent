@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom'; 
 import { Card } from '../components/ui/Card';
@@ -18,10 +17,10 @@ import {
     PencilIcon, 
     TrashIcon,
     ClockIcon,
-    PlusIcon // Added PlusIcon
+    PlusIcon
 } from '../components/icons/HeroIcons';
 import type { IconProps as HeroIconProps } from '../components/icons/HeroIcons';
-import { NavigationPath, Appointment, Reminder } from '../types';
+import { NavigationPath, Appointment, Reminder, Patient } from '../types';
 import { 
     getAppointments, 
     getActiveReminders,
@@ -29,7 +28,8 @@ import {
     deleteReminderById,
     addReminder,
     getPatients,
-    getAllTreatmentPlans
+    getAllTreatmentPlans,
+    addAppointment
 } from '../services/supabaseService'; 
 import { isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
 import { useToast } from '../contexts/ToastContext';
@@ -149,6 +149,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
 
   const [isAudioUnlocked, setIsAudioUnlocked] = useState(!!(window as any).isAudioUnlocked);
 
+  // States for return reminders
+  const [returnReminders, setReturnReminders] = useState<Patient[]>([]);
+  const [isLoadingReturnReminders, setIsLoadingReturnReminders] = useState(true);
+  const [isDismissModalOpen, setIsDismissModalOpen] = useState(false);
+  const [patientToDismiss, setPatientToDismiss] = useState<Patient | null>(null);
+
   const unlockAudioManually = useCallback(async () => {
     if (!(window as any).isAudioUnlocked) {
         const audio = document.getElementById('notification-sound') as HTMLAudioElement;
@@ -173,6 +179,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
   const fetchDashboardData = useCallback(async () => {
     setIsLoadingUpcomingAppointments(true);
     setIsLoadingReminders(true);
+    setIsLoadingReturnReminders(true);
 
     const todayString = getTodayInSaoPaulo();
 
@@ -246,6 +253,50 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
     } else {
       setQuickStats(prev => ({ ...prev, activeTreatments: (treatmentsRes.data || []).length }));
     }
+
+    // Logic for Return Reminders
+    if (patientsRes.data && allAppointments) {
+      // Correctly calculate 6 months ago based on São Paulo's date to avoid timezone issues.
+      const sixMonthsAgoDate = new Date(`${todayString}T12:00:00Z`); // Use midday to avoid timezone boundary issues
+      sixMonthsAgoDate.setUTCMonth(sixMonthsAgoDate.getUTCMonth() - 6);
+      const sixMonthsAgoString = sixMonthsAgoDate.toISOString().split('T')[0];
+
+      // Step 1: Create a map of the latest *completed* appointment date for each patient.
+      const lastCompletedVisitMap = new Map<string, string>();
+      allAppointments.forEach(appt => {
+          if (appt.status === 'Completed' && appt.patient_cpf) {
+              const currentLatest = lastCompletedVisitMap.get(appt.patient_cpf);
+              if (!currentLatest || appt.appointment_date > currentLatest) {
+                  lastCompletedVisitMap.set(appt.patient_cpf, appt.appointment_date);
+              }
+          }
+      });
+
+      // Step 2: Identify patients whose last completed visit was 6+ months ago.
+      const patientsWhoNeedReturn = (patientsRes.data as Patient[]).filter(patient => {
+          const lastVisit = lastCompletedVisitMap.get(patient.cpf);
+          return lastVisit && lastVisit <= sixMonthsAgoString;
+      });
+
+      // Step 3: Identify patients who have a future appointment already scheduled.
+      const upcomingAppointmentCpfs = new Set(
+          allAppointments
+              .filter(appt => appt.appointment_date >= todayString && (appt.status === 'Scheduled' || appt.status === 'Confirmed'))
+              .map(appt => appt.patient_cpf)
+              .filter((cpf): cpf is string => !!cpf)
+      );
+
+      // Step 4: Filter out patients who already have an upcoming appointment.
+      const finalReturnReminders = patientsWhoNeedReturn
+        .filter(patient => !upcomingAppointmentCpfs.has(patient.cpf))
+        .map(patient => ({ // Add the derived last visit date for display
+            ...patient,
+            last_appointment_date: lastCompletedVisitMap.get(patient.cpf)
+        }));
+      
+      setReturnReminders(finalReturnReminders);
+    }
+    setIsLoadingReturnReminders(false);
 
   }, [showToast]);
 
@@ -347,6 +398,71 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
     setIsSubmittingReminder(false);
   };
 
+  // Return Reminders Actions
+  const handleRebookPatient = (patient: Patient) => {
+    if (!patient.cpf || !patient.fullName) {
+      showToast("Dados do paciente incompletos.", "warning");
+      return;
+    }
+    navigate(NavigationPath.NewAppointment, { state: { patientCpf: patient.cpf, patientName: patient.fullName } });
+  };
+  
+  const handleSendWhatsAppReminder = (patient: Patient) => {
+    if (!patient.phone) {
+      showToast(`Paciente ${patient.fullName} não possui telefone cadastrado.`, 'warning');
+      return;
+    }
+
+    const cleanedPhone = patient.phone.replace(/\D/g, '');
+    const finalPhone = cleanedPhone.length > 11 ? cleanedPhone : `55${cleanedPhone}`;
+
+    const messageText = `Olá ${patient.fullName}, faz tempo que você não retorna a clínica. Gostaria de agendar uma nova consulta?`;
+    const encodedMessage = encodeURIComponent(messageText);
+    
+    const url = `https://wa.me/${finalPhone}?text=${encodedMessage}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const requestDismissReminder = (patient: Patient) => {
+    setPatientToDismiss(patient);
+    setIsDismissModalOpen(true);
+  };
+
+  const closeDismissModal = () => {
+    setIsDismissModalOpen(false);
+    setPatientToDismiss(null);
+  };
+
+  const executeDismissReminder = async () => {
+    if (!patientToDismiss) return;
+    setIsSubmittingReminder(true);
+    
+    const farFutureDate = new Date();
+    farFutureDate.setFullYear(farFutureDate.getFullYear() + 100);
+    const dateString = farFutureDate.toISOString().split('T')[0];
+
+    const dismissalAppointment = {
+        patient_cpf: patientToDismiss.cpf,
+        patient_name: patientToDismiss.fullName,
+        appointment_date: dateString,
+        appointment_time: '00:00',
+        procedure: 'Lembrete de Retorno Dispensado Pelo Admin',
+        status: 'Cancelled' as const,
+        notes: `Este é um registro automático para dispensar o lembrete de retorno para ${patientToDismiss.fullName}.`,
+    };
+
+    const { error } = await addAppointment(dismissalAppointment);
+
+    if (error) {
+        showToast(`Erro ao dispensar lembrete: ${error.message}`, 'error');
+    } else {
+        showToast(`Lembrete para ${patientToDismiss.fullName} foi dispensado.`, 'success');
+        fetchDashboardData();
+    }
+    
+    closeDismissModal();
+    setIsSubmittingReminder(false);
+  };
 
   return (
     <div className="space-y-10">
@@ -450,7 +566,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                 className="bg-[#1a1a1a]" 
                 title={
                     <div className="flex justify-between items-center w-full">
-                        <span className="flex items-center text-xl text-white"><BellIcon className="w-6 h-6 mr-3 text-yellow-400" />Lembretes</span>
+                        <span className="flex items-center text-xl text-white"><BellIcon className="w-6 h-6 mr-3 text-yellow-400" />Lembretes Globais</span>
                         <Button 
                             variant="ghost" 
                             size="sm"
@@ -508,6 +624,60 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
           </section>
 
           <section>
+            <Card
+                className="bg-[#1a1a1a]"
+                title={
+                    <div className="flex justify-between items-center w-full">
+                        <span className="flex items-center text-xl text-white"><img src="https://cdn-icons-png.flaticon.com/512/6214/6214151.png" alt="Lembretes de Retorno" className="w-6 h-6 mr-3" /> Lembretes de Retorno</span>
+                    </div>
+                }
+            >
+                <p className="text-sm text-gray-400 mb-4">
+                    Clientes que realizaram consulta há pelo menos 6 meses e não retornaram.
+                </p>
+                {isLoadingReturnReminders ? (
+                    <p className="text-[#b0b0b0] text-center py-4">Carregando lembretes de retorno...</p>
+                ) : returnReminders.length > 0 ? (
+                    <ul className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                        {returnReminders.map((patient) => (
+                            <li key={patient.cpf} className="p-3 rounded-lg text-sm transition-colors duration-150 shadow-md bg-[#1f1f1f] border border-gray-700/50 hover:bg-[#2a2a2a] flex justify-between items-center">
+                                <div>
+                                    <p className="font-semibold text-white">{patient.fullName}</p>
+                                    <p className="text-xs text-gray-500">Última visita: {patient.last_appointment_date ? isoToDdMmYyyy(patient.last_appointment_date) : 'N/A'}</p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Link to={`/patient/${patient.cpf}`}>
+                                        <Button size="sm" variant="ghost" className="p-2 rounded-full hover:bg-cyan-500/20" title="Ver Paciente">
+                                            <EyeIcon className="w-5 h-5 text-cyan-400"/>
+                                        </Button>
+                                    </Link>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="p-2 rounded-full hover:bg-green-500/20"
+                                        onClick={() => handleSendWhatsAppReminder(patient)}
+                                        title="Entrar em contato"
+                                        disabled={!patient.phone}
+                                    >
+                                        <img src="https://raw.githubusercontent.com/riquelima/topDent/refs/heads/main/368d6855-50b1-41da-9d0b-c10e5d2b1e19.png" alt="WhatsApp" className="w-6 h-6" />
+                                    </Button>
+                                    <Button size="sm" variant="ghost" className="p-2 rounded-full hover:bg-yellow-500/20" onClick={() => handleRebookPatient(patient)} title="Reagendar">
+                                      <img src="https://cdn-icons-png.flaticon.com/512/4856/4856659.png" alt="Reagendar" className="w-6 h-6" />
+                                    </Button>
+                                    <Button size="sm" variant="ghost" className="p-2 rounded-full hover:bg-red-500/20" onClick={() => requestDismissReminder(patient)} title="Dispensar Lembrete">
+                                      <TrashIcon className="w-5 h-5 text-red-400"/>
+                                    </Button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="text-[#b0b0b0] text-center py-4">Nenhum paciente necessitando retorno.</p>
+                )}
+            </Card>
+          </section>
+
+          <section>
             <Card className="bg-[#1a1a1a]" title="Estatísticas Rápidas">
               <ul className="space-y-3">
                 <li className="flex justify-between items-center text-md py-1">
@@ -518,17 +688,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                   <span className="text-[#b0b0b0]">Consultas hoje</span>
                   <span className="font-bold text-2xl text-white">{quickStats.consultationsToday}</span>
                 </li>
-                <li className="flex justify-between items-center text-md py-1">
-                  <span className="text-[#b0b0b0]">Consultas pendentes</span>
-                  <span className="font-bold text-2xl text-white">{quickStats.pendingConsultations}</span>
-                </li>
-                <li className="flex justify-between items-center text-md py-1">
-                  <span className="text-[#b0b0b0]">Tratamentos ativos</span>
+                 <li className="flex justify-between items-center text-md py-1">
+                  <span className="text-[#b0b0b0]">Tratamentos em andamento</span>
                   <span className="font-bold text-2xl text-white">{quickStats.activeTreatments}</span>
                 </li>
-                <li className="flex justify-between items-center text-md py-1">
-                  <span className="text-[#b0b0b0]">Total de Consultas</span>
+                 <li className="flex justify-between items-center text-md py-1">
+                  <span className="text-[#b0b0b0]">Total de consultas no sistema</span>
                   <span className="font-bold text-2xl text-white">{quickStats.totalConsultations}</span>
+                </li>
+                 <li className="flex justify-between items-center text-md py-1">
+                  <span className="text-[#b0b0b0]">Consultas pendentes</span>
+                  <span className="font-bold text-2xl text-white">{quickStats.pendingConsultations}</span>
                 </li>
               </ul>
             </Card>
@@ -536,106 +706,110 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
         </div>
       </div>
 
-      {!isAudioUnlocked && (
+      {isAudioUnlocked ? null : (
         <div className="fixed bottom-6 left-6 bg-yellow-500 text-black px-4 py-3 rounded-lg shadow-lg z-50 flex items-center space-x-4 animate-pulse">
-            <BellIcon className="w-6 h-6" />
-            <div>
-                <p className="text-sm font-semibold">Ativar o som das notificações</p>
-                <p className="text-xs">Clique no botão para ouvir os alertas.</p>
-            </div>
-            <Button variant="secondary" onClick={unlockAudioManually} className="bg-black hover:bg-gray-800 px-3 py-1 rounded-md text-sm">
-                Ativar Som
-            </Button>
+          <BellIcon className="w-6 h-6" />
+          <div>
+              <p className="text-sm font-semibold">Ativar o som das notificações</p>
+              <p className="text-xs">Clique no botão para ouvir os alertas.</p>
+          </div>
+          <Button variant="secondary" onClick={unlockAudioManually} className="bg-black hover:bg-gray-800 px-3 py-1 rounded-md text-sm text-white">
+              Ativar Som
+          </Button>
         </div>
       )}
-
-       {/* Add Reminder Modal */}
-        <Modal
-            isOpen={isAddReminderModalOpen}
-            onClose={handleCloseAddReminderModal}
-            title="Adicionar Novo Lembrete"
-            footer={
-                <div className="flex justify-end space-x-3">
-                    <Button variant="ghost" onClick={handleCloseAddReminderModal} disabled={isSubmittingReminder}>Cancelar</Button>
-                    <Button variant="primary" type="submit" form="addReminderForm" disabled={isSubmittingReminder}>
-                        {isSubmittingReminder ? 'Salvando...' : 'Salvar Lembrete'}
-                    </Button>
-                </div>
-            }
+      
+       <Modal
+          isOpen={isAddReminderModalOpen}
+          onClose={handleCloseAddReminderModal}
+          title="Adicionar Novo Lembrete Global"
+          footer={
+            <div className="flex justify-end space-x-3 w-full">
+              <Button type="button" variant="ghost" onClick={handleCloseAddReminderModal} disabled={isSubmittingReminder}>
+                Cancelar
+              </Button>
+              <Button type="submit" form="addReminderForm" variant="primary" disabled={isSubmittingReminder}>
+                {isSubmittingReminder ? 'Salvando...' : 'Adicionar Lembrete'}
+              </Button>
+            </div>
+          }
         >
-            <form id="addReminderForm" onSubmit={handleAddReminder} className="space-y-4">
-                <Input
-                    label="Título"
-                    name="title"
-                    value={newReminderFormData.title}
-                    onChange={handleNewReminderFormChange}
-                    required
-                    disabled={isSubmittingReminder}
-                    autoFocus
-                />
-                <Textarea
-                    label="Conteúdo"
-                    name="content"
-                    value={newReminderFormData.content}
-                    onChange={handleNewReminderFormChange}
-                    required
-                    rows={4}
-                    disabled={isSubmittingReminder}
-                />
-            </form>
+          <form id="addReminderForm" onSubmit={handleAddReminder} className="space-y-4">
+            <Input
+              label="Título"
+              name="title"
+              value={newReminderFormData.title}
+              onChange={handleNewReminderFormChange}
+              required autoFocus
+              disabled={isSubmittingReminder}
+            />
+            <Textarea
+              label="Conteúdo"
+              name="content"
+              value={newReminderFormData.content}
+              onChange={handleNewReminderFormChange}
+              required
+              rows={4}
+              disabled={isSubmittingReminder}
+            />
+          </form>
         </Modal>
 
-
-      {/* Edit Reminder Modal */}
       {editingReminder && (
         <Modal
-            isOpen={isEditReminderModalOpen}
-            onClose={handleCloseEditReminderModal}
-            title="Editar Lembrete"
-            footer={
-                <div className="flex justify-end space-x-3">
-                    <Button variant="ghost" onClick={handleCloseEditReminderModal} disabled={isSubmittingReminder}>Cancelar</Button>
-                    <Button variant="primary" type="submit" form="editReminderForm" disabled={isSubmittingReminder}>
-                        {isSubmittingReminder ? 'Salvando...' : 'Salvar Alterações'}
-                    </Button>
-                </div>
-            }
+          isOpen={isEditReminderModalOpen}
+          onClose={handleCloseEditReminderModal}
+          title="Editar Lembrete Global"
+          footer={
+            <div className="flex justify-end space-x-3 w-full">
+                <Button type="button" variant="ghost" onClick={handleCloseEditReminderModal} disabled={isSubmittingReminder}>Cancelar</Button>
+                <Button type="submit" form="editReminderForm" variant="primary" disabled={isSubmittingReminder}>{isSubmittingReminder ? 'Atualizando...' : 'Atualizar Lembrete'}</Button>
+            </div>
+          }
         >
-            <form id="editReminderForm" onSubmit={handleUpdateReminder} className="space-y-4">
-                <Input
-                    label="Título"
-                    name="title"
-                    value={editingReminder.title}
-                    onChange={handleReminderFormChange}
-                    required
-                    disabled={isSubmittingReminder}
-                />
-                <Textarea
-                    label="Conteúdo"
-                    name="content"
-                    value={editingReminder.content}
-                    onChange={handleReminderFormChange}
-                    required
-                    rows={4}
-                    disabled={isSubmittingReminder}
-                />
-            </form>
+          <form id="editReminderForm" onSubmit={handleUpdateReminder} className="space-y-4">
+            <Input
+              label="Título" name="title"
+              value={editingReminder.title}
+              onChange={handleReminderFormChange}
+              required autoFocus
+              disabled={isSubmittingReminder}
+            />
+            <Textarea
+              label="Conteúdo" name="content"
+              value={editingReminder.content}
+              onChange={handleReminderFormChange}
+              required rows={4}
+              disabled={isSubmittingReminder}
+            />
+          </form>
         </Modal>
       )}
 
-    {/* Delete Reminder Confirmation Modal */}
-    {reminderToDelete && (
+      {reminderToDelete && (
         <ConfirmationModal
-            isOpen={isDeleteReminderConfirmModalOpen}
-            onClose={handleCloseDeleteReminderModal}
-            onConfirm={handleConfirmDeleteReminder}
-            title="Confirmar Exclusão de Lembrete"
-            message={<p>Tem certeza que deseja excluir o lembrete: <strong className="text-[#00bcd4]">{reminderToDelete.title}</strong>? Esta ação é irreversível.</p>}
-            confirmButtonText="Excluir Lembrete"
+          isOpen={isDeleteReminderConfirmModalOpen}
+          onClose={handleCloseDeleteReminderModal}
+          onConfirm={handleConfirmDeleteReminder}
+          title="Confirmar Exclusão de Lembrete"
+          message={<>Tem certeza que deseja excluir o lembrete <strong className="text-[#00bcd4]">{reminderToDelete.title}</strong>? Esta ação é irreversível.</>}
+          confirmButtonText="Excluir Lembrete"
+          isLoading={isSubmittingReminder}
+        />
+      )}
+
+      {patientToDismiss && (
+        <ConfirmationModal
+            isOpen={isDismissModalOpen}
+            onClose={closeDismissModal}
+            onConfirm={executeDismissReminder}
+            title="Dispensar Lembrete de Retorno"
+            message={<>Tem certeza que deseja dispensar o lembrete para <strong className="text-[#00bcd4]">{patientToDismiss.fullName}</strong>? Ele não aparecerá mais nesta lista até a próxima consulta concluída.</>}
+            confirmButtonText="Sim, Dispensar"
+            confirmButtonVariant="primary"
             isLoading={isSubmittingReminder}
         />
-    )}
-
+      )}
     </div>
   );
 };

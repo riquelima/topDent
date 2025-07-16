@@ -317,7 +317,7 @@ export const ManageAppointmentPage: React.FC = () => {
       }
 
       if (savedAppointment) {
-          if (savedAppointment.patient_cpf) {
+          if (savedAppointment.patient_cpf && savedAppointment.status === 'Completed') {
             const { error: updatePatientError } = await updatePatientLastAppointment(savedAppointment.patient_cpf, savedAppointment.appointment_date);
             if (updatePatientError) {
               console.warn("Failed to update patient's last appointment date:", updatePatientError);

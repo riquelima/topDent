@@ -29,6 +29,7 @@ import {
     getUnreadNotificationsForDentist,
     markNotificationsAsRead,
     subscribeToNotificationsForDentist,
+    updatePatientLastAppointment
 } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
 import { formatIsoToSaoPauloTime, isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
@@ -534,6 +535,11 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
         showToast(`Erro ao atualizar status: ${error.message}`, 'error');
     } else {
         showToast(`Agendamento marcado como ${statusLabelMap[newStatus].toLowerCase()}!`, 'success');
+
+        if (newStatus === 'Completed' && appointment.patient_cpf) {
+            await updatePatientLastAppointment(appointment.patient_cpf, appointment.appointment_date);
+        }
+        
         if ((newStatus === 'Completed' || newStatus === 'Cancelled') && appointment.patient_cpf) {
             const historyEntry: Omit<ConsultationHistoryEntry, 'id' | 'completion_timestamp' | 'created_at'> = {
                 appointment_id: appointment.id,

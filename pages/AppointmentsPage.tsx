@@ -8,7 +8,7 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { PlusIcon, PencilIcon, TrashIcon, BellIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon } from '../components/icons/HeroIcons'; 
 import { Appointment, DentistUser, NavigationPath, ConsultationHistoryEntry } from '../types'; 
-import { getAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry, getProcedures } from '../services/supabaseService'; 
+import { getAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry, getProcedures, updatePatientLastAppointment } from '../services/supabaseService'; 
 import { isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal'; 
 import { useToast } from '../contexts/ToastContext'; 
@@ -239,6 +239,11 @@ export const AppointmentsPage: React.FC = () => {
         showToast(`Erro ao atualizar status: ${error.message}`, 'error');
     } else if (updatedAppointment) {
         showToast(`Status atualizado para "${statusLabelMap[newStatus]}"`, 'success');
+        
+        if (newStatus === 'Completed' && appointment.patient_cpf) {
+            await updatePatientLastAppointment(appointment.patient_cpf, appointment.appointment_date);
+        }
+        
         if ((newStatus === 'Completed' || newStatus === 'Cancelled') && appointment.patient_cpf) {
             const historyEntry: Omit<ConsultationHistoryEntry, 'id' | 'completion_timestamp' | 'created_at'> = {
                 appointment_id: appointment.id, patient_cpf: appointment.patient_cpf,
