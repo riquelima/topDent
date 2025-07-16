@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -470,7 +469,7 @@ export const AppointmentsPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"><div className="flex items-center justify-center space-x-1">
                           <Button size="sm" variant="ghost" className="p-1.5" onClick={() => handleNotifyArrival(appointment)} disabled={isDeleting || notifiedAppointments.has(appointment.id)} title={notifiedAppointments.has(appointment.id) ? "Notificação já enviada" : "Notificar Chegada"}><BellIcon className={`w-4 h-4 ${notifiedAppointments.has(appointment.id) ? 'text-green-400' : 'text-yellow-400 hover:text-yellow-300'}`} /></Button>
                           <Button size="sm" variant="ghost" className="p-1.5" onClick={() => handleRebookAppointment(appointment)} disabled={isDeleting || !appointment.patient_cpf} title="Criar novo agendamento para este paciente">
-                            <img src="https://cdn-icons-png.flaticon.com/512/4856/4856659.png" alt="Reagendar" className="w-4 h-4" />
+                            <img src="https://cdn-icons-png.flaticon.com/512/16655/16655637.png" alt="Reagendar" className="w-5 h-5"/>
                           </Button>
                           <Button size="sm" variant="ghost" className="p-1.5" onClick={() => navigate(NavigationPath.EditAppointment.replace(':appointmentId', appointment.id))} disabled={isDeleting} title="Editar Agendamento"><PencilIcon className="w-4 h-4 text-[#00bcd4] hover:text-[#00a5b8]" /></Button>
                           <Button size="sm" variant="ghost" className="p-1.5" onClick={() => requestDeleteAppointment(appointment.id, `${appointment.procedure} para ${appointment.patient_name}`)} disabled={isDeleting} title="Excluir Agendamento"><TrashIcon className="w-4 h-4 text-[#f44336] hover:text-[#d32f2f]" /></Button>

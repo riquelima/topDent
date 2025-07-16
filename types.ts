@@ -1,4 +1,5 @@
 
+
 export interface Patient {
   id: string; // Should be unique, CPF can serve this role for now
   fullName: string;

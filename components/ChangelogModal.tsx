@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { XMarkIcon, CheckIcon } from './icons/HeroIcons';
@@ -25,6 +24,16 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
           setError('Não foi possível carregar as atualizações.');
         } else {
           const hardcodedEntries: ChangelogEntry[] = [
+            {
+              id: 'manual-entry-16-07-2025',
+              created_at: new Date('2025-07-16T10:00:00Z').toISOString(),
+              release_date: '2025-07-16',
+              version: 'v10.2.0',
+              changes: [
+                'O ícone de "Próximos Agendamentos" no Dashboard do Admin foi aumentado para melhorar a visibilidade.',
+                'O changelog de atualizações do sistema foi atualizado com as últimas melhorias implementadas.',
+              ]
+            },
             {
               id: 'manual-entry-15-07-2025',
               created_at: new Date('2025-07-15T10:00:00Z').toISOString(),

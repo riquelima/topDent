@@ -34,7 +34,6 @@ import {
 import { isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
 import { useToast } from '../contexts/ToastContext';
 
-
 interface QuickAccessCardProps {
   title: string;
   description: string;
@@ -53,7 +52,7 @@ const QuickAccessCard = ({
   hoverColorClass, 
   iconBgClass = 'bg-black/20', 
   iconColorClass = 'text-white' 
-}: QuickAccessCardProps): JSX.Element => {
+}: QuickAccessCardProps): React.ReactElement => {
   const cardBaseStyle = `text-left ${colorClass} ${hoverColorClass} transition-all duration-150 ease-in-out transform hover:scale-[1.03] shadow-xl rounded-xl`;
 
   const content = (
@@ -507,7 +506,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
             bodyClassName="flex-1 overflow-y-auto"
             title={
               <div className="flex justify-between items-center">
-                <span className="flex items-center text-xl text-white"><CalendarDaysIcon className="w-6 h-6 mr-3 text-[#00bcd4]" />Próximos Agendamentos</span>
+                <span className="flex items-center text-xl text-white">
+                    <dotlottie-wc
+                        src="https://lottie.host/1edc1d7e-c05c-4561-9b02-42e350c0e5f6/Yv6Cl4dWIE.lottie"
+                        speed="1"
+                        autoplay
+                        loop
+                        className="w-14 h-14 mr-3"
+                        aria-label="Ícone animado de Próximos Agendamentos"
+                    ></dotlottie-wc>
+                    Próximos Agendamentos
+                </span>
                 <Link to={NavigationPath.Appointments} className="text-sm text-[#00bcd4] hover:text-[#00a5b8] font-medium">Ver Todos</Link>
               </div>
             }
@@ -566,7 +575,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                 className="bg-[#1a1a1a]" 
                 title={
                     <div className="flex justify-between items-center w-full">
-                        <span className="flex items-center text-xl text-white"><BellIcon className="w-6 h-6 mr-3 text-yellow-400" />Lembretes Globais</span>
+                        <span className="flex items-center text-xl text-white">
+                            <dotlottie-wc
+                                src="https://lottie.host/e121b752-68a2-4df0-aa2f-95c3dad925e4/lvtlihuUh8.lottie"
+                                speed="1"
+                                autoplay
+                                loop
+                                className="w-10 h-10 mr-3"
+                                aria-label="Ícone animado de Lembretes Globais"
+                            ></dotlottie-wc>
+                            Lembretes Globais
+                        </span>
                         <Button 
                             variant="ghost" 
                             size="sm"
@@ -628,7 +647,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                 className="bg-[#1a1a1a]"
                 title={
                     <div className="flex justify-between items-center w-full">
-                        <span className="flex items-center text-xl text-white"><img src="https://cdn-icons-png.flaticon.com/512/6214/6214151.png" alt="Lembretes de Retorno" className="w-6 h-6 mr-3" /> Lembretes de Retorno</span>
+                        <span className="flex items-center text-xl text-white">
+                            <dotlottie-wc
+                                src="https://lottie.host/da084b4b-f5cd-4fa8-be5b-53346b6d9cb9/TFjEZhOq32.lottie"
+                                speed="1"
+                                autoplay
+                                loop
+                                className="w-10 h-10 mr-3"
+                                aria-label="Ícone animado de Lembretes de Retorno"
+                            ></dotlottie-wc>
+                             Lembretes de Retorno
+                        </span>
                     </div>
                 }
             >
@@ -662,7 +691,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                                         <img src="https://raw.githubusercontent.com/riquelima/topDent/refs/heads/main/368d6855-50b1-41da-9d0b-c10e5d2b1e19.png" alt="WhatsApp" className="w-6 h-6" />
                                     </Button>
                                     <Button size="sm" variant="ghost" className="p-2 rounded-full hover:bg-yellow-500/20" onClick={() => handleRebookPatient(patient)} title="Reagendar">
-                                      <img src="https://cdn-icons-png.flaticon.com/512/4856/4856659.png" alt="Reagendar" className="w-6 h-6" />
+                                      <img src="https://cdn-icons-png.flaticon.com/512/16655/16655637.png" alt="Reagendar" className="w-5 h-5"/>
                                     </Button>
                                     <Button size="sm" variant="ghost" className="p-2 rounded-full hover:bg-red-500/20" onClick={() => requestDismissReminder(patient)} title="Dispensar Lembrete">
                                       <TrashIcon className="w-5 h-5 text-red-400"/>
@@ -678,7 +707,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
           </section>
 
           <section>
-            <Card className="bg-[#1a1a1a]" title="Estatísticas Rápidas">
+            <Card
+                className="bg-[#1a1a1a]"
+                title={
+                    <div className="flex items-center text-xl text-white">
+                        <dotlottie-wc
+                            src="https://lottie.host/05c45dae-1499-4a47-bf6c-f90a35dccffa/esmVugX0Jy.lottie"
+                            speed="1"
+                            autoplay
+                            loop
+                            className="w-10 h-10 mr-3"
+                            aria-label="Ícone animado de Estatísticas Rápidas"
+                        ></dotlottie-wc>
+                        Estatísticas Rápidas
+                    </div>
+                }
+            >
               <ul className="space-y-3">
                 <li className="flex justify-between items-center text-md py-1">
                   <span className="text-[#b0b0b0]">Pacientes cadastrados</span>
