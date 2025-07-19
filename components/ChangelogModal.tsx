@@ -25,6 +25,16 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
         } else {
           const hardcodedEntries: ChangelogEntry[] = [
             {
+              id: 'manual-entry-18-07-2025',
+              created_at: new Date('2025-07-18T10:00:00Z').toISOString(),
+              release_date: '2025-07-18',
+              version: 'v10.3.0',
+              changes: [
+                'A descrição da funcionalidade de "Automação" foi atualizada para ser mais clara e informativa sobre seu propósito.',
+                'Aprimorado o layout da seção de automação para melhor legibilidade e usabilidade.',
+              ]
+            },
+            {
               id: 'manual-entry-16-07-2025',
               created_at: new Date('2025-07-16T10:00:00Z').toISOString(),
               release_date: '2025-07-16',

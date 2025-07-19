@@ -3,7 +3,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
-import { UserPlusIcon, PencilIcon, TrashIcon, LockClosedIcon, UserIcon as FormUserIcon, CheckIcon, BellIcon, BriefcaseIcon, CheckCircleIcon, XCircleIcon, ChevronUpDownIcon } from '../components/icons/HeroIcons';
+import { UserPlusIcon, PencilIcon, TrashIcon, LockClosedIcon, UserIcon as FormUserIcon, CheckIcon, BellIcon, BriefcaseIcon, CheckCircleIcon, XCircleIcon, ChevronUpDownIcon, PaperAirplaneIcon } from '../components/icons/HeroIcons';
 import { Dentist, Reminder, Procedure } from '../types';
 import { 
     getDentists, addDentist, updateDentist, deleteDentist,
@@ -416,6 +416,42 @@ export const ConfigurationsPage = (): JSX.Element => {
             )}
         </div>
       </Card>
+      
+      {/* Automação Card */}
+      <Card
+        className="bg-[#1a1a1a]"
+        title={
+          <button 
+            onClick={() => toggleSection('automation')} 
+            className="w-full text-left flex justify-between items-center p-4 text-xl font-semibold text-white hover:bg-white/5 transition-colors"
+            aria-expanded={openSection === 'automation'}
+            aria-controls="automation-section"
+          >
+            <span className='flex items-center'><PaperAirplaneIcon className="w-6 h-6 mr-3 text-[#00bcd4]" /> Automação</span>
+            <ChevronUpDownIcon className={`w-6 h-6 transform transition-transform ${openSection === 'automation' ? 'rotate-180' : ''}`} />
+          </button>
+        }
+        titleClassName="p-0 border-b-0"
+        bodyClassName="p-0"
+      >
+        <div id="automation-section" className={sectionContentClasses('automation')}>
+          <div className="space-y-4">
+              <p className="text-gray-300">
+                  Precisa avisar todos os pacientes sobre algo urgente, como o fechamento da clínica, ausência de médicos ou mudanças no atendimento? Com essa funcionalidade, você não precisa enviar mensagem por mensagem.
+                  Adicione os números desejados e deixe que a automação com IA envie tudo por você — rápido, prático e seguro.
+              </p>
+              <div className="text-left">
+                  <Button 
+                      onClick={() => window.open('https://primary-production-76569.up.railway.app/webhook/painel-html', '_blank', 'noopener,noreferrer')}
+                      leftIcon={<PaperAirplaneIcon />}
+                      variant="primary"
+                  >
+                      Enviar mensagens em massa
+                  </Button>
+              </div>
+          </div>
+        </div>
+      </Card>
 
       {/* Gerenciar Procedimentos Definidos Card */}
       <Card
@@ -490,7 +526,6 @@ export const ConfigurationsPage = (): JSX.Element => {
           )}
         </div>
       </Card>
-
 
       {/* Gerenciar Lembretes Card */}
       <Card
