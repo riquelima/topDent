@@ -5,9 +5,9 @@ import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select'; 
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
-import { PlusIcon, PencilIcon, TrashIcon, BellIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon } from '../components/icons/HeroIcons'; 
+import { PlusIcon, PencilIcon, TrashIcon, BellIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon, ArrowPathIcon } from '../components/icons/HeroIcons'; 
 import { Appointment, DentistUser, NavigationPath, ConsultationHistoryEntry } from '../types'; 
-import { getAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry, getProcedures, updatePatientLastAppointment } from '../services/supabaseService'; 
+import { getAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry, getProcedures, updatePatientLastAppointment, setAppointmentMissedNotificationSent } from '../services/supabaseService'; 
 import { isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal'; 
 import { useToast } from '../contexts/ToastContext'; 
@@ -335,6 +335,67 @@ export const AppointmentsPage: React.FC = () => {
     setIsDeleting(false);
     closeConfirmDeleteModal();
   };
+  
+  const handleMissedAppointment = async (appointment: Appointment) => {
+    if (appointment.missed_notification_sent) {
+        showToast("Comunicado de falta já foi enviado anteriormente.", "info");
+        return;
+    }
+    if (!appointment.patient_cpf) {
+        showToast("Paciente não cadastrado, não é possível obter o telefone.", "warning");
+        return;
+    }
+    
+    setIsUpdatingStatus(appointment.id);
+
+    try {
+        const { data: patient, error: patientError } = await getPatientByCpf(appointment.patient_cpf);
+        if (patientError || !patient || !patient.phone) {
+            showToast(`Paciente ${appointment.patient_name} não possui telefone cadastrado.`, 'warning');
+            return;
+        }
+
+        const webhookUrl = 'https://primary-production-76569.up.railway.app/webhook/waha';
+        const payload = {
+            NomePaciente: patient.fullName,
+            telefone: patient.phone.replace(/\D/g, '')
+        };
+
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Webhook response error:', errorText);
+            throw new Error(`Falha ao enviar notificação para o sistema. Status: ${response.status}`);
+        }
+        
+        const { error: updateError } = await setAppointmentMissedNotificationSent(appointment.id);
+        if (updateError) {
+            throw new Error(updateError.message || "Erro ao salvar o status do comunicado.");
+        }
+        
+        setAllAppointments(prev => 
+            prev.map(appt => 
+                appt.id === appointment.id ? { ...appt, missed_notification_sent: true } : appt
+            )
+        );
+
+        showToast("Comunicado de falta enviado ao sistema e status salvo.", "success");
+
+    } catch (error: any) {
+        showToast(error.message, "error");
+        console.error("Error in handleMissedAppointment:", error);
+    } finally {
+        setIsUpdatingStatus(null);
+    }
+  };
+
 
   const handleDateFilterChange = (filter: 'today' | 'upcoming' | 'all') => {
     setDateFilter(filter);
@@ -468,6 +529,22 @@ export const AppointmentsPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm"><button onClick={() => handleStatusChange(appointment)} disabled={!!isUpdatingStatus} className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-wait ${statusColorMap[appointment.status]} ${statusTextClassMap[appointment.status]}`} title={`Mudar status de ${statusLabelMap[appointment.status]}`}>{isUpdatingStatus === appointment.id ? '...' : (statusLabelMap[appointment.status] || appointment.status)}</button></td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"><div className="flex items-center justify-center space-x-1">
                           <Button size="sm" variant="ghost" className="p-1.5" onClick={() => handleNotifyArrival(appointment)} disabled={isDeleting || notifiedAppointments.has(appointment.id)} title={notifiedAppointments.has(appointment.id) ? "Notificação já enviada" : "Notificar Chegada"}><BellIcon className={`w-4 h-4 ${notifiedAppointments.has(appointment.id) ? 'text-green-400' : 'text-yellow-400 hover:text-yellow-300'}`} /></Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="p-1.5"
+                            onClick={() => handleMissedAppointment(appointment)}
+                            disabled={isDeleting || !!isUpdatingStatus || appointment.missed_notification_sent}
+                            title={appointment.missed_notification_sent ? "Comunicado de falta já enviado" : "Paciente faltou a consulta, enviar comunicado via Whatsapp"}
+                          >
+                            {isUpdatingStatus === appointment.id ? (
+                                <ArrowPathIcon className="w-5 h-5 text-gray-400 animate-spin" />
+                            ) : appointment.missed_notification_sent ? (
+                                <CheckIcon className="w-5 h-5 text-green-400" />
+                            ) : (
+                                <img src="https://cdn-icons-png.flaticon.com/512/6897/6897039.png" alt="Paciente Faltou" className="w-5 h-5" />
+                            )}
+                          </Button>
                           <Button size="sm" variant="ghost" className="p-1.5" onClick={() => handleRebookAppointment(appointment)} disabled={isDeleting || !appointment.patient_cpf} title="Criar novo agendamento para este paciente">
                             <img src="https://cdn-icons-png.flaticon.com/512/4856/4856659.png" alt="Reagendar" className="w-5 h-5"/>
                           </Button>

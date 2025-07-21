@@ -1,4 +1,3 @@
-
 // services/supabaseService.ts
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { 
@@ -44,6 +43,7 @@ export type Database = {
             return_date: string | null;
             created_at: string;
             updated_at: string | null;
+            missed_notification_sent: boolean | null;
         },
         Insert: {
             id?: string;
@@ -59,6 +59,7 @@ export type Database = {
             return_date?: string | null;
             created_at?: string;
             updated_at?: string | null;
+            missed_notification_sent?: boolean | null;
         },
         Update: {
             id?: string;
@@ -74,6 +75,7 @@ export type Database = {
             return_date?: string | null;
             created_at?: string;
             updated_at?: string | null;
+            missed_notification_sent?: boolean | null;
         }
       },
       patients: {
@@ -808,6 +810,12 @@ export const updateAppointmentStatus = async (id: string, status: Appointment['s
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
     return (client.from('appointments') as any).update({ status, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+};
+
+export const setAppointmentMissedNotificationSent = async (id: string) => {
+    const client = getSupabaseClient();
+    if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+    return (client.from('appointments') as any).update({ missed_notification_sent: true, updated_at: new Date().toISOString() }).eq('id', id).select().single();
 };
 
 export const updateAppointmentsForPatientNameChange = async (patientCpf: string, newPatientName: string) => {
