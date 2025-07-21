@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -66,6 +67,7 @@ const statusLabelMap: Record<Appointment['status'], string> = {
     Confirmed: 'Confirmado',
     Completed: 'Concluído',
     Cancelled: 'Cancelado',
+    Ausente: 'Ausente',
 };
 
 const statusColors: Record<Appointment['status'], { border: string; bg: string; text: string; time: string; }> = {
@@ -73,6 +75,7 @@ const statusColors: Record<Appointment['status'], { border: string; bg: string; 
   Confirmed: { border: 'border-cyan-500/30', bg: 'bg-cyan-500/10', text: 'text-cyan-300', time: 'text-gray-300' },
   Completed: { border: 'border-green-500/30', bg: 'bg-green-500/10', text: 'text-green-300', time: 'text-gray-300' },
   Cancelled: { border: 'border-red-500/30', bg: 'bg-red-500/10', text: 'text-red-300', time: 'text-gray-300' },
+  Ausente: { border: 'border-orange-500/30', bg: 'bg-orange-500/10', text: 'text-orange-300', time: 'text-gray-300' },
 };
 
 
@@ -90,6 +93,7 @@ const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ app
     const colors = statusColors[appointment.status] || statusColors.Scheduled;
     const isCancelled = appointment.status === 'Cancelled';
     const isCompleted = appointment.status === 'Completed';
+    const isAusente = appointment.status === 'Ausente';
 
     return (
         <div className={`p-4 rounded-lg border ${colors.border} ${colors.bg} shadow-md mb-3`}>
@@ -117,20 +121,20 @@ const AppointmentActionSubcard: React.FC<AppointmentActionSubcardProps> = ({ app
                 </Button>
                 <Button
                     onClick={() => onUpdateStatus(appointment, 'Cancelled')}
-                    disabled={isUpdatingStatus || isCancelled || isCompleted}
+                    disabled={isUpdatingStatus || isCancelled || isCompleted || isAusente}
                     size="sm"
                     variant="danger"
-                    className={`p-2 ${isUpdatingStatus || isCancelled || isCompleted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`p-2 ${isUpdatingStatus || isCancelled || isCompleted || isAusente ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title="Cancelar Agendamento"
                 >
                     <XMarkIcon className="w-4 h-4" />
                 </Button>
                 <Button
                     onClick={() => onUpdateStatus(appointment, 'Completed')}
-                    disabled={isUpdatingStatus || isCompleted || isCancelled}
+                    disabled={isUpdatingStatus || isCompleted || isCancelled || isAusente}
                     size="sm"
                     variant="primary" 
-                    className={`p-2 bg-green-600 hover:bg-green-500 ${isUpdatingStatus || isCompleted || isCompleted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`p-2 bg-green-600 hover:bg-green-500 ${isUpdatingStatus || isCompleted || isCompleted || isAusente ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title="Concluir Agendamento"
                 >
                     <CheckIcon className="w-4 h-4" />
@@ -420,15 +424,15 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             ]);
 
             if (todayRes.error) throw new Error("Falha ao carregar agenda de hoje.");
-            const fetchedTodayAppointments = (todayRes.data || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
+            const fetchedTodayAppointments = (todayRes.data || []).filter(appt => !['Completed', 'Cancelled', 'Ausente'].includes(appt.status));
             setTodayAppointments(fetchedTodayAppointments);
 
             if (weekRes.error) throw new Error("Falha ao carregar agenda da semana.");
-            const weekAppointmentsIntermediate = (weekRes.data || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
+            const weekAppointmentsIntermediate = (weekRes.data || []).filter(appt => !['Completed', 'Cancelled', 'Ausente'].includes(appt.status));
             setWeekAppointments(weekAppointmentsIntermediate.filter(weekAppt => !fetchedTodayAppointments.find(todayAppt => todayAppt.id === weekAppt.id)));
             
             if (allRes.error) throw new Error("Falha ao carregar agenda completa.");
-            const filteredAll = (allRes.data || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
+            const filteredAll = (allRes.data || []).filter(appt => !['Completed', 'Cancelled', 'Ausente'].includes(appt.status));
             const upcoming = filteredAll.filter(a => a.appointment_date >= todayStr).sort((a,b) => new Date(`${a.appointment_date}T${a.appointment_time}`).getTime() - new Date(`${b.appointment_date}T${b.appointment_time}`).getTime());
             const past = filteredAll.filter(a => a.appointment_date < todayStr).sort((a,b) => new Date(`${b.appointment_date}T${b.appointment_time}`).getTime() - new Date(`${a.appointment_date}T${a.appointment_time}`).getTime());
             setAllAppointmentsData([...upcoming, ...past]);
@@ -507,15 +511,15 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
             ]);
             
             if (todayRes.error) throw new Error("Falha ao recarregar agenda de hoje.");
-            const fetchedTodayAppointments = (todayRes.data || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
+            const fetchedTodayAppointments = (todayRes.data || []).filter(appt => !['Completed', 'Cancelled', 'Ausente'].includes(appt.status));
             setTodayAppointments(fetchedTodayAppointments);
 
             if (weekRes.error) throw new Error("Falha ao recarregar agenda da semana.");
-            const weekAppointmentsIntermediate = (weekRes.data || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
+            const weekAppointmentsIntermediate = (weekRes.data || []).filter(appt => !['Completed', 'Cancelled', 'Ausente'].includes(appt.status));
             setWeekAppointments(weekAppointmentsIntermediate.filter(weekAppt => !fetchedTodayAppointments.find(todayAppt => todayAppt.id === weekAppt.id)));
             
             if (allRes.error) throw new Error("Falha ao recarregar agenda completa.");
-            const filteredAll = (allRes.data || []).filter(appt => appt.status !== 'Completed' && appt.status !== 'Cancelled');
+            const filteredAll = (allRes.data || []).filter(appt => !['Completed', 'Cancelled', 'Ausente'].includes(appt.status));
             const upcoming = filteredAll.filter(a => a.appointment_date >= todayStr).sort((a,b) => new Date(`${a.appointment_date}T${a.appointment_time}`).getTime() - new Date(`${b.appointment_date}T${b.appointment_time}`).getTime());
             const past = filteredAll.filter(a => a.appointment_date < todayStr).sort((a,b) => new Date(`${b.appointment_date}T${b.appointment_time}`).getTime() - new Date(`${a.appointment_date}T${a.appointment_time}`).getTime());
             setAllAppointmentsData([...upcoming, ...past]);

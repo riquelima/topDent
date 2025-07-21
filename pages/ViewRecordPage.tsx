@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -84,6 +83,7 @@ const statusLabelMap: Record<Appointment['status'], string> = {
     Confirmed: 'Confirmado',
     Completed: 'Concluído',
     Cancelled: 'Cancelado',
+    Ausente: 'Ausente',
 };
 
 export const ViewRecordPage: React.FC = () => {

@@ -7,7 +7,7 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { PlusIcon, PencilIcon, TrashIcon, BellIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon, ArrowPathIcon } from '../components/icons/HeroIcons'; 
 import { Appointment, DentistUser, NavigationPath, ConsultationHistoryEntry } from '../types'; 
-import { getAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry, getProcedures, updatePatientLastAppointment, setAppointmentMissedNotificationSent } from '../services/supabaseService'; 
+import { getAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry, getProcedures, updatePatientLastAppointment } from '../services/supabaseService'; 
 import { isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal'; 
 import { useToast } from '../contexts/ToastContext'; 
@@ -18,18 +18,21 @@ const statusColorMap: Record<Appointment['status'], string> = {
     Confirmed: 'bg-[#00bcd4]', 
     Completed: 'bg-green-500', 
     Cancelled: 'bg-[#f44336]', 
+    Ausente: 'bg-orange-500',
 };
 const statusTextClassMap: Record<Appointment['status'], string> = {
     Scheduled: 'text-black',
     Confirmed: 'text-black', 
     Completed: 'text-white',
     Cancelled: 'text-white',
+    Ausente: 'text-white',
 };
 const statusLabelMap: Record<Appointment['status'], string> = {
     Scheduled: 'Agendado',
     Confirmed: 'Confirmado',
     Completed: 'Concluído',
     Cancelled: 'Cancelado',
+    Ausente: 'Ausente',
 };
 
 interface AppointmentToDelete {
@@ -231,6 +234,7 @@ export const AppointmentsPage: React.FC = () => {
         case 'Confirmed': newStatus = 'Completed'; break;
         case 'Completed': newStatus = 'Cancelled'; break;
         case 'Cancelled': newStatus = 'Scheduled'; break;
+        case 'Ausente': newStatus = 'Scheduled'; break;
         default: newStatus = 'Scheduled';
     }
     const { data: updatedAppointment, error } = await updateAppointmentStatus(appointment.id, newStatus);
@@ -337,62 +341,76 @@ export const AppointmentsPage: React.FC = () => {
   };
   
   const handleMissedAppointment = async (appointment: Appointment) => {
-    if (appointment.missed_notification_sent) {
-        showToast("Comunicado de falta já foi enviado anteriormente.", "info");
-        return;
+    if (appointment.status === 'Ausente' || appointment.status === 'Completed' || appointment.status === 'Cancelled') {
+      showToast("Ação não permitida para este status de agendamento.", "info");
+      return;
     }
     if (!appointment.patient_cpf) {
-        showToast("Paciente não cadastrado, não é possível obter o telefone.", "warning");
-        return;
+      showToast("Paciente não cadastrado, não é possível obter o telefone.", "warning");
+      return;
     }
-    
+
     setIsUpdatingStatus(appointment.id);
 
     try {
-        const { data: patient, error: patientError } = await getPatientByCpf(appointment.patient_cpf);
-        if (patientError || !patient || !patient.phone) {
-            showToast(`Paciente ${appointment.patient_name} não possui telefone cadastrado.`, 'warning');
-            return;
-        }
+      const { data: patient, error: patientError } = await getPatientByCpf(appointment.patient_cpf);
+      if (patientError || !patient || !patient.phone) {
+        showToast(`Paciente ${appointment.patient_name} não possui telefone cadastrado.`, 'warning');
+        setIsUpdatingStatus(null);
+        return;
+      }
 
-        const webhookUrl = 'https://primary-production-76569.up.railway.app/webhook/waha';
-        const payload = {
-            NomePaciente: patient.fullName,
-            telefone: patient.phone.replace(/\D/g, '')
-        };
+      const webhookUrl = 'https://primary-production-76569.up.railway.app/webhook/waha';
+      const payload = {
+        NomePaciente: patient.fullName,
+        telefone: patient.phone.replace(/\D/g, ''),
+      };
 
-        const response = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-        });
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Webhook response error:', errorText);
-            throw new Error(`Falha ao enviar notificação para o sistema. Status: ${response.status}`);
-        }
-        
-        const { error: updateError } = await setAppointmentMissedNotificationSent(appointment.id);
-        if (updateError) {
-            throw new Error(updateError.message || "Erro ao salvar o status do comunicado.");
-        }
-        
-        setAllAppointments(prev => 
-            prev.map(appt => 
-                appt.id === appointment.id ? { ...appt, missed_notification_sent: true } : appt
-            )
-        );
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Webhook response error:', errorText);
+        throw new Error(`Falha ao enviar notificação para o sistema. Status: ${response.status}`);
+      }
 
-        showToast("Comunicado de falta enviado ao sistema e status salvo.", "success");
+      const { error: updateError } = await updateAppointmentStatus(appointment.id, 'Ausente');
+      if (updateError) {
+        throw new Error(updateError.message || "Erro ao atualizar o status do agendamento.");
+      }
+      
+      const historyEntry: Omit<ConsultationHistoryEntry, 'id' | 'completion_timestamp' | 'created_at'> = {
+          appointment_id: appointment.id,
+          patient_cpf: appointment.patient_cpf,
+          patient_name: appointment.patient_name,
+          dentist_id: appointment.dentist_id,
+          dentist_name: appointment.dentist_name,
+          procedure_details: appointment.procedure,
+          consultation_date: appointment.appointment_date,
+          notes: appointment.notes,
+          status: 'Ausente',
+      };
+      await addConsultationHistoryEntry(historyEntry);
+
+      setAllAppointments(prev =>
+        prev.map(appt =>
+          appt.id === appointment.id ? { ...appt, status: 'Ausente' } : appt
+        )
+      );
+
+      showToast("Comunicado de falta enviado e status atualizado para Ausente.", "success");
 
     } catch (error: any) {
-        showToast(error.message, "error");
-        console.error("Error in handleMissedAppointment:", error);
+      showToast(error.message, "error");
+      console.error("Error in handleMissedAppointment:", error);
     } finally {
-        setIsUpdatingStatus(null);
+      setIsUpdatingStatus(null);
     }
   };
 
@@ -534,13 +552,13 @@ export const AppointmentsPage: React.FC = () => {
                             variant="ghost"
                             className="p-1.5"
                             onClick={() => handleMissedAppointment(appointment)}
-                            disabled={isDeleting || !!isUpdatingStatus || appointment.missed_notification_sent}
-                            title={appointment.missed_notification_sent ? "Comunicado de falta já enviado" : "Paciente faltou a consulta, enviar comunicado via Whatsapp"}
+                            disabled={isDeleting || !!isUpdatingStatus || ['Ausente', 'Completed', 'Cancelled'].includes(appointment.status)}
+                            title={appointment.status === 'Ausente' ? "Paciente marcado como ausente" : "Paciente faltou a consulta, enviar comunicado via Whatsapp"}
                           >
                             {isUpdatingStatus === appointment.id ? (
                                 <ArrowPathIcon className="w-5 h-5 text-gray-400 animate-spin" />
-                            ) : appointment.missed_notification_sent ? (
-                                <CheckIcon className="w-5 h-5 text-green-400" />
+                            ) : appointment.status === 'Ausente' ? (
+                                <CheckIcon className="w-5 h-5 text-orange-400" />
                             ) : (
                                 <img src="https://cdn-icons-png.flaticon.com/512/6897/6897039.png" alt="Paciente Faltou" className="w-5 h-5" />
                             )}

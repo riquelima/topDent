@@ -37,13 +37,12 @@ export type Database = {
             appointment_time: string;
             procedure: string;
             notes: string | null;
-            status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+            status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled' | 'Ausente';
             dentist_id: string | null; 
             dentist_name: string | null; 
             return_date: string | null;
             created_at: string;
             updated_at: string | null;
-            missed_notification_sent: boolean | null;
         },
         Insert: {
             id?: string;
@@ -53,13 +52,12 @@ export type Database = {
             appointment_time: string;
             procedure: string;
             notes?: string | null;
-            status?: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+            status?: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled' | 'Ausente';
             dentist_id?: string | null; 
             dentist_name?: string | null; 
             return_date?: string | null;
             created_at?: string;
             updated_at?: string | null;
-            missed_notification_sent?: boolean | null;
         },
         Update: {
             id?: string;
@@ -69,13 +67,12 @@ export type Database = {
             appointment_time?: string;
             procedure?: string;
             notes?: string | null;
-            status?: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+            status?: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled' | 'Ausente';
             dentist_id?: string | null; 
             dentist_name?: string | null; 
             return_date?: string | null;
             created_at?: string;
             updated_at?: string | null;
-            missed_notification_sent?: boolean | null;
         }
       },
       patients: {
@@ -349,7 +346,7 @@ export type Database = {
             procedure_details: string;
             consultation_date: string;
             completion_timestamp: string;
-            status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+            status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled' | 'Ausente';
             notes: string | null;
             created_at: string;
         },
@@ -363,7 +360,7 @@ export type Database = {
             procedure_details: string;
             consultation_date: string;
             completion_timestamp?: string;
-            status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+            status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled' | 'Ausente';
             notes?: string | null;
             created_at?: string;
         },
@@ -377,7 +374,7 @@ export type Database = {
             procedure_details?: string;
             consultation_date?: string;
             completion_timestamp?: string;
-            status?: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+            status?: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled' | 'Ausente';
             notes?: string | null;
             created_at?: string;
         }
@@ -810,12 +807,6 @@ export const updateAppointmentStatus = async (id: string, status: Appointment['s
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
     return (client.from('appointments') as any).update({ status, updated_at: new Date().toISOString() }).eq('id', id).select().single();
-};
-
-export const setAppointmentMissedNotificationSent = async (id: string) => {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return (client.from('appointments') as any).update({ missed_notification_sent: true, updated_at: new Date().toISOString() }).eq('id', id).select().single();
 };
 
 export const updateAppointmentsForPatientNameChange = async (patientCpf: string, newPatientName: string) => {

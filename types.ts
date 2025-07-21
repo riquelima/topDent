@@ -76,13 +76,12 @@ export interface Appointment {
   appointment_time: string; // HH:MM
   procedure: string;
   notes?: string | null;
-  status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+  status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled' | 'Ausente';
   dentist_id?: string | null; 
   dentist_name?: string | null; 
   return_date?: string | null; // Date for follow-up
   created_at?: string; // ISO timestamp string
   updated_at?: string; // ISO timestamp string
-  missed_notification_sent?: boolean | null;
 }
 
 export type PaymentMethod = "Dinheiro" | "Cartão de Crédito" | "Cartão de Débito" | "PIX" | "Transferência Bancária" | "Boleto" | "Outro";
@@ -170,7 +169,7 @@ export interface ConsultationHistoryEntry {
   procedure_details: string; // The procedure string from appointment
   consultation_date: string; // YYYY-MM-DD from appointment
   completion_timestamp: string; // ISO timestamp string for when it was marked complete/cancelled
-  status: Appointment['status']; // Changed from 'Completed' to support various final statuses
+  status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled' | 'Ausente';
   notes?: string | null; // Notes from the original appointment
   created_at?: string; // ISO timestamp string
 }

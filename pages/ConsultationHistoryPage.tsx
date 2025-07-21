@@ -19,6 +19,7 @@ const statusDisplayConfig: Record<Appointment['status'], { label: string; classN
   Confirmed: { label: 'Confirmado', className: 'bg-[#00bcd4] text-black' },
   Completed: { label: 'Concluído', className: 'bg-green-500 text-white' },
   Cancelled: { label: 'Cancelado', className: 'bg-red-500 text-white' },
+  Ausente: { label: 'Ausente', className: 'bg-orange-500 text-white' },
 };
 
 export const ConsultationHistoryPage: React.FC = () => {
