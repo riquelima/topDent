@@ -1,3 +1,4 @@
+/// <reference path="lottie.d.ts" />
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, Navigate } from 'react-router-dom';

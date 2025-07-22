@@ -1,5 +1,4 @@
 /// <reference types="react" />
-/// <reference path="lottie.d.ts" />
 
 export interface Patient {
   id: string; // Should be unique, CPF can serve this role for now
@@ -83,6 +82,7 @@ export interface Appointment {
   return_date?: string | null; // Date for follow-up
   created_at?: string; // ISO timestamp string
   updated_at?: string; // ISO timestamp string
+  missed_notification_sent?: boolean | null;
 }
 
 export type PaymentMethod = "Dinheiro" | "Cartão de Crédito" | "Cartão de Débito" | "PIX" | "Transferência Bancária" | "Boleto" | "Outro";
