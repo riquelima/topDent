@@ -64,6 +64,7 @@ export const TreatmentPlanPage: React.FC = () => {
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   const [patientSearchTermDropdown, setPatientSearchTermDropdown] = useState('');
   const patientDropdownRef = useRef<HTMLDivElement>(null);
+  const [isPatientPrefilled, setIsPatientPrefilled] = useState(false);
 
   const [prescribedMedication, setPrescribedMedication] = useState('');
   const [payments, setPayments] = useState<PaymentInput[]>([{ value: '', payment_method: '', payment_date: '', description: '' }]);
@@ -102,6 +103,21 @@ export const TreatmentPlanPage: React.FC = () => {
   useEffect(() => {
     fetchPatientsForDropdown();
   }, [fetchPatientsForDropdown]);
+  
+  const clearForm = (clearCpf = true) => {
+    if (clearCpf || !isEditMode) setPatientCPF(''); 
+    setDescription('');
+    setProceduresPerformed('');
+    setDentistSignature('');
+    setNewlySelectedFiles([]);
+    setCurrentFiles([]);
+    if(fileInputRef.current) fileInputRef.current.value = "";
+    setPatientSearchTermDropdown('');
+    setIsPatientDropdownOpen(false);
+    setPrescribedMedication('');
+    setPayments([{ value: '', payment_method: '', payment_date: '', description: '' }]);
+    setIsPatientPrefilled(false);
+  };
 
   useEffect(() => {
     if (isEditMode && planId) {
@@ -130,9 +146,18 @@ export const TreatmentPlanPage: React.FC = () => {
         })
         .finally(() => setIsLoading(false));
     } else {
-      clearForm(false); 
+       const navigationState = location.state as { patientCpf?: string; patientFullName?: string } | null;
+        if (navigationState?.patientCpf && navigationState?.patientFullName) {
+            clearForm(false);
+            setPatientCPF(navigationState.patientCpf);
+            setPatientSearchTermDropdown(navigationState.patientFullName);
+            setIsPatientPrefilled(true);
+            showToast(`Criando plano para: ${navigationState.patientFullName}`, 'info', 3000);
+        } else {
+            clearForm(false);
+        }
     }
-  }, [planId, isEditMode, showToast]);
+  }, [planId, isEditMode, showToast, location.state]);
   
   useEffect(() => {
     const newPreviews: Record<string, string> = {};
@@ -173,23 +198,9 @@ export const TreatmentPlanPage: React.FC = () => {
     setNewlySelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
   
-  const clearForm = (clearCpf = true) => {
-    if (clearCpf || !isEditMode) setPatientCPF(''); 
-    setDescription('');
-    setProceduresPerformed('');
-    setDentistSignature('');
-    setNewlySelectedFiles([]);
-    setCurrentFiles([]);
-    if(fileInputRef.current) fileInputRef.current.value = "";
-    setPatientSearchTermDropdown('');
-    setIsPatientDropdownOpen(false);
-    setPrescribedMedication('');
-    setPayments([{ value: '', payment_method: '', payment_date: '', description: '' }]);
-  };
-
   const handlePatientSelect = (patient: Patient) => {
     setPatientCPF(patient.cpf);
-    setPatientSearchTermDropdown(''); 
+    setPatientSearchTermDropdown(patient.fullName); 
     setIsPatientDropdownOpen(false);
   };
 
@@ -387,22 +398,22 @@ export const TreatmentPlanPage: React.FC = () => {
             <div className="flex">
                 <Input 
                     id="patientCPF" name="patientCPF" 
-                    value={patientSearchTermDropdown || patientCPF} 
+                    value={patientSearchTermDropdown} 
                     onChange={(e) => {
                         setPatientSearchTermDropdown(e.target.value);
-                        setPatientCPF(e.target.value); 
+                        setPatientCPF(''); 
                         if(e.target.value.trim() !== '') setIsPatientDropdownOpen(true); else setIsPatientDropdownOpen(false);
                     }}
                     placeholder="Buscar por Nome ou CPF" 
                     required={userRole !== 'dentist'}
-                    disabled={isLoading || isEditMode || (userRole === 'dentist' && isEditMode)} 
+                    disabled={isLoading || isEditMode || (userRole === 'dentist' && isEditMode) || isPatientPrefilled} 
                     containerClassName="mb-0 flex-grow" 
                     className="rounded-r-none h-[46px]" 
                     prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400"/>}
                 />
-              <Button type="button" onClick={() => setIsPatientDropdownOpen(!isPatientDropdownOpen)} className="px-3 bg-[var(--background-light)] hover:bg-[var(--background-dark)] border border-l-0 border-[var(--border-color)] rounded-l-none rounded-r-2xl h-[46px]" aria-expanded={isPatientDropdownOpen} aria-haspopup="listbox" title="Selecionar Paciente" disabled={isLoading || isEditMode || isLoadingPatients || (userRole === 'dentist' && isEditMode)}><ChevronUpDownIcon className="w-5 h-5 text-gray-400" /></Button>
+              <Button type="button" onClick={() => setIsPatientDropdownOpen(!isPatientDropdownOpen)} className="px-3 bg-[var(--background-light)] hover:bg-[var(--background-dark)] border border-l-0 border-[var(--border-color)] rounded-l-none rounded-r-2xl h-[46px]" aria-expanded={isPatientDropdownOpen} aria-haspopup="listbox" title="Selecionar Paciente" disabled={isLoading || isEditMode || isLoadingPatients || (userRole === 'dentist' && isEditMode) || isPatientPrefilled}><ChevronUpDownIcon className="w-5 h-5 text-gray-400" /></Button>
             </div>
-            {isPatientDropdownOpen && !(isEditMode || (userRole === 'dentist' && isEditMode)) && (<div className="absolute top-full left-0 right-0 mt-1 w-full bg-[var(--background-light)] border border-[var(--border-color)] rounded-xl shadow-lg z-10 max-h-60 overflow-y-auto">
+            {isPatientDropdownOpen && !(isEditMode || (userRole === 'dentist' && isEditMode) || isPatientPrefilled) && (<div className="absolute top-full left-0 right-0 mt-1 w-full bg-[var(--background-light)] border border-[var(--border-color)] rounded-xl shadow-lg z-10 max-h-60 overflow-y-auto">
                 {isLoadingPatients ? <p className="text-sm text-gray-400 text-center py-2">Carregando pacientes...</p> : filteredDropdownPatients.length > 0 ? <ul>{filteredDropdownPatients.map(p => (<li key={p.id} onClick={() => handlePatientSelect(p)} className="px-3 py-2 text-sm text-white hover:bg-[var(--accent-cyan)] hover:text-black cursor-pointer" role="option" aria-selected={patientCPF === p.cpf}>{p.fullName} <span className="text-xs text-gray-400">({p.cpf})</span></li>))}</ul> : <p className="text-sm text-gray-400 text-center py-2">Nenhum paciente encontrado.</p>}
             </div>)}
           </div>
