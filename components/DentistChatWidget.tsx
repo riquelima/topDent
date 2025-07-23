@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
@@ -315,4 +314,152 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     <>
       {isOpen && (
         <div ref={widgetRef} className="fixed bottom-24 right-8 w-full max-w-3xl h-[700px] bg-[var(--background-medium)] rounded-xl shadow-2xl flex flex-col z-50 border border-[var(--border-color)] animate-slide-up-widget">
-          <header className="p-4 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--background-light)] rounded-
+          <header className="p-4 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--background-light)] rounded-t-xl">
+             <div className="flex items-center">
+              <img src="https://raw.githubusercontent.com/riquelima/topDent/main/logoSite.png" alt="Admin Icon" className="w-8 h-8 rounded-full mr-3" />
+              <h2 className="text-xl font-semibold text-white">Chat com a Recepção</h2>
+            </div>
+            <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-full hover:bg-gray-700 transition-colors">
+              <XMarkIcon className="w-5 h-5 text-gray-300" />
+            </button>
+          </header>
+          <main className="flex-1 flex flex-col min-h-0" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+            {isDragging && (
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20 border-4 border-dashed border-cyan-500 rounded-lg pointer-events-none">
+                  <p className="text-white text-lg font-semibold">Arraste e solte os arquivos aqui</p>
+                </div>
+              )}
+            {adminUser ? (
+              <>
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[var(--background-dark)]">
+                  {isLoading.messages ? (
+                    <p className="text-center text-gray-400">Carregando mensagens...</p>
+                  ) : messages.length === 0 ? (
+                    <p className="text-center text-gray-400">Inicie a conversa com a Recepção.</p>
+                  ) : (
+                    messages.map(msg => (
+                      <div key={msg.id} className={`flex items-end ${msg.sender_id === dentistId ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-md px-4 py-2 rounded-xl shadow ${msg.sender_id === dentistId ? 'bg-cyan-700 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
+                           {msg.file_url && (
+                                isImageFile(msg.file_type) ? (
+                                    <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
+                                        <img src={msg.file_url} alt={msg.file_name || 'imagem anexa'} className="max-w-xs rounded-lg my-1" />
+                                    </a>
+                                ) : (
+                                    <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center bg-black/20 p-2 rounded-lg hover:bg-black/30 my-1">
+                                        <DocumentTextIcon className="w-6 h-6 mr-2 flex-shrink-0" />
+                                        <span className="truncate">{msg.file_name || 'Arquivo'}</span>
+                                    </a>
+                                )
+                            )}
+                            {msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
+                            <div className="flex items-center justify-end text-right mt-1 opacity-70">
+                                <p className="text-xs">{formatIsoToSaoPauloTime(msg.created_at)}</p>
+                                {msg.sender_id === dentistId && (
+                                  msg.is_read
+                                      ? <span title="Lido" className="ml-2 text-xs text-cyan-300 font-semibold">Lido</span>
+                                      : <span title="Enviado" className="ml-2"><CheckIcon className="w-4 h-4 text-gray-400" /></span>
+                                )}
+                            </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+                <footer className="p-4 bg-[var(--background-light)] border-t border-[var(--border-color)] relative" ref={pickerRef}>
+                   {attachedFiles.length > 0 && (
+                        <div className="p-2 mb-2 border-b border-gray-700/50 space-y-2 max-h-28 overflow-y-auto">
+                            {attachedFiles.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between bg-[#2a2a2a] p-1.5 rounded-md text-xs">
+                                    <span className="text-gray-300 truncate pr-2">{file.name}</span>
+                                    <button type="button" onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== index))}>
+                                        <XMarkIcon className="w-4 h-4 text-red-400 hover:text-red-300"/>
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                  {isPickerOpen && (
+                    <div className="absolute bottom-full right-0 mb-2 z-10">
+                        <EmojiPicker 
+                            onEmojiClick={handleEmojiClick}
+                            theme={Theme.DARK}
+                            lazyLoadEmojis={true}
+                            height={400}
+                            width={350}
+                        />
+                    </div>
+                  )}
+                  <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
+                    <Button 
+                          type="button" 
+                          onClick={() => fileInputRef.current?.click()} 
+                          variant="ghost" 
+                          className="p-3 h-12"
+                          aria-label="Anexar arquivo"
+                          title="Anexar arquivo"
+                          disabled={isSending}
+                      >
+                          <PaperclipIcon className="w-6 h-6 text-gray-400"/>
+                      </Button>
+                      <input 
+                          type="file"
+                          multiple
+                          ref={fileInputRef}
+                          className="hidden"
+                          onChange={handleFileChange}
+                          accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      />
+                    <Input 
+                      containerClassName="flex-grow mb-0" 
+                      className="bg-gray-700 border-gray-600 focus:border-cyan-500 h-12" 
+                      placeholder="Digite sua mensagem..." 
+                      value={newMessage} 
+                      onChange={e => setNewMessage(e.target.value)} 
+                      disabled={isSending || isLoading.messages} 
+                      autoFocus
+                      suffixIcon={
+                        <button 
+                          type="button" 
+                          onClick={() => setIsPickerOpen(!isPickerOpen)} 
+                          className="p-1 rounded-full text-gray-400 hover:text-white transition-colors"
+                          aria-label="Adicionar emoji"
+                          title="Adicionar emoji"
+                        >
+                          <FaceSmileIcon className="w-6 h-6"/>
+                        </button>
+                      }
+                    />
+                    <Button type="submit" variant="primary" className="h-12 w-12 p-0 flex-shrink-0" disabled={isSending || isLoading.messages || (!newMessage.trim() && attachedFiles.length === 0)}><PaperAirplaneIcon className="w-6 h-6"/></Button>
+                  </form>
+                </footer>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-gray-400">Conectando ao chat...</p>
+              </div>
+            )}
+          </main>
+        </div>
+      )}
+
+      <button onClick={toggleChat} className="fixed bottom-8 right-8 bg-cyan-600 hover:bg-cyan-500 text-white w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-cyan-500 z-40">
+        <img src="https://cdn-icons-png.flaticon.com/512/9314/9314332.png" alt="Chat" className="w-8 h-8" />
+        {totalUnreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white ring-2 ring-cyan-600">
+            {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
+          </span>
+        )}
+      </button>
+
+      <style>{`
+        @keyframes slide-up-widget {
+          from { transform: translateY(30px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up-widget { animation: slide-up-widget 0.3s ease-out forwards; }
+      `}</style>
+    </>
+  );
+};
