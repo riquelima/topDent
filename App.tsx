@@ -1,4 +1,4 @@
-/// <reference path="lottie.d.ts" />
+
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
@@ -40,17 +40,14 @@ interface AppLayoutProps {
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ onLogout, userRole, userName, children }) => {
-  const mainPadding = userRole === 'dentist' 
-    ? "px-2 sm:px-4 lg:px-4" 
-    : "px-4 sm:px-6 lg:px-8"; 
+  const mainPadding = "px-4 sm:px-6 lg:px-8";
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0e0e0e] text-white selection:bg-[#00bcd4] selection:text-black">
+    <div className="flex flex-col min-h-screen bg-[var(--background-dark)] text-white selection:bg-[var(--accent-cyan)] selection:text-black">
       <Header onLogout={onLogout} userRole={userRole} userName={userName} />
       <main className={`flex-grow pt-28 pb-12 ${mainPadding}`}>
-        <div>
-           {children}
-        </div>
+        {/* A restrição max-w-7xl foi removida para permitir que o conteúdo preencha a largura da tela. */}
+        {children}
       </main>
       <Footer />
     </div>
@@ -59,8 +56,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ onLogout, userRole, userName, chi
 
 const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
   <div className="text-center py-10">
-    <h1 className="text-3xl font-bold text-[#00bcd4]">{title}</h1>
-    <p className="text-[#b0b0b0] mt-4">Esta página está em construção.</p>
+    <h1 className="text-3xl font-bold text-[var(--accent-cyan)]">{title}</h1>
+    <p className="text-[var(--text-secondary)] mt-4">Esta página está em construção.</p>
     <Link to={NavigationPath.Home} className="mt-6 inline-block">
         <Button variant="primary">Voltar ao Início</Button>
     </Link>
@@ -150,7 +147,7 @@ const App: React.FC = () => {
   const ProtectedRoute: React.FC<{children: JSX.Element; adminOnly?: boolean}> = ({ children, adminOnly = false }) => {
     if (isInitializing) {
       return (
-        <div className="flex items-center justify-center min-h-screen bg-[#0e0e0e] text-white">
+        <div className="flex items-center justify-center min-h-screen bg-[var(--background-dark)] text-white">
             Carregando sessão...
         </div>
       );
@@ -182,7 +179,7 @@ const App: React.FC = () => {
 
   if (isInitializing) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#0e0e0e] text-white">
+      <div className="flex items-center justify-center min-h-screen bg-[var(--background-dark)] text-white">
         Inicializando...
       </div>
     );

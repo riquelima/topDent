@@ -134,12 +134,12 @@ export const PatientTreatmentPlansPage: React.FC = () => {
   };
   
   if (isLoading) {
-    return <div className="text-center py-10 text-gray-400">Carregando planos de tratamento...</div>;
+    return <div className="text-center py-10 text-[var(--text-secondary)]">Carregando planos de tratamento...</div>;
   }
   
   if (error) {
     return (
-      <Card title="Erro" className="bg-[#1a1a1a]">
+      <Card title="Erro">
         <p className="text-center text-red-400 py-8">{error}</p>
         <div className="mt-6 text-center">
             <Button onClick={() => navigate(NavigationPath.PatientsList)} leftIcon={<ArrowUturnLeftIcon />}>
@@ -152,7 +152,7 @@ export const PatientTreatmentPlansPage: React.FC = () => {
   
   if (!patient) {
       return (
-        <Card title="Paciente não encontrado" className="bg-[#1a1a1a]">
+        <Card title="Paciente não encontrado">
             <p className="text-center text-red-400 py-8">Não foi possível encontrar o paciente. Verifique o CPF fornecido.</p>
             <div className="mt-6 text-center">
                 <Button onClick={() => navigate(NavigationPath.PatientsList)} leftIcon={<ArrowUturnLeftIcon />}>
@@ -178,17 +178,16 @@ export const PatientTreatmentPlansPage: React.FC = () => {
             )}
           </div>
         }
-        className="bg-[#1a1a1a]"
       >
         {treatmentPlans.length === 0 ? (
-          <p className="text-center text-[#b0b0b0] py-8">Nenhum plano de tratamento cadastrado para este paciente.</p>
+          <p className="text-center text-[var(--text-secondary)] py-8">Nenhum plano de tratamento cadastrado para este paciente.</p>
         ) : (
           <div className="space-y-6">
             {treatmentPlans.map(plan => (
-              <Card key={plan.id} className="bg-[#1f1f1f]">
+              <Card key={plan.id} className="bg-[var(--background-light)]">
                 <div className="flex justify-between items-start">
                   <div className="flex-grow pr-4">
-                    <h3 className="text-lg font-semibold text-[#00bcd4]">Plano criado em {plan.created_at ? isoToDdMmYyyy(plan.created_at.split('T')[0]) : 'N/A'}</h3>
+                    <h3 className="text-lg font-semibold text-[var(--accent-cyan)]">Plano criado em {plan.created_at ? isoToDdMmYyyy(plan.created_at.split('T')[0]) : 'N/A'}</h3>
                     <p className="mt-2 text-gray-200 whitespace-pre-wrap">{plan.description}</p>
                     {plan.procedures_performed && (
                         <p className="mt-2 text-sm text-gray-400 whitespace-pre-wrap">
@@ -220,11 +219,11 @@ export const PatientTreatmentPlansPage: React.FC = () => {
                                 {isImageFile(file.name) ? (
                                     <img 
                                         src={file.url} alt={file.name || 'Anexo'} 
-                                        className="rounded w-16 h-16 cursor-pointer border border-gray-600 hover:opacity-80 object-cover"
+                                        className="rounded w-16 h-16 cursor-pointer border border-[var(--border-color)] hover:opacity-80 object-cover"
                                         onClick={(e) => { e.preventDefault(); openImageInModal(file.url!); }}
                                     />
                                 ) : (
-                                    <div className="w-16 h-16 rounded bg-gray-700 flex flex-col items-center justify-center p-1 text-center border border-gray-600 hover:bg-gray-600">
+                                    <div className="w-16 h-16 rounded bg-gray-700 flex flex-col items-center justify-center p-1 text-center border border-[var(--border-color)] hover:bg-gray-600">
                                         <DocumentTextIcon className="w-6 h-6 text-gray-400" />
                                         <span className="text-xs text-gray-400 mt-1 truncate w-full">{file.name}</span>
                                     </div>
@@ -236,8 +235,8 @@ export const PatientTreatmentPlansPage: React.FC = () => {
                     )}
                   </div>
                   <div className="flex-shrink-0 flex items-center space-x-2">
-                     <Button variant="ghost" size="sm" onClick={() => handleEditPlan(plan.id)} disabled={isDeleting} className="p-1.5" title="Editar Plano"><PencilIcon className="w-4 h-4 text-[#00bcd4]" /></Button>
-                     <Button variant="ghost" size="sm" onClick={() => requestDeletePlan(plan)} disabled={isDeleting} className="p-1.5" title="Apagar Plano"><TrashIcon className="w-4 h-4 text-[#f44336]" /></Button>
+                     <Button variant="ghost" size="sm" onClick={() => handleEditPlan(plan.id)} disabled={isDeleting} className="p-1.5" title="Editar Plano"><PencilIcon className="w-4 h-4 text-[var(--accent-cyan)]" /></Button>
+                     <Button variant="ghost" size="sm" onClick={() => requestDeletePlan(plan)} disabled={isDeleting} className="p-1.5" title="Apagar Plano"><TrashIcon className="w-4 h-4 text-[var(--accent-red)]" /></Button>
                   </div>
                 </div>
               </Card>
@@ -245,7 +244,7 @@ export const PatientTreatmentPlansPage: React.FC = () => {
           </div>
         )}
 
-        <div className="mt-8 pt-6 border-t border-gray-700 text-center flex justify-center items-center space-x-4">
+        <div className="mt-8 pt-6 border-t border-[var(--border-color)] text-center flex justify-center items-center space-x-4">
             <Button onClick={() => navigate(`/patient/${patientId}`)} leftIcon={<ArrowUturnLeftIcon />}>
                 Voltar para Detalhes do Paciente
             </Button>

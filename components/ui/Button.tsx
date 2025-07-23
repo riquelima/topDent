@@ -1,18 +1,27 @@
 
 import React from 'react';
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+// Props specific to our Button component
+interface ButtonOwnProps {
   children: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'dashboardAction'; // Added 'dashboardAction' for specific use
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'dashboardAction';
   size?: 'sm' | 'md' | 'lg';
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   fullWidth?: boolean;
-  colorClass?: string; // For dashboardAction variant
-  hoverColorClass?: string; // For dashboardAction variant
+  colorClass?: string;
+  hoverColorClass?: string;
+  className?: string;
 }
 
-export const Button: React.FC<ButtonProps> = ({
+// Polymorphic component props
+type ButtonProps<C extends React.ElementType> = ButtonOwnProps &
+  Omit<React.ComponentPropsWithoutRef<C>, keyof ButtonOwnProps> & {
+    as?: C;
+  };
+
+export const Button = <C extends React.ElementType = 'button'>({
+  as,
   children,
   variant = 'primary',
   size = 'md',
@@ -20,49 +29,51 @@ export const Button: React.FC<ButtonProps> = ({
   rightIcon,
   fullWidth = false,
   className = '',
-  colorClass, // Destructure for dashboardAction
-  hoverColorClass, // Destructure for dashboardAction
+  colorClass,
+  hoverColorClass,
   ...props
-}) => {
-  const baseStyles = "font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0e0e0e] transition-all duration-150 ease-in-out transform hover:scale-[1.02] flex items-center justify-center shadow-md";
+}: ButtonProps<C>) => {
+  const Component = as || 'button';
+  
+  const baseStyles = "font-semibold rounded-2xl focus:outline-none focus:ring-4 transition-all duration-300 ease-in-out transform hover:-translate-y-0.5 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none";
 
   let specificVariantStyles = "";
   switch (variant) {
     case 'primary':
-      specificVariantStyles = "bg-[#00bcd4] hover:bg-[#00a5b8] text-black focus:ring-[#00bcd4]"; // Teal/Cyan with black text
+      specificVariantStyles = "bg-[var(--accent-cyan)] text-black focus:ring-[var(--accent-cyan)]/30 shadow-[0_4px_14px_0_rgba(34,211,238,0.3)] hover:shadow-[0_6px_20px_0_rgba(34,211,238,0.4)]";
       break;
     case 'secondary':
-      specificVariantStyles = "bg-gray-700 hover:bg-gray-600 text-white focus:ring-gray-500";
+      specificVariantStyles = "bg-[var(--background-light)] hover:bg-[#2a2a2a] text-[var(--text-primary)] focus:ring-[var(--border-color)] border border-[var(--border-color)]";
       break;
     case 'danger':
-      specificVariantStyles = "bg-[#f44336] hover:bg-[#d32f2f] text-white focus:ring-[#f44336]"; // Red
+      specificVariantStyles = "bg-[var(--accent-red)] text-white focus:ring-[var(--accent-red)]/30 shadow-[0_4px_14px_0_rgba(248,113,113,0.3)] hover:shadow-[0_6px_20px_0_rgba(248,113,113,0.4)]";
       break;
     case 'ghost':
-      specificVariantStyles = "bg-transparent hover:bg-[#1f1f1f] text-[#b0b0b0] hover:text-white focus:ring-gray-500 border border-gray-600 hover:border-gray-500";
+      specificVariantStyles = "bg-transparent hover:bg-[var(--background-light)] text-[var(--text-secondary)] hover:text-white focus:ring-[var(--border-color)] border border-[var(--border-color)]";
       break;
     case 'dashboardAction':
       specificVariantStyles = `${colorClass || 'bg-gray-700'} ${hoverColorClass || 'hover:bg-gray-600'} text-white focus:ring-gray-500`;
       break;
     default:
-      specificVariantStyles = "bg-[#00bcd4] hover:bg-[#00a5b8] text-black focus:ring-[#00bcd4]";
+      specificVariantStyles = "bg-[var(--accent-cyan)] text-black focus:ring-[var(--accent-cyan)]/30";
   }
 
   const sizeStyles = {
     sm: "px-3 py-1.5 text-sm",
-    md: "px-4 py-2 text-base",
-    lg: "px-6 py-3 text-lg",
+    md: "px-5 py-2.5 text-base",
+    lg: "px-7 py-3 text-lg",
   };
 
   const widthStyles = fullWidth ? "w-full" : "";
 
   return (
-    <button
+    <Component
       className={`${baseStyles} ${specificVariantStyles} ${sizeStyles[size]} ${widthStyles} ${className}`}
       {...props}
     >
       {leftIcon && <span className="mr-2">{leftIcon}</span>}
       {children}
       {rightIcon && <span className="ml-2">{rightIcon}</span>}
-    </button>
+    </Component>
   );
 };

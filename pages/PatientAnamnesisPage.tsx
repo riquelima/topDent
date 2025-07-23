@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, ChangeEvent, FormEvent, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -51,13 +52,13 @@ const YesNoDetailsField: React.FC<YesNoDetailsProps> = ({
 
   if (readOnly) {
     return (
-      <div className="mb-3 p-3 border border-gray-700 rounded-md bg-gray-850">
-        <p className="text-sm font-medium text-gray-400">{label}</p>
-        <p className="text-gray-100">{value || "Não informado"}</p>
+      <div className="mb-3 p-3 border border-[var(--border-color)] rounded-xl bg-[var(--background-light)]">
+        <p className="text-sm font-medium text-[var(--text-secondary)]">{label}</p>
+        <p className="text-[var(--text-primary)]">{value || "Não informado"}</p>
         {showDetails && detailsValue && (
           <>
-            <p className="text-sm font-medium text-gray-400 mt-1">{detailsLabel}</p>
-            <p className="text-gray-100 whitespace-pre-wrap">{detailsValue}</p>
+            <p className="text-sm font-medium text-[var(--text-secondary)] mt-1">{detailsLabel}</p>
+            <p className="text-[var(--text-primary)] whitespace-pre-wrap">{detailsValue}</p>
           </>
         )}
       </div>
@@ -65,7 +66,7 @@ const YesNoDetailsField: React.FC<YesNoDetailsProps> = ({
   }
 
   return (
-    <div className="space-y-2 p-3 border border-gray-700 rounded-md bg-gray-800">
+    <div className="space-y-2 p-3 border border-[var(--border-color)] rounded-xl bg-[var(--background-light)]">
       <Select
         id={id}
         label={label}
@@ -315,7 +316,7 @@ export const PatientAnamnesisPage: React.FC = () => {
     }
   };
 
-  if (isLoading && !patient) return <div className="text-center py-10 text-gray-400">Carregando dados do paciente e anamnese...</div>;
+  if (isLoading && !patient) return <div className="text-center py-10 text-[var(--text-secondary)]">Carregando dados do paciente e anamnese...</div>;
   if (error) return <div className="text-center py-10 text-red-400">{error}</div>;
   if (!patient && !isLoading) return <div className="text-center py-10 text-red-500">Paciente não encontrado. Verifique o CPF.</div>;
 
@@ -325,21 +326,21 @@ export const PatientAnamnesisPage: React.FC = () => {
         <YesNoDetailsField id="meds_view" label="USO DE MEDICAÇÃO:" value={formData.medications_taken} detailsValue={formData.medications_details} detailsLabel="QUAIS?" onValueChange={()=>{}} onDetailsChange={()=>{}} readOnly />
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-3 border border-gray-700 rounded-md bg-gray-850">
-                <p className="text-sm font-medium text-gray-400">FUMANTE:</p>
-                <p className="text-gray-100">{formData.is_smoker || "Não informado"}</p>
+            <div className="p-3 border border-[var(--border-color)] rounded-xl bg-[var(--background-light)]">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">FUMANTE:</p>
+                <p className="text-[var(--text-primary)]">{formData.is_smoker || "Não informado"}</p>
             </div>
-            <div className="p-3 border border-gray-700 rounded-md bg-gray-850">
-                <p className="text-sm font-medium text-gray-400">GESTANTE:</p>
-                <p className="text-gray-100">{formData.is_pregnant || "Não informado"}</p>
+            <div className="p-3 border border-[var(--border-color)] rounded-xl bg-[var(--background-light)]">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">GESTANTE:</p>
+                <p className="text-[var(--text-primary)]">{formData.is_pregnant || "Não informado"}</p>
             </div>
         </div>
 
         <YesNoDetailsField id="allerg_view" label="TEM ALGUM TIPO DE ALERGIA:" value={formData.allergies_exist} options={[{value: "Sim", label:"Sim"}, {value:"Não", label:"Não"}, {value:"Não sei", label:"Não sei"}]} detailsValue={formData.allergies_details} detailsLabel="QUAL:" onValueChange={()=>{}} onDetailsChange={()=>{}} readOnly />
         
-        <div className="p-3 border border-gray-700 rounded-md bg-gray-850">
-            <p className="text-sm font-medium text-gray-400">POSSUI ALGUMA DOENÇA DE BASE:</p>
-            <p className="text-gray-100 mb-2">{formData.has_disease || "Não informado"}</p>
+        <div className="p-3 border border-[var(--border-color)] rounded-xl bg-[var(--background-light)]">
+            <p className="text-sm font-medium text-[var(--text-secondary)]">POSSUI ALGUMA DOENÇA DE BASE:</p>
+            <p className="text-[var(--text-primary)] mb-2">{formData.has_disease || "Não informado"}</p>
             {formData.has_disease === 'Sim' && (
                 <div className="ml-4 space-y-1 text-sm">
                     {diseaseOptionsList.map(d => formData[d.id as keyof AnamnesisFormUIData] && <p key={d.id} className="text-gray-200">- {formData[d.id as keyof AnamnesisFormUIData] ? d.label : ''}</p>)}
@@ -351,13 +352,13 @@ export const PatientAnamnesisPage: React.FC = () => {
         <YesNoDetailsField id="surg_view" label="PASSOU POR ALGUMA CIRURGIA:" value={formData.surgeries_had} detailsValue={formData.surgeries_details} detailsLabel="QUAL:" onValueChange={()=>{}} onDetailsChange={()=>{}} readOnly />
 
         <div>
-            <h3 className="text-lg font-medium text-teal-400 mb-2 mt-4">PRESSÃO ARTERIAL:</h3>
+            <h3 className="text-lg font-medium text-[var(--accent-cyan)] mb-2 mt-4">PRESSÃO ARTERIAL:</h3>
             {existingBPReadings.length > 0 ? existingBPReadings.map((bp, idx) => (
-                <div key={bp.id || idx} className="grid grid-cols-2 gap-4 mb-2 p-3 border border-gray-700 rounded-md bg-gray-850">
-                    <div><span className="text-gray-400">Data {idx+1}:</span> <span className="text-gray-100">{bp.date}</span></div>
-                    <div><span className="text-gray-400">Pressão {idx+1}:</span> <span className="text-gray-100">{bp.value}</span></div>
+                <div key={bp.id || idx} className="grid grid-cols-2 gap-4 mb-2 p-3 border border-[var(--border-color)] rounded-xl bg-[var(--background-light)]">
+                    <div><span className="text-[var(--text-secondary)]">Data {idx+1}:</span> <span className="text-[var(--text-primary)]">{bp.date}</span></div>
+                    <div><span className="text-[var(--text-secondary)]">Pressão {idx+1}:</span> <span className="text-[var(--text-primary)]">{bp.value}</span></div>
                 </div>
-            )) : <p className="text-gray-400">Nenhum registro de pressão arterial.</p>}
+            )) : <p className="text-[var(--text-secondary)]">Nenhum registro de pressão arterial.</p>}
         </div>
     </div>
   );
@@ -402,12 +403,12 @@ export const PatientAnamnesisPage: React.FC = () => {
                 placeholder="Selecione..." disabled={isLoading}
             />
             {formData.has_disease === 'Sim' && (
-            <div className="mt-4 p-4 bg-gray-800 rounded-md space-y-3">
-                <p className="text-gray-300 mb-2">Selecione as opções abaixo:</p>
+            <div className="mt-4 p-4 bg-[var(--background-light)] rounded-xl space-y-3 border border-[var(--border-color)]">
+                <p className="text-[var(--text-secondary)] mb-2">Selecione as opções abaixo:</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {diseaseOptionsList.map(opt => (
-                    <label key={opt.id} className={`flex items-center space-x-2 text-gray-200 p-2 hover:bg-gray-700 rounded ${isLoading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
-                    <input type="checkbox" className="form-checkbox h-5 w-5 text-teal-500 bg-gray-700 border-gray-600 rounded focus:ring-teal-400"
+                    <label key={opt.id} className={`flex items-center space-x-2 text-gray-200 p-2 hover:bg-white/10 rounded ${isLoading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
+                    <input type="checkbox" className="form-checkbox h-5 w-5 text-[var(--accent-cyan)] bg-[var(--background-medium)] border-[var(--border-color)] rounded focus:ring-[var(--accent-cyan)]"
                         checked={!!formData[opt.id as keyof AnamnesisFormUIData]}
                         onChange={(e) => handleDiseaseCheckboxChange(opt.id as keyof Pick<AnamnesisFormUIData, 'disease_cardiovascular' | 'disease_respiratory' | 'disease_vascular' | 'disease_diabetes' | 'disease_hypertension' | 'disease_renal' | 'disease_neoplasms' | 'disease_hereditary'>, e.target.checked)}
                         disabled={isLoading}
@@ -433,9 +434,9 @@ export const PatientAnamnesisPage: React.FC = () => {
         />
 
         <div>
-            <h3 className="text-lg font-medium text-teal-400 mb-2">PRESSÃO ARTERIAL:</h3>
+            <h3 className="text-lg font-medium text-[var(--accent-cyan)] mb-2">PRESSÃO ARTERIAL:</h3>
             {formBPReadings.map((reading, index) => (
-                <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-4 mb-3 p-3 border border-gray-700 rounded-md items-end bg-gray-800">
+                <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-4 mb-3 p-3 border border-[var(--border-color)] rounded-xl items-end bg-[var(--background-light)]">
                 <DatePicker label={`Data da Aferição ${index + 1}`} value={reading.date}
                     onChange={(e) => handleBPChange(index, 'date', e.target.value)} disabled={isLoading}
                 />
@@ -447,7 +448,7 @@ export const PatientAnamnesisPage: React.FC = () => {
                 </Button>
                 </div>
             ))}
-            <Button type="button" variant="ghost" size="sm" onClick={addBPReadingField} leftIcon={<PlusIcon />} disabled={isLoading}>
+            <Button type="button" variant="secondary" size="sm" onClick={addBPReadingField} leftIcon={<PlusIcon />} disabled={isLoading}>
               Adicionar Aferição de P.A.
             </Button>
           </div>
@@ -504,9 +505,9 @@ export const PatientAnamnesisPage: React.FC = () => {
           </div>
         }
       >
-        {isEditMode ? renderForm() : (existingAnamnesis || existingBPReadings.length > 0 ? renderReadOnlyView() : <p className="text-gray-400 text-center py-6">Nenhum dado de anamnese ou pressão arterial registrado para este paciente. Clique em "Preencher Nova Anamnese" para adicionar.</p>)}
+        {isEditMode ? renderForm() : (existingAnamnesis || existingBPReadings.length > 0 ? renderReadOnlyView() : <p className="text-[var(--text-secondary)] text-center py-6">Nenhum dado de anamnese ou pressão arterial registrado para este paciente. Clique em "Preencher Nova Anamnese" para adicionar.</p>)}
 
-        <div className="mt-8 pt-6 border-t border-gray-700 text-center">
+        <div className="mt-8 pt-6 border-t border-[var(--border-color)] text-center">
             <Button 
                 onClick={() => navigate(`/patient/${patientId}`)} 
                 leftIcon={<ArrowUturnLeftIcon />} 

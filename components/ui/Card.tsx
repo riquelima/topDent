@@ -12,8 +12,8 @@ interface CardProps {
 }
 
 export const Card: React.FC<CardProps> = ({ children, className = '', title, titleClassName = '', bodyClassName = '', onClick, hoverEffect = false }) => {
-  const baseStyles = "bg-[#1a1a1a] shadow-lg rounded-lg overflow-hidden border border-gray-700/50";
-  const hoverStyles = hoverEffect ? "transition-all duration-150 ease-in-out hover:shadow-xl hover:border-gray-600/70" : "";
+  const baseStyles = "bg-[var(--background-medium)] shadow-lg rounded-2xl overflow-hidden border border-[var(--border-color)]";
+  const hoverStyles = hoverEffect ? "transition-all duration-300 ease-in-out hover:shadow-2xl hover:border-[var(--text-secondary)] hover:-translate-y-1" : "";
   const clickableStyles = onClick ? "cursor-pointer" : "";
 
   return (
@@ -22,7 +22,7 @@ export const Card: React.FC<CardProps> = ({ children, className = '', title, tit
       onClick={onClick}
     >
       {title && (
-        <div className={`px-6 py-4 border-b border-gray-700/50 ${titleClassName}`}>
+        <div className={`px-6 py-4 border-b border-[var(--border-color)] ${titleClassName}`}>
           {typeof title === 'string' ? (
             <h3 className="text-xl font-semibold text-white">{title}</h3>
           ) : (

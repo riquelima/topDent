@@ -8,7 +8,8 @@ import { useToast } from '../contexts/ToastContext';
 import { NavigationPath } from '../types';
 import { AuthLayout } from '../components/layout/AuthLayout';
 import type { UserRole } from '../App'; 
-import { getDentistByUsername, addDentist } from '../services/supabaseService'; // Import addDentist
+import { getDentistByUsername, addDentist } from '../services/supabaseService';
+import { Card } from '../components/ui/Card';
 
 interface LoginPageProps {
   onLoginSuccess: (role: UserRole, idForApi: string, username: string, displayFullName: string) => void;
@@ -22,7 +23,6 @@ const LoginForm: React.FC<{
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -55,40 +55,18 @@ const LoginForm: React.FC<{
         autoComplete="current-password"
         prefixIcon={<LockClosedIcon className="w-5 h-5 text-gray-400" />}
         suffixIcon={
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="text-gray-400 hover:text-gray-200 focus:outline-none"
-            aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-          >
+          <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-white focus:outline-none" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}>
             {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
           </button>
         }
         containerClassName="mb-6"
       />
-      <div className="flex items-center justify-between text-sm mb-6">
-        <label htmlFor="rememberMe" className="flex items-center cursor-pointer text-gray-300 hover:text-white">
-          <input
-            id="rememberMe"
-            type="checkbox"
-            checked={rememberMe}
-            onChange={(e) => setRememberMe(e.target.checked)}
-            className="h-4 w-4 text-teal-600 bg-gray-700 border-gray-600 rounded focus:ring-teal-500 focus:ring-offset-gray-800"
-            disabled={isLoading}
-          />
-          <span className="ml-2">Lembrar-me</span>
-        </label>
-        <a href="#" className="font-medium text-teal-500 hover:text-teal-400 transition-colors duration-200">
+      <div className="flex items-center justify-end text-sm mb-6">
+        <a href="#" className="font-medium text-[var(--accent-cyan)] hover:underline transition-colors duration-200">
           Esqueci minha senha
         </a>
       </div>
-      <Button
-        type="submit"
-        fullWidth
-        variant="primary" 
-        className="py-3 text-base"
-        disabled={isLoading}
-      >
+      <Button type="submit" fullWidth variant="primary" size="lg" disabled={isLoading}>
         {isLoading ? 'Entrando...' : 'Entrar'}
       </Button>
       {errorMessage && (
@@ -112,87 +90,69 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     if (username === 'admin' && pass === '1234') {
         let { data: adminData, error: adminError } = await getDentistByUsername('admin');
 
-        // Handle case where admin user does not exist in DB - self-heal by creating it.
         if (!adminData && !adminError) {
-            showToast('Configurando usuário admin...', 'warning', 2500);
-            const { data: newAdminData, error: creationError } = await addDentist({
-                full_name: 'Admin',
-                username: 'admin',
-                password: `autogen_${Date.now()}` // This password is a placeholder, admin login is hardcoded.
-            });
-
+            const { data: newAdminData, error: creationError } = await addDentist({ full_name: 'Admin', username: 'admin', password: `autogen_${Date.now()}` });
             if (creationError || !newAdminData) {
-                console.error("Critical: Could not create admin user in DB:", creationError);
-                setErrorMessage("Falha crítica ao configurar o usuário admin. Contate o suporte.");
-                showToast("Erro de configuração do sistema.", 'error');
+                setErrorMessage("Falha crítica ao configurar o usuário admin.");
                 setIsLoading(false);
                 return;
             }
-            adminData = newAdminData; // Use the newly created admin data to proceed.
+            adminData = newAdminData;
         } else if (adminError) {
-            console.error("Critical: Admin user not found in database or DB error:", adminError);
-            setErrorMessage('Erro de configuração: usuário Admin não encontrado na base de dados.');
-            showToast('Erro de configuração do sistema.', 'error');
+            setErrorMessage('Erro: usuário Admin não encontrado na base de dados.');
             setIsLoading(false);
             return;
         }
         
         if (!adminData || !adminData.id) {
-            // This is a safeguard, should not be hit with the logic above.
-            console.error("Critical: Admin user data is invalid after fetch/create.");
-            setErrorMessage('Erro de configuração: dados do usuário Admin inválidos.');
-            showToast('Erro de configuração do sistema.', 'error');
+            setErrorMessage('Erro: dados do usuário Admin inválidos.');
             setIsLoading(false);
             return;
         }
 
-        showToast('Login de Admin realizado com sucesso!', 'success', 3000);
+        showToast('Login de Admin realizado com sucesso!', 'success');
         onLoginSuccess('admin', adminData.id, adminData.username, adminData.full_name);
         navigate(NavigationPath.Home);
         setIsLoading(false);
         return;
     }
     
-    // Authenticate against Supabase 'dentists' table
     const { data: dentist, error: dbError } = await getDentistByUsername(username);
 
     if (dbError) {
-      console.error("Login error (fetching dentist):", dbError);
       setErrorMessage('Erro ao tentar fazer login. Tente novamente.');
-      showToast('Erro ao tentar fazer login.', 'error', 4000);
-    } else if (dentist && dentist.password === pass && dentist.id) { // SECURITY: Plain text password check
-      showToast(`Login de ${dentist.full_name} realizado com sucesso!`, 'success', 3000);
+    } else if (dentist && dentist.password === pass && dentist.id) {
+      showToast(`Login de ${dentist.full_name} realizado com sucesso!`, 'success');
       onLoginSuccess('dentist', dentist.id, dentist.username, dentist.full_name);
       navigate(NavigationPath.Home);
     } else {
       setErrorMessage('Usuário ou senha inválidos.');
-      showToast('Usuário ou senha inválidos.', 'error', 4000);
     }
     setIsLoading(false);
   };
 
   return (
     <AuthLayout>
-      <div className="w-full max-w-md space-y-8">
+      <div className="w-full max-w-md space-y-8 animate-fadeInUp opacity-0">
         <div className="text-center">
-          <TopDentLogo className="h-14 sm:h-16 w-auto mx-auto mb-6" />
-          <h1 className="text-3xl sm:text-4xl font-bold text-white">
+          <TopDentLogo className="h-16 w-auto mx-auto mb-6 animate-logo-pulse" />
+          <h1 className="text-4xl font-bold text-white">
             Bem-vindo de volta
           </h1>
-          <p className="mt-2 text-sm text-gray-400">
+          <p className="mt-2 text-lg text-[var(--text-secondary)]">
             Acesse sua conta para gerenciar a clínica.
           </p>
         </div>
         
-        <div className="bg-[#1e1e1e] p-8 rounded-xl shadow-2xl">
+        <Card bodyClassName="p-8 sm:p-10">
           <LoginForm
             onLogin={handleLoginAttempt}
             isLoading={isLoading}
             errorMessage={errorMessage}
           />
-        </div>
+        </Card>
         
-        <p className="mt-10 text-center text-xs text-gray-500">
+        <p className="mt-10 text-center text-sm text-[var(--text-secondary)]">
           © {new Date().getFullYear()} Top Dent | Todos os direitos reservados.
         </p>
       </div>

@@ -45,7 +45,7 @@ const YesNoDetailsField: React.FC<YesNoDetailsProps> = ({ id, label, value, deta
   ];
 
   return (
-    <div className="space-y-2 p-3 border border-gray-700 rounded-md">
+    <div className="space-y-2 p-3 border border-[var(--border-color)] rounded-xl bg-[var(--background-light)]">
       <Select
         id={id}
         label={label}
@@ -274,14 +274,14 @@ export const AnamnesisFormPage: React.FC = () => {
               disabled={isLoading}
             />
             {hasDisease === 'Sim' && (
-              <div className="mt-4 p-4 bg-gray-800 rounded-md space-y-3">
-                <p className="text-gray-300 mb-2">Selecione as opções abaixo:</p>
+              <div className="mt-4 p-4 bg-[var(--background-light)] rounded-xl space-y-3 border border-[var(--border-color)]">
+                <p className="text-[var(--text-secondary)] mb-2">Selecione as opções abaixo:</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {diseaseOptionsList.map(opt => (
-                     <label key={opt.id} className={`flex items-center space-x-2 text-gray-200 p-2 hover:bg-gray-700 rounded ${isLoading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
+                     <label key={opt.id} className={`flex items-center space-x-2 text-gray-200 p-2 hover:bg-white/10 rounded ${isLoading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
                       <input 
                         type="checkbox" 
-                        className="form-checkbox h-5 w-5 text-teal-500 bg-gray-700 border-gray-600 rounded focus:ring-teal-400"
+                        className="form-checkbox h-5 w-5 text-[var(--accent-cyan)] bg-[var(--background-medium)] border-[var(--border-color)] rounded focus:ring-[var(--accent-cyan)]"
                         checked={diseases[opt.id]}
                         onChange={(e) => handleDiseaseChange(opt.id, e.target.checked)}
                         disabled={isLoading}
@@ -314,9 +314,9 @@ export const AnamnesisFormPage: React.FC = () => {
           />
           
           <div>
-            <h3 className="text-lg font-medium text-teal-400 mb-2">Pressão Arterial</h3>
+            <h3 className="text-lg font-medium text-[var(--accent-cyan)] mb-2">Pressão Arterial</h3>
             {bloodPressureReadings.map((reading, index) => (
-              <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3 p-3 border border-gray-700 rounded-md">
+              <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3 p-3 border border-[var(--border-color)] rounded-xl bg-[var(--background-light)]">
                 <DatePicker 
                   label={`Data da Aferição ${index + 1}`}
                   value={reading.date} // YYYY-MM-DD
@@ -331,13 +331,13 @@ export const AnamnesisFormPage: React.FC = () => {
                 />
               </div>
             ))}
-            <Button type="button" variant="ghost" size="sm" onClick={addBloodPressureReading} leftIcon={<PlusIcon />} disabled={isLoading}>
+            <Button type="button" variant="secondary" size="sm" onClick={addBloodPressureReading} leftIcon={<PlusIcon />} disabled={isLoading}>
               Adicionar Aferição
             </Button>
           </div>
 
           <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-6">
-            <Button type="button" variant="ghost" onClick={() => navigate(NavigationPath.Home)} leftIcon={<ArrowUturnLeftIcon />} disabled={isLoading}>
+            <Button type="button" variant="secondary" onClick={() => navigate(NavigationPath.Home)} leftIcon={<ArrowUturnLeftIcon />} disabled={isLoading}>
               Voltar ao Início
             </Button>
             <Button type="button" variant="danger" onClick={clearForm} disabled={isLoading}>

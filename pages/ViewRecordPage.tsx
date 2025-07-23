@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -50,7 +52,7 @@ const DetailItem: React.FC<DetailItemProps> = ({ label, value, isBoolean = false
   if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
     return (
       <div className={className}>
-        <dt className="text-sm font-medium text-[#b0b0b0]">{label}</dt>
+        <dt className="text-sm font-medium text-[var(--text-secondary)]">{label}</dt>
         <dd className="mt-1 text-base text-gray-500 italic">Não informado</dd>
       </div>
     );
@@ -65,8 +67,8 @@ const DetailItem: React.FC<DetailItemProps> = ({ label, value, isBoolean = false
   
   return (
     <div className={className}>
-      <dt className="text-sm font-medium text-[#b0b0b0]">{label}</dt>
-      <dd className="mt-1 text-base text-white whitespace-pre-wrap">{displayValue}</dd>
+      <dt className="text-sm font-medium text-[var(--text-secondary)]">{label}</dt>
+      <dd className="mt-1 text-base text-[var(--text-primary)] whitespace-pre-wrap">{displayValue}</dd>
     </div>
   );
 };
@@ -241,20 +243,20 @@ export const ViewRecordPage: React.FC = () => {
 
   const renderSearchSection = () => (
     <Card 
-      className={`${isInitialSearchState && !cameFromDentistDashboard ? 'min-h-[calc(70vh)] flex flex-col items-center justify-center p-6 sm:p-10 bg-[#1a1a1a]' : 'bg-[#1a1a1a]'} overflow-visible`}
+      className={`${isInitialSearchState && !cameFromDentistDashboard ? 'min-h-[calc(70vh)] flex flex-col items-center justify-center p-6 sm:p-10' : ''} overflow-visible`}
       title={isInitialSearchState && !cameFromDentistDashboard ? undefined : <span className="text-white">Buscar Prontuário</span>}
       titleClassName={`${isInitialSearchState && !cameFromDentistDashboard ? 'hidden' : 'text-xl'}`}
     >
       {isInitialSearchState && !cameFromDentistDashboard && (
         <div className="text-center mb-12">
-            <MagnifyingGlassIcon className="w-16 h-16 text-[#00bcd4] mx-auto mb-6" />
+            <MagnifyingGlassIcon className="w-16 h-16 text-[var(--accent-cyan)] mx-auto mb-6" />
             <h2 className="text-4xl sm:text-5xl font-semibold text-white">Buscar Prontuário</h2>
-            <p className="text-[#b0b0b0] mt-2 text-lg">Digite o nome ou CPF do paciente para visualizar o prontuário completo.</p>
+            <p className="text-[var(--text-secondary)] mt-2 text-lg">Digite o nome ou CPF do paciente para visualizar o prontuário completo.</p>
         </div>
       )}
       <div className={`flex flex-col sm:flex-row gap-4 ${isInitialSearchState && !cameFromDentistDashboard ? 'w-full items-center' : 'items-end'}`}>
         <div className={`relative flex-grow w-full ${isInitialSearchState && !cameFromDentistDashboard ? '' : 'sm:w-auto'}`} ref={dropdownRef}>
-          {!(isInitialSearchState && !cameFromDentistDashboard) && <label htmlFor="patientSearchInput" className="block text-sm font-medium text-[#b0b0b0] mb-1">Paciente</label>}
+          {!(isInitialSearchState && !cameFromDentistDashboard) && <label htmlFor="patientSearchInput" className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Paciente</label>}
           <div className="flex">
             <Input
               id="patientSearchInput"
@@ -267,14 +269,14 @@ export const ViewRecordPage: React.FC = () => {
               }}
               onFocus={() => { if (allPatientsList.length > 0) setIsPatientDropdownOpen(true); }}
               containerClassName="flex-grow mb-0"
-              className={`rounded-r-none bg-[#1f1f1f] border-gray-700 focus:border-[#00bcd4] ${isInitialSearchState && !cameFromDentistDashboard ? 'h-[60px] text-lg px-6' : 'h-[46px]'}`}
+              className={`rounded-r-none ${isInitialSearchState && !cameFromDentistDashboard ? 'h-[60px] text-lg px-6' : 'h-[46px]'}`}
               disabled={isLoadingPatientsList || isLoadingRecord}
               prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />}
             />
             <Button
               type="button"
               onClick={() => setIsPatientDropdownOpen(!isPatientDropdownOpen)}
-              className={`px-3 bg-[#1f1f1f] hover:bg-gray-700 border border-l-0 border-gray-700 rounded-l-none rounded-r-md ${isInitialSearchState && !cameFromDentistDashboard ? 'h-[60px]' : 'h-[46px]'}`}
+              className={`px-3 bg-[var(--background-light)] hover:bg-[var(--background-dark)] border border-l-0 border-[var(--border-color)] rounded-l-none rounded-r-2xl ${isInitialSearchState && !cameFromDentistDashboard ? 'h-[60px]' : 'h-[46px]'}`}
               aria-expanded={isPatientDropdownOpen}
               aria-haspopup="listbox"
               title="Selecionar Paciente"
@@ -284,16 +286,16 @@ export const ViewRecordPage: React.FC = () => {
             </Button>
           </div>
           {isPatientDropdownOpen && (
-            <div className={`absolute top-full left-0 right-0 mt-1 w-full bg-[#1f1f1f] border border-gray-700 rounded-md shadow-lg z-20 ${isInitialSearchState && !cameFromDentistDashboard ? 'max-h-[50vh]' : 'max-h-72'} overflow-y-auto`}>
+            <div className={`absolute top-full left-0 right-0 mt-1 w-full bg-[var(--background-light)] border border-[var(--border-color)] rounded-xl shadow-lg z-20 ${isInitialSearchState && !cameFromDentistDashboard ? 'max-h-[50vh]' : 'max-h-72'} overflow-y-auto`}>
               {isLoadingPatientsList && allPatientsList.length === 0 ? (
-                <p className={`text-center py-3 text-[#b0b0b0] ${isInitialSearchState && !cameFromDentistDashboard ? 'text-lg p-5' : 'text-sm'}`}>Carregando pacientes...</p>
+                <p className={`text-center py-3 text-[var(--text-secondary)] ${isInitialSearchState && !cameFromDentistDashboard ? 'text-lg p-5' : 'text-sm'}`}>Carregando pacientes...</p>
               ) : filteredDropdownPatients.length > 0 ? (
                 <ul>
                   {filteredDropdownPatients.map(p => (
                     <li
                       key={p.cpf}
                       onClick={() => handlePatientSelect(p)}
-                      className={`cursor-pointer hover:bg-[#00bcd4] hover:text-black ${isInitialSearchState && !cameFromDentistDashboard ? 'px-6 py-4 text-lg text-white' : 'px-4 py-3 text-sm text-white'}`}
+                      className={`cursor-pointer hover:bg-[var(--accent-cyan)] hover:text-black ${isInitialSearchState && !cameFromDentistDashboard ? 'px-6 py-4 text-lg' : 'px-4 py-3 text-sm'} text-white`}
                       role="option"
                       aria-selected={selectedPatientCPF === p.cpf}
                     >
@@ -302,7 +304,7 @@ export const ViewRecordPage: React.FC = () => {
                   ))}
                 </ul>
               ) : (
-                <p className={`text-center py-3 text-[#b0b0b0] ${isInitialSearchState && !cameFromDentistDashboard ? 'text-lg p-5' : 'text-sm'}`}>
+                <p className={`text-center py-3 text-[var(--text-secondary)] ${isInitialSearchState && !cameFromDentistDashboard ? 'text-lg p-5' : 'text-sm'}`}>
                   {patientSearchTerm ? `Nenhum paciente encontrado.` : 'Nenhum paciente cadastrado.'}
                 </p>
               )}
@@ -331,13 +333,13 @@ export const ViewRecordPage: React.FC = () => {
       {!(isInitialSearchState && !cameFromDentistDashboard) && <h1 className="text-3xl font-bold text-white text-center">Prontuário do Paciente</h1>}
       {renderSearchSection()}
 
-      {isLoadingRecord && <div className="text-center py-10 text-[#b0b0b0]">Carregando dados do prontuário...</div>}
+      {isLoadingRecord && <div className="text-center py-10 text-[var(--text-secondary)]">Carregando dados do prontuário...</div>}
       
-      {searchError && !isLoadingRecord && selectedPatientCPF && <Card title="Erro na Busca" className="bg-[#1a1a1a]"><p className="text-red-500 text-center py-4">{searchError}</p></Card>}
+      {searchError && !isLoadingRecord && selectedPatientCPF && <Card title="Erro na Busca"><p className="text-red-500 text-center py-4">{searchError}</p></Card>}
 
       {patientDetails && !isLoadingRecord && (
         <div className="space-y-6 mt-8">
-          <Card title={<div className="flex items-center text-white"><ClipboardDocumentListIcon className="w-6 h-6 mr-3 text-[#00bcd4]" />Dados Pessoais de {patientDetails.fullName}</div>} className="bg-[#1a1a1a]">
+          <Card title={<div className="flex items-center text-white"><ClipboardDocumentListIcon className="w-6 h-6 mr-3 text-[var(--accent-cyan)]" />Dados Pessoais de {patientDetails.fullName}</div>}>
             <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
               <DetailItem label="Nome Completo" value={patientDetails.fullName} />
               <DetailItem label="Data de Nascimento" value={isoToDdMmYyyy(patientDetails.dob)} />
@@ -357,7 +359,7 @@ export const ViewRecordPage: React.FC = () => {
             </dl>
           </Card>
 
-          <Card title={<div className="flex items-center text-white"><DocumentTextIcon className="w-6 h-6 mr-3 text-[#00bcd4]" />Anamnese</div>} className="bg-[#1a1a1a]">
+          <Card title={<div className="flex items-center text-white"><DocumentTextIcon className="w-6 h-6 mr-3 text-[var(--accent-cyan)]" />Anamnese</div>}>
             {anamnesisData ? (
               <div className="space-y-3">
                 <DetailItem label="Uso de Medicação" value={anamnesisData.medications_taken} />
@@ -369,7 +371,7 @@ export const ViewRecordPage: React.FC = () => {
                 <DetailItem label="Possui Doenças" value={anamnesisData.has_disease} />
                 {anamnesisData.has_disease === 'Sim' && (
                     <div>
-                        <p className="text-sm font-medium text-[#b0b0b0] mt-2">Doenças Específicas:</p>
+                        <p className="text-sm font-medium text-[var(--text-secondary)] mt-2">Doenças Específicas:</p>
                         <ul className="list-disc list-inside ml-4 text-white text-sm">
                             {diseaseOptionsListForDisplay.map(d => 
                                 anamnesisData[d.key] && <li key={d.key}>{d.label}</li>
@@ -381,8 +383,8 @@ export const ViewRecordPage: React.FC = () => {
                 <DetailItem label="Cirurgias Anteriores" value={anamnesisData.surgeries_had} />
                 {anamnesisData.surgeries_had === 'Sim' && <DetailItem label="Detalhes Cirurgias" value={anamnesisData.surgeries_details} />}
               </div>
-            ) : <p className="text-[#b0b0b0]">Nenhuma anamnese registrada.</p>}
-            <div className="mt-4 pt-4 border-t border-gray-700">
+            ) : <p className="text-[var(--text-secondary)]">Nenhuma anamnese registrada.</p>}
+            <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
                 <Link to={NavigationPath.PatientAnamnesis.replace(':patientId', patientDetails.cpf)} state={location.state}>
                     <Button variant="ghost">
                         {anamnesisData ? 'Ver/Editar Anamnese Completa' : 'Preencher Anamnese'}
@@ -391,42 +393,42 @@ export const ViewRecordPage: React.FC = () => {
             </div>
           </Card>
 
-          <Card title={<div className="flex items-center text-white"><HeartIcon className="w-6 h-6 mr-3 text-[#00bcd4]" />Pressão Arterial</div>} className="bg-[#1a1a1a]">
+          <Card title={<div className="flex items-center text-white"><HeartIcon className="w-6 h-6 mr-3 text-[var(--accent-cyan)]" />Pressão Arterial</div>}>
             {bpReadings.length > 0 ? (
               <ul className="space-y-2">
                 {bpReadings.map((bp, index) => (
-                  <li key={bp.id || index} className="p-3 bg-[#1f1f1f] rounded-md text-sm">
+                  <li key={bp.id || index} className="p-3 bg-[var(--background-light)] rounded-xl text-sm">
                     <span className="font-semibold text-white">{isoToDdMmYyyy(bp.date)}:</span> <span className="text-white">{bp.value} mmHg</span>
                   </li>
                 ))}
               </ul>
-            ) : <p className="text-[#b0b0b0]">Nenhuma leitura de P.A. registrada.</p>}
+            ) : <p className="text-[var(--text-secondary)]">Nenhuma leitura de P.A. registrada.</p>}
           </Card>
 
-          <Card title={<div className="flex items-center text-white"><BriefcaseIcon className="w-6 h-6 mr-3 text-[#00bcd4]" />Planos de Tratamento</div>} className="bg-[#1a1a1a]">
+          <Card title={<div className="flex items-center text-white"><BriefcaseIcon className="w-6 h-6 mr-3 text-[var(--accent-cyan)]" />Planos de Tratamento</div>}>
             {treatmentPlans.length > 0 ? (
               <div className="space-y-4">
                 {treatmentPlans.map(plan => (
-                  <div key={plan.id} className="p-3 bg-[#1f1f1f] rounded-md">
-                    <p className="text-sm text-[#b0b0b0]">Criado em: {plan.created_at ? isoToDdMmYyyy(plan.created_at.split('T')[0]) : 'N/A'}</p>
+                  <div key={plan.id} className="p-3 bg-[var(--background-light)] rounded-xl">
+                    <p className="text-sm text-[var(--text-secondary)]">Criado em: {plan.created_at ? isoToDdMmYyyy(plan.created_at.split('T')[0]) : 'N/A'}</p>
                     <p className="font-medium text-white mt-1">Descrição: <span className="font-normal whitespace-pre-wrap">{plan.description}</span></p>
                     {plan.procedures_performed && (
                         <p className="font-medium text-white mt-1">Procedimentos Realizados: <span className="font-normal whitespace-pre-wrap">{plan.procedures_performed}</span></p>
                     )}
                     {plan.files && plan.files.length > 0 && (
                       <div className="mt-2">
-                        <h4 className="text-sm font-medium text-[#b0b0b0] mb-1">Arquivos Anexados:</h4>
+                        <h4 className="text-sm font-medium text-[var(--text-secondary)] mb-1">Arquivos Anexados:</h4>
                         <div className="flex flex-wrap gap-2">
                           {plan.files.map((file, index) => (
                               <a key={index} href={file.url} target="_blank" rel="noopener noreferrer" title={file.name} className="flex-shrink-0">
                                 {isImageFile(file.name) ? (
                                     <img 
                                         src={file.url} alt={file.name || 'Anexo'} 
-                                        className="rounded w-16 h-16 cursor-pointer border border-gray-700 hover:opacity-80 object-cover"
+                                        className="rounded w-16 h-16 cursor-pointer border border-[var(--border-color)] hover:opacity-80 object-cover"
                                         onClick={(e) => { e.preventDefault(); openImageInModal(file.url!); }}
                                     />
                                 ) : (
-                                  <div className="w-16 h-16 rounded bg-gray-700 flex flex-col items-center justify-center border border-gray-700 hover:bg-gray-600 text-center p-1">
+                                  <div className="w-16 h-16 rounded bg-gray-700 flex flex-col items-center justify-center border border-[var(--border-color)] hover:bg-gray-600 text-center p-1">
                                       <DocumentTextIcon className="w-6 h-6 text-gray-400" />
                                       <span className="text-xs text-gray-400 mt-1 truncate w-full">{file.name}</span>
                                   </div>
@@ -440,28 +442,28 @@ export const ViewRecordPage: React.FC = () => {
                   </div>
                 ))}
               </div>
-            ) : <p className="text-[#b0b0b0]">Nenhum plano de tratamento registrado.</p>}
-            <div className="mt-4 pt-4 border-t border-gray-700">
+            ) : <p className="text-[var(--text-secondary)]">Nenhum plano de tratamento registrado.</p>}
+            <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
                 <Link to={NavigationPath.PatientTreatmentPlans.replace(':patientId', patientDetails.cpf)} state={location.state}>
                      <Button variant="ghost">Ver/Gerenciar Planos de Tratamento</Button>
                 </Link>
             </div>
           </Card>
           
-          <Card title={<div className="flex items-center text-white"><CalendarDaysIcon className="w-6 h-6 mr-3 text-[#00bcd4]" />Agendamentos</div>} className="bg-[#1a1a1a]">
+          <Card title={<div className="flex items-center text-white"><CalendarDaysIcon className="w-6 h-6 mr-3 text-[var(--accent-cyan)]" />Agendamentos</div>}>
             {appointments.length > 0 ? (
               <ul className="space-y-3">
                 {appointments.slice(0, 5).map(appt => ( 
-                  <li key={appt.id} className="p-3 bg-[#1f1f1f] rounded-md text-sm">
+                  <li key={appt.id} className="p-3 bg-[var(--background-light)] rounded-xl text-sm">
                     <p className="font-semibold text-white">{isoToDdMmYyyy(appt.appointment_date)} às {formatToHHMM(appt.appointment_time)}</p>
                     <p className="text-gray-300">Procedimento: {appt.procedure}</p>
-                    <p className="text-[#b0b0b0]">Status: {statusLabelMap[appt.status] || appt.status}</p>
+                    <p className="text-[var(--text-secondary)]">Status: {statusLabelMap[appt.status] || appt.status}</p>
                     {appt.dentist_name && <p className="text-xs text-gray-500 mt-1">Dentista: {appt.dentist_name}</p>}
                   </li>
                 ))}
               </ul>
-            ) : <p className="text-[#b0b0b0]">Nenhum agendamento encontrado.</p>}
-             <div className="mt-4 pt-4 border-t border-gray-700">
+            ) : <p className="text-[var(--text-secondary)]">Nenhum agendamento encontrado.</p>}
+             <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
                 <Link to={NavigationPath.Appointments}>
                      <Button variant="ghost">Ver Todos Agendamentos</Button>
                 </Link>
@@ -472,7 +474,7 @@ export const ViewRecordPage: React.FC = () => {
 
       {/* Action Buttons Section */}
       {(!isInitialSearchState || cameFromDentistDashboard) && !isLoadingRecord && (
-        <div className="mt-8 pt-6 border-t border-gray-700 text-center space-x-4">
+        <div className="mt-8 pt-6 border-t border-[var(--border-color)] text-center space-x-4">
           {cameFromDentistDashboard && (
             <Button 
               onClick={() => navigate(NavigationPath.Home)} 

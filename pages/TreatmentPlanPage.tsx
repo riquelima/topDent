@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback, ChangeEvent } from 'react';
 import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -359,11 +360,11 @@ export const TreatmentPlanPage: React.FC = () => {
   };
 
   if (isLoading && isEditMode && !description) { 
-    return <div className="text-center py-10 text-[#b0b0b0]">Carregando plano para edição...</div>;
+    return <div className="text-center py-10 text-[var(--text-secondary)]">Carregando plano para edição...</div>;
   }
   if (pageError) {
     return (
-        <div><Card title="Erro" className="bg-[#1a1a1a]" titleClassName="text-white">
+        <div><Card title="Erro">
             <p className="text-red-500 text-center py-4">{pageError}</p>
             <div className="text-center mt-4"><Button onClick={() => navigate(-1)} leftIcon={<ArrowUturnLeftIcon />} variant="secondary">Voltar</Button></div>
         </Card></div>
@@ -378,11 +379,11 @@ export const TreatmentPlanPage: React.FC = () => {
 
   return (
     <div>
-      <Card title={ <div className="flex justify-between items-center w-full"> <span className="text-xl font-semibold text-white">{pageTitle}</span> <Link to={NavigationPath.AllTreatmentPlans}><Button variant="ghost" size="sm">Ver Todos os Planos</Button></Link> </div> } className="bg-[#1a1a1a]">
+      <Card title={ <div className="flex justify-between items-center w-full"> <span className="text-xl font-semibold text-white">{pageTitle}</span> <Link to={NavigationPath.AllTreatmentPlans}><Button variant="ghost" size="sm">Ver Todos os Planos</Button></Link> </div> }>
         <form onSubmit={handleSubmit} className="space-y-8">
           
           <div className="relative" ref={patientDropdownRef}>
-            <label htmlFor="patientCPF" className="block text-sm font-medium text-[#b0b0b0] mb-1">CPF do Paciente *</label>
+            <label htmlFor="patientCPF" className="block text-sm font-medium text-[var(--text-secondary)] mb-1">CPF do Paciente *</label>
             <div className="flex">
                 <Input 
                     id="patientCPF" name="patientCPF" 
@@ -399,10 +400,10 @@ export const TreatmentPlanPage: React.FC = () => {
                     className="rounded-r-none h-[46px]" 
                     prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400"/>}
                 />
-              <Button type="button" onClick={() => setIsPatientDropdownOpen(!isPatientDropdownOpen)} className="px-3 bg-[#1f1f1f] hover:bg-gray-700 border border-l-0 border-gray-700 rounded-l-none rounded-r-md h-[46px]" aria-expanded={isPatientDropdownOpen} aria-haspopup="listbox" title="Selecionar Paciente" disabled={isLoading || isEditMode || isLoadingPatients || (userRole === 'dentist' && isEditMode)}><ChevronUpDownIcon className="w-5 h-5 text-gray-400" /></Button>
+              <Button type="button" onClick={() => setIsPatientDropdownOpen(!isPatientDropdownOpen)} className="px-3 bg-[var(--background-light)] hover:bg-[var(--background-dark)] border border-l-0 border-[var(--border-color)] rounded-l-none rounded-r-2xl h-[46px]" aria-expanded={isPatientDropdownOpen} aria-haspopup="listbox" title="Selecionar Paciente" disabled={isLoading || isEditMode || isLoadingPatients || (userRole === 'dentist' && isEditMode)}><ChevronUpDownIcon className="w-5 h-5 text-gray-400" /></Button>
             </div>
-            {isPatientDropdownOpen && !(isEditMode || (userRole === 'dentist' && isEditMode)) && (<div className="absolute top-full left-0 right-0 mt-1 w-full bg-[#1f1f1f] border border-gray-700 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                {isLoadingPatients ? <p className="text-sm text-gray-400 text-center py-2">Carregando pacientes...</p> : filteredDropdownPatients.length > 0 ? <ul>{filteredDropdownPatients.map(p => (<li key={p.id} onClick={() => handlePatientSelect(p)} className="px-3 py-2 text-sm text-white hover:bg-[#00bcd4] hover:text-black cursor-pointer" role="option" aria-selected={patientCPF === p.cpf}>{p.fullName} <span className="text-xs text-gray-400">({p.cpf})</span></li>))}</ul> : <p className="text-sm text-gray-400 text-center py-2">Nenhum paciente encontrado.</p>}
+            {isPatientDropdownOpen && !(isEditMode || (userRole === 'dentist' && isEditMode)) && (<div className="absolute top-full left-0 right-0 mt-1 w-full bg-[var(--background-light)] border border-[var(--border-color)] rounded-xl shadow-lg z-10 max-h-60 overflow-y-auto">
+                {isLoadingPatients ? <p className="text-sm text-gray-400 text-center py-2">Carregando pacientes...</p> : filteredDropdownPatients.length > 0 ? <ul>{filteredDropdownPatients.map(p => (<li key={p.id} onClick={() => handlePatientSelect(p)} className="px-3 py-2 text-sm text-white hover:bg-[var(--accent-cyan)] hover:text-black cursor-pointer" role="option" aria-selected={patientCPF === p.cpf}>{p.fullName} <span className="text-xs text-gray-400">({p.cpf})</span></li>))}</ul> : <p className="text-sm text-gray-400 text-center py-2">Nenhum paciente encontrado.</p>}
             </div>)}
           </div>
 
@@ -413,12 +414,12 @@ export const TreatmentPlanPage: React.FC = () => {
           <Textarea label="Medicação Prescrita" value={prescribedMedication} onChange={(e) => setPrescribedMedication(e.target.value)} rows={3} placeholder="Liste as medicações prescritas, dosagens e instruções." disabled={isLoading} />
 
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-[#00bcd4] border-b border-gray-700 pb-2">Pagamentos Realizados</h3>
+            <h3 className="text-lg font-medium text-[var(--accent-cyan)] border-b border-[var(--border-color)] pb-2">Pagamentos Realizados</h3>
             {payments.map((payment, index) => (
-              <div key={index} className="p-4 border border-gray-700 rounded-lg bg-[#1f1f1f] space-y-3">
+              <div key={index} className="p-4 border border-[var(--border-color)] rounded-xl bg-[var(--background-light)] space-y-3">
                 <div className="flex justify-between items-center">
                   <p className="text-md font-semibold text-white">Pagamento {index + 1}</p>
-                  {payments.length > 1 && <Button type="button" variant="ghost" size="sm" onClick={() => removePaymentRow(index)} className="p-1 text-[#f44336] hover:text-red-400" disabled={isLoading}><TrashIcon className="w-4 h-4" /></Button>}
+                  {payments.length > 1 && <Button type="button" variant="ghost" size="sm" onClick={() => removePaymentRow(index)} className="p-1 text-[var(--accent-red)] hover:text-red-400" disabled={isLoading}><TrashIcon className="w-4 h-4" /></Button>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Input label="Valor (R$)" type="text" placeholder="Ex: 150,00" value={payment.value} onChange={(e) => handlePaymentChange(index, 'value', e.target.value)} disabled={isLoading} containerClassName="mb-0" />
@@ -436,16 +437,16 @@ export const TreatmentPlanPage: React.FC = () => {
                 />
               </div>
             ))}
-            {payments.length < 4 && <Button type="button" variant="ghost" size="sm" onClick={addPaymentRow} leftIcon={<PlusIcon />} disabled={isLoading}>Adicionar Pagamento</Button>}
+            {payments.length < 4 && <Button type="button" variant="secondary" size="sm" onClick={addPaymentRow} leftIcon={<PlusIcon />} disabled={isLoading}>Adicionar Pagamento</Button>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#b0b0b0] mb-1">Upload de Arquivos (Exames, Radiografias, etc.)</label>
-            <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-700 border-dashed rounded-lg bg-[#1f1f1f] ${isLoading ? 'opacity-70' : ''}`}>
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Upload de Arquivos (Exames, Radiografias, etc.)</label>
+            <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-[var(--border-color)] border-dashed rounded-2xl bg-[var(--background-light)] ${isLoading ? 'opacity-70' : ''}`}>
               <div className="space-y-1 text-center">
                 <svg className="mx-auto h-12 w-12 text-gray-500" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                <div className="flex text-sm text-gray-400">
-                  <label htmlFor="file-upload" className={`relative bg-gray-700 rounded-md font-medium text-[#00bcd4] hover:text-[#00a5b8] focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-[#1f1f1f] focus-within:ring-[#00bcd4] px-2 py-1 ${isLoading ? 'cursor-not-allowed' : 'cursor-pointer'}`}><span>Carregar arquivos</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} ref={fileInputRef} disabled={isLoading} multiple /></label>
+                <div className="flex text-sm text-[var(--text-secondary)]">
+                  <label htmlFor="file-upload" className={`relative bg-[var(--background-dark)] rounded-md font-medium text-[var(--accent-cyan)] hover:text-cyan-300 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-[var(--background-light)] focus-within:ring-[var(--accent-cyan)] px-2 py-1 ${isLoading ? 'cursor-not-allowed' : 'cursor-pointer'}`}><span>Carregar arquivos</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} ref={fileInputRef} disabled={isLoading} multiple /></label>
                   <p className="pl-1">ou arraste e solte</p>
                 </div><p className="text-xs text-gray-500">Qualquer tipo de arquivo é aceito.</p>
               </div>
@@ -453,23 +454,23 @@ export const TreatmentPlanPage: React.FC = () => {
             
             {(currentFiles.length > 0 || newlySelectedFiles.length > 0) && (
               <div className="mt-4 space-y-2">
-                <h4 className="text-sm font-medium text-[#b0b0b0]">Arquivos Anexados:</h4>
+                <h4 className="text-sm font-medium text-[var(--text-secondary)]">Arquivos Anexados:</h4>
                 {currentFiles.map((file, index) => (
-                    <div key={file.url} className="flex items-center justify-between p-2 bg-[#2a2a2a] rounded-md border border-gray-600">
+                    <div key={file.url} className="flex items-center justify-between p-2 bg-[var(--background-light)] rounded-xl border border-[var(--border-color)]">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                             {isImageFile(file.name) ? <img src={file.url} alt={`Preview of ${file.name}`} className="w-10 h-10 rounded object-cover flex-shrink-0" /> : <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center flex-shrink-0"><DocumentTextIcon className="w-6 h-6 text-gray-400" /></div>}
-                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-sm text-[#00bcd4] hover:underline truncate" title={file.name}>{file.name}</a>
+                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-sm text-[var(--accent-cyan)] hover:underline truncate" title={file.name}>{file.name}</a>
                         </div>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removeCurrentFile(index)} className="p-1 ml-2" disabled={isLoading} aria-label={`Remover ${file.name}`}><TrashIcon className="w-4 h-4 text-[#f44336] hover:text-red-400" /></Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeCurrentFile(index)} className="p-1 ml-2" disabled={isLoading} aria-label={`Remover ${file.name}`}><TrashIcon className="w-4 h-4 text-[var(--accent-red)] hover:text-red-400" /></Button>
                     </div>
                 ))}
                  {newlySelectedFiles.map((file, index) => (
-                    <div key={`${file.name}-${index}`} className="flex items-center justify-between p-2 bg-[#2a2a2a] rounded-md border border-teal-800">
+                    <div key={`${file.name}-${index}`} className="flex items-center justify-between p-2 bg-[var(--background-light)] rounded-xl border border-teal-800">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                              {isImageFile(file.name) ? <img src={localImagePreviews[file.name]} alt={`Preview of ${file.name}`} className="w-10 h-10 rounded object-cover flex-shrink-0" /> : <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center flex-shrink-0"><DocumentTextIcon className="w-6 h-6 text-gray-400" /></div>}
                             <span className="text-sm text-white truncate" title={file.name}>{file.name}</span>
                         </div>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removeNewFile(index)} className="p-1 ml-2" disabled={isLoading} aria-label={`Remover ${file.name}`}><TrashIcon className="w-4 h-4 text-[#f44336] hover:text-red-400" /></Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeNewFile(index)} className="p-1 ml-2" disabled={isLoading} aria-label={`Remover ${file.name}`}><TrashIcon className="w-4 h-4 text-[var(--accent-red)] hover:text-red-400" /></Button>
                     </div>
                 ))}
               </div>
@@ -481,7 +482,7 @@ export const TreatmentPlanPage: React.FC = () => {
           <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-6">
             <Button 
               type="button" 
-              variant="ghost" 
+              variant="secondary" 
               onClick={() => navigate(-1)} 
               leftIcon={<ArrowUturnLeftIcon />} 
               disabled={isLoading}

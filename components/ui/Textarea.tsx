@@ -8,12 +8,12 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 }
 
 export const Textarea: React.FC<TextareaProps> = ({ label, id, error, className = '', containerClassName = '', ...props }) => {
-  const baseStyles = "w-full px-4 py-2.5 bg-[#1f1f1f] border border-gray-700 text-white rounded-md focus:ring-2 focus:ring-[#00bcd4] focus:border-[#00bcd4] focus:outline-none placeholder-gray-500 transition-colors duration-150";
-  const errorStyles = error ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-700 hover:border-gray-600";
+  const baseStyles = "w-full px-4 py-3 bg-[var(--background-medium)] border text-[var(--text-primary)] rounded-2xl focus:ring-2 focus:ring-[var(--accent-cyan)] focus:border-[var(--accent-cyan)] focus:outline-none placeholder-[var(--text-secondary)] transition-all duration-200";
+  const errorStyles = error ? "border-red-500/50 focus:ring-red-500 focus:border-red-500" : "border-[var(--border-color)] hover:border-[var(--text-secondary)]";
   
   return (
-    <div className={`mb-4 ${containerClassName}`}>
-      {label && <label htmlFor={id} className="block text-sm font-medium text-[#b0b0b0] mb-1">{label}</label>}
+    <div className={`${containerClassName}`}>
+      {label && <label htmlFor={id} className="block text-sm font-medium text-[var(--text-secondary)] mb-2">{label}</label>}
       <textarea
         id={id}
         className={`${baseStyles} ${errorStyles} ${className}`}

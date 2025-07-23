@@ -16,7 +16,7 @@ import { MagnifyingGlassIcon, ChevronUpDownIcon, ArrowUturnLeftIcon } from '../c
 
 const statusDisplayConfig: Record<Appointment['status'], { label: string; className: string }> = {
   Scheduled: { label: 'Agendado', className: 'bg-yellow-500 text-black' },
-  Confirmed: { label: 'Confirmado', className: 'bg-[#00bcd4] text-black' },
+  Confirmed: { label: 'Confirmado', className: 'bg-[var(--accent-cyan)] text-black' },
   Completed: { label: 'Concluído', className: 'bg-green-500 text-white' },
   Cancelled: { label: 'Cancelado', className: 'bg-red-500 text-white' },
   Ausente: { label: 'Ausente', className: 'bg-orange-500 text-white' },
@@ -137,7 +137,7 @@ export const ConsultationHistoryPage: React.FC = () => {
 
 
   if (isLoading && historyEntries.length === 0 && allPatientsList.length === 0) { 
-    return <div className="text-center py-10 text-[#b0b0b0]">Carregando histórico de consultas...</div>;
+    return <div className="text-center py-10 text-[var(--text-secondary)]">Carregando histórico de consultas...</div>;
   }
 
   return (
@@ -146,10 +146,10 @@ export const ConsultationHistoryPage: React.FC = () => {
         <h1 className="text-3xl font-bold text-white">Histórico de Consultas</h1>
       </div>
 
-      <Card title="Filtrar Histórico" className="bg-[#1a1a1a] overflow-visible" titleClassName="text-white">
+      <Card title="Filtrar Histórico" className="overflow-visible">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-baseline"> 
           <div className="relative" ref={patientDropdownRef}>
-            <label htmlFor="patientFilterInput" className="block text-sm font-medium text-[#b0b0b0] mb-1">Paciente</label>
+            <label htmlFor="patientFilterInput" className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Paciente</label>
             <div className="flex">
               <Input
                 id="patientFilterInput"
@@ -168,25 +168,25 @@ export const ConsultationHistoryPage: React.FC = () => {
                 }}
                 onFocus={() => { if (allPatientsList.length > 0) setIsPatientDropdownOpen(true); }}
                 containerClassName="flex-grow mb-0"
-                className="rounded-r-none h-[46px] bg-[#1f1f1f] border-gray-700 focus:border-[#00bcd4]"
+                className="rounded-r-none h-[46px]"
                 prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />}
               />
               <Button type="button" onClick={() => setIsPatientDropdownOpen(!isPatientDropdownOpen)}
-                className="px-3 bg-[#1f1f1f] hover:bg-gray-700 border border-l-0 border-gray-700 rounded-l-none rounded-r-md h-[46px]"
+                className="px-3 bg-[var(--background-light)] hover:bg-[var(--background-dark)] border border-l-0 border-[var(--border-color)] rounded-l-none rounded-r-2xl h-[46px]"
                 aria-expanded={isPatientDropdownOpen} title="Selecionar Paciente">
                 <ChevronUpDownIcon className="w-5 h-5 text-gray-400" />
               </Button>
             </div>
             {isPatientDropdownOpen && (
-              <div className="absolute top-full left-0 right-0 mt-1 w-full bg-[#1f1f1f] border border-gray-700 rounded-md shadow-lg z-20 max-h-60 overflow-y-auto">
+              <div className="absolute top-full left-0 right-0 mt-1 w-full bg-[var(--background-light)] border border-[var(--border-color)] rounded-xl shadow-lg z-20 max-h-60 overflow-y-auto">
                 {filteredDropdownPatients.length > 0 ? (
                   <ul>{filteredDropdownPatients.map(p => (
                       <li key={p.cpf} onClick={() => handlePatientSelectForFilter(p)}
-                        className="cursor-pointer px-4 py-3 text-sm text-white hover:bg-[#00bcd4] hover:text-black">
+                        className="cursor-pointer px-4 py-3 text-sm text-white hover:bg-[var(--accent-cyan)] hover:text-black">
                         {p.fullName} <span className="text-xs text-gray-400">({p.cpf})</span>
                       </li>))}
                   </ul>
-                ) : <p className="text-center py-3 text-sm text-[#b0b0b0]">Nenhum paciente encontrado.</p>}
+                ) : <p className="text-center py-3 text-sm text-[var(--text-secondary)]">Nenhum paciente encontrado.</p>}
               </div>
             )}
           </div>
@@ -211,56 +211,56 @@ export const ConsultationHistoryPage: React.FC = () => {
           />
         </div>
         <div className="mt-4 flex justify-end space-x-3">
-            <Button variant="ghost" onClick={handleClearFilters}>Limpar Filtros</Button>
+            <Button variant="secondary" onClick={handleClearFilters}>Limpar Filtros</Button>
         </div>
       </Card>
 
       {error && <p className="text-red-500 text-center py-4">{error}</p>}
       
       {isLoading && historyEntries.length === 0 ? ( 
-          <div className="text-center py-10 text-[#b0b0b0]">Carregando...</div>
+          <div className="text-center py-10 text-[var(--text-secondary)]">Carregando...</div>
       ) : historyEntries.length === 0 && !isLoading && !error ? (
-        <Card className="bg-[#1a1a1a]">
-          <p className="text-center text-[#b0b0b0] py-8">Nenhuma consulta encontrada com os filtros atuais.</p>
+        <Card>
+          <p className="text-center text-[var(--text-secondary)] py-8">Nenhuma consulta encontrada com os filtros atuais.</p>
         </Card>
       ) : (
-        <div className="bg-[#1a1a1a] shadow-lg rounded-lg overflow-x-auto border border-gray-700/50">
-          <table className="min-w-full divide-y divide-gray-700">
-            <thead className="bg-[#1f1f1f]">
+        <div className="shadow-lg rounded-2xl overflow-x-auto border border-[var(--border-color)]">
+          <table className="min-w-full divide-y divide-[var(--border-color)]">
+            <thead className="bg-[var(--background-light)]">
               <tr>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Data Consulta</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Paciente</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Dentista</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Procedimento(s)</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Status</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Data Finalização/Cancelamento</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Notas</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Data Consulta</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Paciente</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Dentista</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Procedimento(s)</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Status</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Data Finalização/Cancelamento</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Notas</th>
               </tr>
             </thead>
-            <tbody className="bg-[#1a1a1a] divide-y divide-gray-700">
+            <tbody className="divide-y divide-[var(--border-color)]">
               {historyEntries.map(entry => {
                 const currentStatusConfig = statusDisplayConfig[entry.status] || { label: entry.status, className: 'bg-gray-500 text-white' };
                 return (
-                  <tr key={entry.id} className="hover:bg-[#1f1f1f] transition-colors duration-150">
+                  <tr key={entry.id} className="hover:bg-[var(--background-light)] transition-colors duration-150">
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-white">{isoToDdMmYyyy(entry.consultation_date)}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
                       {entry.patient_cpf ? (
-                        <Link to={NavigationPath.PatientDetail.replace(':patientId', entry.patient_cpf)} className="hover:text-[#00bcd4]">
+                        <Link to={NavigationPath.PatientDetail.replace(':patientId', entry.patient_cpf)} className="hover:text-[var(--accent-cyan)]">
                           {entry.patient_name}
                         </Link>
                       ) : (
                         <span>{entry.patient_name}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">{entry.dentist_name || 'N/A'}</td>
-                    <td className="px-4 py-3 text-sm text-[#b0b0b0] max-w-xs truncate" title={entry.procedure_details}>{entry.procedure_details}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-[var(--text-secondary)]">{entry.dentist_name || 'N/A'}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] max-w-xs truncate" title={entry.procedure_details}>{entry.procedure_details}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${currentStatusConfig.className}`}>
                           {currentStatusConfig.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">{formatCompletionTimestamp(entry.completion_timestamp)}</td>
-                    <td className="px-4 py-3 text-sm text-[#b0b0b0] max-w-xs truncate" title={entry.notes || undefined}>{entry.notes || 'Nenhuma'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-[var(--text-secondary)]">{formatCompletionTimestamp(entry.completion_timestamp)}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] max-w-xs truncate" title={entry.notes || undefined}>{entry.notes || 'Nenhuma'}</td>
                   </tr>
                 );
               })}
@@ -268,7 +268,7 @@ export const ConsultationHistoryPage: React.FC = () => {
           </table>
         </div>
       )}
-       <div className="mt-8 pt-6 border-t border-gray-700 text-center">
+       <div className="mt-8 pt-6 border-t border-[var(--border-color)] text-center">
         <Button 
           variant="secondary" 
           onClick={() => navigate(-1)} 

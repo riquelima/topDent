@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'; // Adicionado useLocation
 import { Card } from '../components/ui/Card';
@@ -17,8 +18,8 @@ const DetailItem: React.FC<DetailItemProps> = ({ label, value }) => {
   if (!value && typeof value !== 'string') return null; 
   return (
     <div>
-      <dt className="text-sm font-medium text-gray-400">{label}</dt>
-      <dd className="mt-1 text-base text-gray-100">{value || "Não informado"}</dd>
+      <dt className="text-sm font-medium text-[var(--text-secondary)]">{label}</dt>
+      <dd className="mt-1 text-base text-[var(--text-primary)]">{value || "Não informado"}</dd>
     </div>
   );
 };
@@ -71,7 +72,7 @@ export const PatientDetailPage: React.FC = () => {
 
 
   if (isLoading) {
-    return <div className="text-center py-10 text-gray-400">Carregando detalhes do paciente...</div>;
+    return <div className="text-center py-10 text-[var(--text-secondary)]">Carregando detalhes do paciente...</div>;
   }
 
   if (error || !patient) {
@@ -92,7 +93,7 @@ export const PatientDetailPage: React.FC = () => {
       <Card title={`Detalhes de: ${patient.fullName}`}>
         <div className="space-y-6">
           <div>
-            <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4">Dados Pessoais</h3>
+            <h3 className="text-lg font-medium text-[var(--accent-cyan)] border-b border-[var(--border-color)] pb-2 mb-4">Dados Pessoais</h3>
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
               <DetailItem label="Nome Completo" value={patient.fullName} />
               <DetailItem label="Data de Nascimento" value={isoToDdMmYyyy(patient.dob)} />
@@ -108,7 +109,7 @@ export const PatientDetailPage: React.FC = () => {
           </div>
 
           <div>
-            <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4">Endereço</h3>
+            <h3 className="text-lg font-medium text-[var(--accent-cyan)] border-b border-[var(--border-color)] pb-2 mb-4">Endereço</h3>
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
               <DetailItem label="Rua/Avenida" value={patient.addressStreet} />
               <DetailItem label="Número" value={patient.addressNumber} />
@@ -117,7 +118,7 @@ export const PatientDetailPage: React.FC = () => {
           </div>
 
           <div>
-            <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4">Contato de Emergência</h3>
+            <h3 className="text-lg font-medium text-[var(--accent-cyan)] border-b border-[var(--border-color)] pb-2 mb-4">Contato de Emergência</h3>
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
               <DetailItem label="Nome" value={patient.emergencyContactName} />
               <DetailItem label="Telefone" value={patient.emergencyContactPhone} />
@@ -125,7 +126,7 @@ export const PatientDetailPage: React.FC = () => {
           </div>
           
           <div className="pt-4">
-            <h3 className="text-lg font-medium text-teal-400 border-b border-gray-700 pb-2 mb-4">Histórico do Paciente</h3>
+            <h3 className="text-lg font-medium text-[var(--accent-cyan)] border-b border-[var(--border-color)] pb-2 mb-4">Histórico do Paciente</h3>
              <div className="flex flex-wrap gap-4">
                  <Link to={NavigationPath.PatientAnamnesis.replace(':patientId', patient.cpf)} state={location.state}>
                     <Button variant="ghost">Ver/Preencher Anamnese</Button>
@@ -136,7 +137,7 @@ export const PatientDetailPage: React.FC = () => {
              </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-gray-700 text-center">
+          <div className="mt-8 pt-6 border-t border-[var(--border-color)] text-center">
             <Button onClick={() => navigate(backButtonPath, { state: location.state })} leftIcon={<ArrowUturnLeftIcon />}>
               {backButtonText}
             </Button>

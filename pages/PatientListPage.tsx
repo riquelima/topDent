@@ -1,5 +1,9 @@
 
 
+
+
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -12,7 +16,7 @@ import { getPatients, deletePatientByCpf } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 
-type ViewMode = 'card' | 'list';
+type ViewMode = 'list' | 'card'; // Default to list
 
 interface PatientToDelete {
   cpf: string;
@@ -39,21 +43,16 @@ export const PatientListPage: React.FC = () => {
     try {
       const { data, error: supabaseError } = await getPatients();
       if (supabaseError) {
-        console.error("Error fetching patients:", supabaseError);
         setError("Falha ao carregar pacientes.");
         showToast("Falha ao carregar pacientes.", "error");
-        setAllPatients([]);
-        setFilteredPatients([]);
       } else {
-        setAllPatients(data || []);
-        setFilteredPatients(data || []);
+        const sortedData = (data || []).sort((a, b) => a.fullName.localeCompare(b.fullName));
+        setAllPatients(sortedData);
+        setFilteredPatients(sortedData);
       }
     } catch (e: any) {
-      console.error("Unhandled exception in fetchPatients:", e);
       setError("Erro crítico ao buscar pacientes: " + (e.message || "Erro desconhecido"));
       showToast("Erro crítico ao buscar pacientes.", "error");
-      setAllPatients([]);
-      setFilteredPatients([]);
     } finally {
       setIsLoading(false);
     }
@@ -72,11 +71,6 @@ export const PatientListPage: React.FC = () => {
     setFilteredPatients(filtered);
   }, [searchTerm, allPatients]);
 
-
-  const handleViewDetails = (patientId: string) => { 
-    navigate(NavigationPath.PatientDetail.replace(':patientId', patientId));
-  };
-
   const requestDeletePatient = (cpf: string, name: string) => {
     setPatientToDelete({ cpf, name });
     setIsConfirmModalOpen(true);
@@ -92,22 +86,18 @@ export const PatientListPage: React.FC = () => {
     setIsDeleting(true); 
     try {
       const { error: deleteError } = await deletePatientByCpf(patientToDelete.cpf);
-
       if (deleteError) {
-        let displayMessage = "Erro ao excluir paciente.";
-        if (deleteError.message?.includes("violates foreign key constraint")) {
-          displayMessage += " Paciente possui dados vinculados (agendamentos, tratamentos, etc.) que impedem a exclusão.";
-        } else if (deleteError.message) {
-          displayMessage = `Erro: ${deleteError.message}`;
+        let displayMessage = `Erro ao excluir: ${deleteError.message}`;
+        if (deleteError.message?.includes("foreign key constraint")) {
+          displayMessage = "Erro: Paciente possui dados vinculados (agendamentos, etc.) e não pode ser excluído.";
         }
         showToast(displayMessage, "error");
-        console.error("Delete patient error:", deleteError);
       } else {
         showToast(`Paciente ${patientToDelete.name} excluído com sucesso.`, 'success');
         fetchPatients(); 
       }
     } catch (catchedError: any) {
-      showToast(`Erro inesperado ao tentar excluir paciente: ${catchedError.message || 'Verifique o console.'}`, "error");
+      showToast(`Erro inesperado ao tentar excluir: ${catchedError.message}`, "error");
     } finally {
       setIsDeleting(false);
       closeConfirmModal();
@@ -116,171 +106,114 @@ export const PatientListPage: React.FC = () => {
 
   const renderPatientActions = (patient: Patient, isCardContext: boolean = false) => (
     <div className={`flex items-center ${isCardContext ? 'space-x-1 justify-end' : 'space-x-2'}`}>
-      {!isCardContext && (
-         <Button 
-            size="sm" 
+        <Button
+            as={Link}
+            to={NavigationPath.PatientDetail.replace(':patientId', patient.cpf)}
+            size="sm"
             variant="ghost"
-            onClick={() => handleViewDetails(patient.cpf)} 
-            leftIcon={<ClipboardDocumentListIcon className="w-4 h-4"/>}
-            disabled={isLoading || isDeleting}
-            className="p-1.5 sm:p-2"
-            title="Ver Detalhes"
+            leftIcon={<ClipboardDocumentListIcon className="w-4 h-4" />}
+            className={isDeleting ? 'opacity-50 pointer-events-none' : ''}
+            aria-disabled={isDeleting}
+            onClick={isDeleting ? (e) => e.preventDefault() : undefined}
+          >
+            Detalhes
+          </Button>
+        <Button 
+            as={Link} 
+            to={NavigationPath.EditPatient.replace(':patientId', patient.cpf)} 
+            size="sm" 
+            variant="ghost" 
+            className={`p-2 rounded-full ${isDeleting ? 'opacity-50 pointer-events-none' : ''}`} 
+            title="Editar Paciente"
+            aria-disabled={isDeleting}
+            onClick={isDeleting ? (e) => e.preventDefault() : undefined}
         >
-            <span className="hidden sm:inline">Detalhes</span>
+          <PencilIcon className={`w-5 h-5 ${isDeleting ? 'text-gray-500' : 'text-[var(--accent-cyan)]'}`} />
         </Button>
-      )}
-      <Link to={NavigationPath.EditPatient.replace(':patientId', patient.cpf)} title="Editar Paciente" className={`p-1.5 rounded-md ${isLoading || isDeleting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}>
-        <PencilIcon className="w-5 h-5 text-[#00bcd4] hover:text-[#00a5b8] transition-colors" />
-      </Link>
-      <button 
-        onClick={() => requestDeletePatient(patient.cpf, patient.fullName)} 
-        title="Excluir Paciente" 
-        disabled={isLoading || isDeleting}
-        aria-label={`Excluir paciente ${patient.fullName}`}
-        className={`p-1.5 rounded-md ${isLoading || isDeleting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
-      >
-        <TrashIcon className="w-5 h-5 text-[#f44336] hover:text-[#d32f2f] transition-colors" />
-      </button>
+      <Button size="sm" variant="ghost" onClick={() => requestDeletePatient(patient.cpf, patient.fullName)} className="p-2 rounded-full" title="Excluir Paciente" disabled={isDeleting}><TrashIcon className="w-5 h-5 text-[var(--accent-red)]" /></Button>
+    </div>
+  );
+  
+  const renderList = () => (
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-[var(--border-color)]">
+        <thead className="bg-transparent">
+          <tr>
+            <th scope="col" className="px-6 py-4 text-left text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Nome Completo</th>
+            <th scope="col" className="px-6 py-4 text-left text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">CPF</th>
+            <th scope="col" className="px-6 py-4 text-left text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Nascimento</th>
+            <th scope="col" className="px-6 py-4 text-left text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Telefone</th>
+            <th scope="col" className="px-6 py-3 text-right text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Ações</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--border-color)]">
+          {filteredPatients.map(patient => (
+            <tr key={patient.cpf} className="hover:bg-[var(--background-light)] transition-colors duration-200">
+              <td className="px-6 py-5 whitespace-nowrap"><Link to={NavigationPath.PatientDetail.replace(':patientId', patient.cpf)} className="text-base font-medium text-white hover:text-[var(--accent-cyan)]">{patient.fullName}</Link></td>
+              <td className="px-6 py-5 whitespace-nowrap text-base text-gray-300">{patient.cpf}</td>
+              <td className="px-6 py-5 whitespace-nowrap text-base text-gray-300">{isoToDdMmYyyy(patient.dob)}</td>
+              <td className="px-6 py-5 whitespace-nowrap text-base text-gray-300">{patient.phone || 'N/A'}</td>
+              <td className="px-6 py-5 whitespace-nowrap text-right text-sm font-medium">{renderPatientActions(patient)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 
-  if (isLoading && allPatients.length === 0 && !error) { 
-    return <div className="text-center py-10 text-[#b0b0b0]">Carregando pacientes...</div>;
-  }
+  const renderCards = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {filteredPatients.map(patient => (
+        <Card key={patient.cpf} className="flex flex-col justify-between" hoverEffect>
+          <div>
+            <div className="flex justify-between items-start">
+              <Link to={NavigationPath.PatientDetail.replace(':patientId', patient.cpf)} className="text-xl font-semibold text-[var(--accent-cyan)] truncate pr-2 hover:underline" title={patient.fullName}>{patient.fullName}</Link>
+              {renderPatientActions(patient, true)}
+            </div>
+            <p className="text-sm text-[var(--text-secondary)] mt-2">CPF: {patient.cpf}</p>
+            <p className="text-sm text-[var(--text-secondary)]">Nascimento: {isoToDdMmYyyy(patient.dob)}</p>
+            {patient.guardian && <p className="text-sm text-gray-500 italic mt-1">Responsável: {patient.guardian}</p>}
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
 
-  if (error && allPatients.length === 0) { 
-    return (
-      <div className="text-center py-10">
-        <p className="text-red-500">{error}</p>
-        <Button onClick={() => navigate(NavigationPath.Home)} className="mt-4" variant="secondary">Voltar ao Início</Button>
-      </div>
-    );
-  }
+  if (isLoading && allPatients.length === 0) return <div className="text-center py-10 text-[var(--text-secondary)]">Carregando pacientes...</div>;
+  if (error) return <div className="text-center py-10"><p className="text-red-500">{error}</p></div>;
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <h1 className="text-3xl font-bold text-white">Lista de Pacientes</h1>
-        <Button 
-          onClick={() => navigate(NavigationPath.NewPatient)} 
-          leftIcon={<UserPlusIcon className="w-5 h-5" />}
-          disabled={isLoading || isDeleting}
-          variant="primary"
-        >
-          Adicionar Novo Paciente
-        </Button>
+        <Button onClick={() => navigate(NavigationPath.NewPatient)} leftIcon={<UserPlusIcon className="w-5 h-5" />} disabled={isDeleting} variant="primary">Adicionar Paciente</Button>
       </div>
 
-      <Card className="bg-[#1a1a1a] p-6" titleClassName="hidden"> {/* Filter Card */}
+      <Card>
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-          <Input 
-            placeholder="Buscar por nome ou CPF..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            containerClassName="flex-grow w-full sm:w-auto sm:mb-0" 
-            disabled={isLoading || isDeleting}
-            prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />}
-            className="bg-[#1f1f1f] border-gray-700 focus:border-[#00bcd4]"
-          />
-          <div className="flex space-x-2">
-            <Button
-              variant={viewMode === 'card' ? 'primary' : 'ghost'}
-              onClick={() => setViewMode('card')}
-              disabled={isLoading || isDeleting}
-              title="Visualizar em Cards"
-              aria-pressed={viewMode === 'card'}
-            >
-              <Squares2X2Icon className="w-5 h-5" />
-              <span className="ml-2 hidden sm:inline">Cards</span>
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'primary' : 'ghost'}
-              onClick={() => setViewMode('list')}
-              disabled={isLoading || isDeleting}
-              title="Visualizar em Lista"
-              aria-pressed={viewMode === 'list'}
-            >
-              <ListBulletIcon className="w-5 h-5" />
-              <span className="ml-2 hidden sm:inline">Lista</span>
-            </Button>
+          <Input placeholder="Buscar por nome ou CPF..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} containerClassName="flex-grow w-full sm:w-auto" disabled={isDeleting} prefixIcon={<MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />} />
+          <div className="flex items-center space-x-2 p-1 bg-[var(--background-light)] rounded-2xl">
+            <Button size="sm" variant={viewMode === 'list' ? 'primary' : 'ghost'} onClick={() => setViewMode('list')} disabled={isDeleting} title="Visualizar em Lista" className='border-none shadow-none'><ListBulletIcon className="w-5 h-5" /></Button>
+            <Button size="sm" variant={viewMode === 'card' ? 'primary' : 'ghost'} onClick={() => setViewMode('card')} disabled={isDeleting} title="Visualizar em Cards" className='border-none shadow-none'><Squares2X2Icon className="w-5 h-5" /></Button>
           </div>
         </div>
       </Card>
 
       {filteredPatients.length === 0 && !isLoading ? (
-        <Card className="bg-[#1a1a1a]">
-          <p className="text-center text-[#b0b0b0] py-8">
-            {allPatients.length === 0 ? "Nenhum paciente cadastrado ainda." : "Nenhum paciente encontrado com o termo buscado."}
-          </p>
+        <Card><p className="text-center text-[var(--text-secondary)] py-8">{allPatients.length === 0 ? "Nenhum paciente cadastrado." : "Nenhum paciente encontrado."}</p></Card>
+      ) : (
+        <Card bodyClassName={viewMode === 'list' ? 'p-0' : 'p-6'}>
+            {viewMode === 'list' ? renderList() : renderCards()}
         </Card>
-      ) : viewMode === 'card' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPatients.map(patient => (
-            <Card key={patient.cpf} className="flex flex-col justify-between bg-[#1a1a1a]" hoverEffect>
-              <div>
-                <div className="flex justify-between items-start">
-                  <h3 className="text-xl font-semibold text-[#00bcd4] truncate pr-2" title={patient.fullName}>{patient.fullName}</h3>
-                  {renderPatientActions(patient, true)}
-                </div>
-                <p className="text-sm text-[#b0b0b0]">CPF: {patient.cpf}</p>
-                <p className="text-sm text-[#b0b0b0]">Nascimento: {isoToDdMmYyyy(patient.dob)}</p>
-                <p className="text-sm text-[#b0b0b0]">Telefone: {patient.phone || 'N/A'}</p>
-                {patient.guardian && <p className="text-sm text-gray-500 italic">Responsável: {patient.guardian}</p>}
-              </div>
-              <div className="mt-6">
-                <Button 
-                  fullWidth 
-                  variant="primary"
-                  onClick={() => handleViewDetails(patient.cpf)} 
-                  leftIcon={<ClipboardDocumentListIcon className="w-5 h-5"/>}
-                  disabled={isLoading || isDeleting}
-                >
-                  Ver Detalhes
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
-      ) : ( // List View
-        <div className="bg-[#1a1a1a] shadow-lg rounded-lg overflow-x-auto border border-gray-700/50">
-          <table className="min-w-full divide-y divide-gray-700">
-            <thead className="bg-[#1f1f1f]">
-              <tr>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Nome Completo</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">CPF</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Nascimento</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Telefone</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="bg-[#1a1a1a] divide-y divide-gray-700">
-              {filteredPatients.map(patient => (
-                <tr key={patient.cpf} className="hover:bg-[#1f1f1f] transition-colors duration-150">
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-white font-medium">{patient.fullName}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">{patient.cpf}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">{isoToDdMmYyyy(patient.dob)}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">{patient.phone || 'N/A'}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-[#b0b0b0]">
-                    {renderPatientActions(patient)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       )}
+
       {patientToDelete && (
         <ConfirmationModal
           isOpen={isConfirmModalOpen}
           onClose={closeConfirmModal}
           onConfirm={executeDeletePatient}
-          title="Confirmar Exclusão de Paciente"
-          message={
-            <>
-              <p>Tem certeza que deseja excluir o paciente <strong className="text-[#00bcd4]">{patientToDelete.name}</strong> (CPF: <strong className="text-[#00bcd4]">{patientToDelete.cpf}</strong>)?</p>
-              <p className="mt-2 text-sm text-yellow-500">Atenção: Esta ação é irreversível e removerá todos os dados associados ao paciente, caso a exclusão em cascata esteja configurada. Se não, a exclusão pode ser impedida se houver dados vinculados.</p>
-            </>
-          }
+          title="Confirmar Exclusão"
+          message={<>Tem certeza que deseja excluir <strong className="text-[var(--accent-cyan)]">{patientToDelete.name}</strong>? Esta ação é irreversível e pode ser impedida se houver dados vinculados.</>}
           confirmButtonText="Excluir Paciente"
           isLoading={isDeleting}
         />

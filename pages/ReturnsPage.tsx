@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -166,31 +168,31 @@ export const ReturnsPage: React.FC = () => {
 
   const renderContent = () => {
     if (isLoading) {
-      return <p className="text-center text-[#b0b0b0] py-8">Carregando retornos...</p>;
+      return <p className="text-center text-[var(--text-secondary)] py-8">Carregando retornos...</p>;
     }
     if (error) {
       return <p className="text-center text-red-500 py-8">{error}</p>;
     }
     if (returns.length === 0) {
-      return <p className="text-center text-[#b0b0b0] py-8">Nenhum retorno futuro agendado.</p>;
+      return <p className="text-center text-[var(--text-secondary)] py-8">Nenhum retorno futuro agendado.</p>;
     }
 
     return (
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-700">
-          <thead className="bg-[#1f1f1f]">
+        <table className="min-w-full divide-y divide-[var(--border-color)]">
+          <thead className="bg-[var(--background-light)]">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider align-middle">Data do Retorno</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[#b0b0b0] uppercase tracking-wider align-middle">Paciente</th>
-              <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-[#b0b0b0] uppercase tracking-wider align-middle">Ações</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider align-middle">Data do Retorno</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider align-middle">Paciente</th>
+              <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider align-middle">Ações</th>
             </tr>
           </thead>
-          <tbody className="bg-[#1a1a1a] divide-y divide-gray-700">
+          <tbody className="divide-y divide-[var(--border-color)]">
             {returns.map((ret) => (
-              <tr key={ret.id} className="hover:bg-[#1f1f1f] transition-colors">
+              <tr key={ret.id} className="hover:bg-[var(--background-light)] transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-semibold align-middle">{isoToDdMmYyyy(ret.return_date)}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-white align-middle">
-                  <Link to={NavigationPath.PatientDetail.replace(':patientId', ret.patient_cpf || '')} className="hover:text-[#00bcd4] transition-colors">
+                  <Link to={NavigationPath.PatientDetail.replace(':patientId', ret.patient_cpf || '')} className="hover:text-[var(--accent-cyan)] transition-colors">
                     {ret.patient_name}
                   </Link>
                 </td>
@@ -248,7 +250,7 @@ export const ReturnsPage: React.FC = () => {
       <div className="mb-6">
         <button
           onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-          className="w-full flex justify-between items-center text-left p-4 bg-[#1f1f1f] hover:bg-[#2a2a2a] rounded-lg transition-colors shadow-md"
+          className="w-full flex justify-between items-center text-left p-4 bg-[var(--background-light)] hover:bg-[var(--background-medium)] rounded-2xl transition-colors shadow-md"
           aria-expanded={isSettingsOpen}
           aria-controls="return-settings-panel"
         >
@@ -259,18 +261,18 @@ export const ReturnsPage: React.FC = () => {
         </button>
 
         {isSettingsOpen && (
-          <div id="return-settings-panel" className="mt-2 p-6 bg-[#1a1a1a] rounded-lg border border-gray-700/50">
+          <div id="return-settings-panel" className="mt-2 p-6 bg-[var(--background-medium)] rounded-2xl border border-[var(--border-color)]">
             {isLoadingSettings ? (
-              <p className="text-center text-[#b0b0b0]">Carregando configurações...</p>
+              <p className="text-center text-[var(--text-secondary)]">Carregando configurações...</p>
             ) : (
               <div className="space-y-4">
-                <h3 className="text-md font-semibold text-[#00bcd4]">Mensagem Padrão do WhatsApp</h3>
+                <h3 className="text-md font-semibold text-[var(--accent-cyan)]">Mensagem Padrão do WhatsApp</h3>
                 <Textarea
                   value={messageTemplate}
                   onChange={(e) => setMessageTemplate(e.target.value)}
                   readOnly={!isEditingMessage}
                   rows={4}
-                  className={!isEditingMessage ? 'bg-[#1f1f1f] border-gray-800 text-gray-400 cursor-not-allowed' : ''}
+                  className={!isEditingMessage ? 'bg-[var(--background-dark)] border-[var(--border-color)] text-gray-400 cursor-not-allowed' : ''}
                   aria-label="Modelo da mensagem do WhatsApp"
                 />
                 <p className="text-xs text-gray-500">
@@ -280,7 +282,7 @@ export const ReturnsPage: React.FC = () => {
                   {isEditingMessage ? (
                     <>
                       <Button
-                        variant="ghost"
+                        variant="secondary"
                         onClick={handleCancelEdit}
                         disabled={isSavingSettings}
                       >
@@ -309,7 +311,7 @@ export const ReturnsPage: React.FC = () => {
         )}
       </div>
 
-      <Card className="bg-[#1a1a1a]">
+      <Card>
         {renderContent()}
       </Card>
 
@@ -319,7 +321,7 @@ export const ReturnsPage: React.FC = () => {
             onClose={closeConfirmDeleteModal}
             onConfirm={executeDeleteReturn}
             title="Confirmar Exclusão de Lembrete"
-            message={<>Tem certeza que deseja excluir o lembrete de retorno para <strong className="text-[#00bcd4]">{returnToDelete.patient_name}</strong> no dia <strong className="text-[#00bcd4]">{isoToDdMmYyyy(returnToDelete.return_date)}</strong>? Esta ação não pode ser desfeita.</>}
+            message={<>Tem certeza que deseja excluir o lembrete de retorno para <strong className="text-[var(--accent-cyan)]">{returnToDelete.patient_name}</strong> no dia <strong className="text-[var(--accent-cyan)]">{isoToDdMmYyyy(returnToDelete.return_date)}</strong>? Esta ação não pode ser desfeita.</>}
             confirmButtonText="Excluir Lembrete"
             isLoading={isDeleting}
         />

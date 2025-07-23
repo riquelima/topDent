@@ -21,16 +21,16 @@ export const Input: React.FC<InputProps> = ({
   suffixIcon,
   ...props 
 }) => {
-  const baseInputStyles = "w-full py-3 bg-[#1f1f1f] text-white rounded-md placeholder-gray-500 transition-colors duration-150 ease-in-out focus:ring-2 focus:ring-[#00bcd4] focus:border-[#00bcd4] focus:outline-none";
-  const paddingStyles = `${prefixIcon ? "pl-10" : "px-4"} ${suffixIcon ? "pr-10" : "px-4"}`;
-  const errorBorderStyles = error ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-700 hover:border-gray-600";
+  const baseInputStyles = "w-full py-3 bg-[var(--background-medium)] text-[var(--text-primary)] rounded-2xl placeholder-[var(--text-secondary)] transition-all duration-200 ease-in-out focus:ring-2 focus:ring-[var(--accent-cyan)] focus:border-[var(--accent-cyan)] focus:outline-none border";
+  const paddingStyles = `${prefixIcon ? "pl-11" : "px-4"} ${suffixIcon ? "pr-11" : "px-4"}`;
+  const errorBorderStyles = error ? "border-red-500/50 focus:ring-red-500 focus:border-red-500" : "border-[var(--border-color)] hover:border-[var(--text-secondary)]";
 
   return (
     <div className={`relative ${containerClassName}`}>
-      {label && <label htmlFor={id} className="block text-sm font-medium text-[#b0b0b0] mb-1">{label}</label>} {/* Changed mb-2 to mb-1 */}
+      {label && <label htmlFor={id} className="block text-sm font-medium text-[var(--text-secondary)] mb-2">{label}</label>}
       <div className="relative flex items-center">
         {prefixIcon && (
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             {prefixIcon}
           </div>
         )}
@@ -40,7 +40,7 @@ export const Input: React.FC<InputProps> = ({
           {...props}
         />
         {suffixIcon && (
-          <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+          <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
             {suffixIcon}
           </div>
         )}
