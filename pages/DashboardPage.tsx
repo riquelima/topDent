@@ -545,7 +545,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
               <p className="text-sm font-semibold">Ativar o som das notificações</p>
               <p className="text-xs">Clique no botão para ouvir os alertas.</p>
           </div>
-          <Button onClick={unlockAudioManually} className="bg-black/80 hover:bg-black px-3 py-1 rounded-lg text-sm text-white">
+          <Button variant="secondary" onClick={unlockAudioManually} className="bg-black/80 hover:bg-black px-3 py-1 rounded-lg text-sm text-white border-none shadow-none">
               Ativar Som
           </Button>
         </div>

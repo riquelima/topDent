@@ -25,6 +25,17 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
         } else {
           const hardcodedEntries: ChangelogEntry[] = [
             {
+              id: 'manual-entry-24-07-2025',
+              created_at: new Date('2025-07-24T10:00:00Z').toISOString(),
+              release_date: '2025-07-24',
+              version: 'v10.13.0',
+              changes: [
+                'Adicionada a funcionalidade de impressão para Planos de Tratamento em todas as telas relevantes, permitindo gerar uma versão física bem formatada.',
+                'Corrigido o alinhamento da coluna "Ações" na Lista de Pacientes, centralizando o título e os botões para uma interface mais consistente.',
+                'Resolvidos problemas técnicos com as definições de tipo para animações, garantindo a estabilidade e o bom funcionamento do sistema.',
+              ]
+            },
+            {
               id: 'manual-entry-18-07-2025',
               created_at: new Date('2025-07-18T10:00:00Z').toISOString(),
               release_date: '2025-07-18',

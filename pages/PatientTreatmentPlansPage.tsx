@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { ArrowUturnLeftIcon, PlusIcon, TrashIcon, PencilIcon, DocumentTextIcon } from '../components/icons/HeroIcons'; 
+import { ArrowUturnLeftIcon, PlusIcon, TrashIcon, PencilIcon, DocumentTextIcon, PrinterIcon } from '../components/icons/HeroIcons'; 
 import { Patient, NavigationPath, SupabaseTreatmentPlanData } from '../types'; 
 import { 
     getPatientByCpf, 
@@ -91,6 +91,128 @@ export const PatientTreatmentPlansPage: React.FC = () => {
     if (!planId) return;
     navigate(NavigationPath.EditTreatmentPlan.replace(':planId', planId), { state: location.state });
   };
+
+  const handlePrintPlan = (plan: SupabaseTreatmentPlanData) => {
+    if (!patient) return;
+
+    const printContent = `
+        <html>
+        <head>
+            <title>Plano de Tratamento - ${patient.fullName}</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #333; }
+                @page { size: A4; margin: 20mm; }
+                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 25px; }
+                .header img { height: 40px; }
+                h1 { font-size: 26px; font-weight: 600; color: #111; margin: 0; }
+                h2 { font-size: 20px; font-weight: 600; color: #222; border-bottom: 1px solid #ddd; padding-bottom: 6px; margin-top: 25px; margin-bottom: 15px; }
+                .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; margin-bottom: 20px; }
+                .detail-item strong { display: block; font-size: 13px; color: #555; margin-bottom: 2px; text-transform: uppercase; }
+                .detail-item span { font-size: 15px; }
+                .description, .procedures { white-space: pre-wrap; background-color: #f9f9f9; padding: 12px; border-radius: 6px; border: 1px solid #eee; }
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
+                th { background-color: #f2f2f2; font-weight: 600; }
+                .signature-area { margin-top: 80px; text-align: center; }
+                .signature-line { margin: 0 auto; border-top: 1px solid #000; width: 60%; }
+                footer { position: fixed; bottom: 10mm; left: 20mm; right: 20mm; text-align: center; font-size: 12px; color: #999; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <img src="https://raw.githubusercontent.com/riquelima/topDentTest/refs/heads/main/logoSite.png" alt="Top Dent Logo" />
+                <h1>Plano de Tratamento</h1>
+            </div>
+
+            <h2>Dados do Paciente</h2>
+            <div class="details-grid">
+                <div class="detail-item"><strong>Nome Completo:</strong> <span>${patient.fullName}</span></div>
+                <div class="detail-item"><strong>CPF:</strong> <span>${patient.cpf}</span></div>
+                <div class="detail-item"><strong>Data de Nascimento:</strong> <span>${isoToDdMmYyyy(patient.dob)}</span></div>
+                <div class="detail-item"><strong>Telefone:</strong> <span>${patient.phone || 'Não informado'}</span></div>
+            </div>
+
+            <h2>Detalhes do Plano</h2>
+            <div class="details-grid">
+                <div class="detail-item"><strong>Data de Criação:</strong> <span>${plan.created_at ? isoToDdMmYyyy(plan.created_at.split('T')[0]) : 'Não informado'}</span></div>
+            </div>
+
+            <h2>Descrição</h2>
+            <p class="description">${plan.description}</p>
+
+            ${plan.procedures_performed ? `<h2>Procedimentos Realizados</h2><p class="procedures">${plan.procedures_performed}</p>` : ''}
+            ${plan.prescribed_medication ? `<h2>Medicação Prescrita</h2><p class="description">${plan.prescribed_medication}</p>` : ''}
+
+            ${plan.payments && plan.payments.length > 0 ? `
+                <h2>Pagamentos</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Valor (R$)</th>
+                            <th>Método</th>
+                            <th>Descrição</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${plan.payments.map(p => `
+                            <tr>
+                                <td>${isoToDdMmYyyy(p.payment_date)}</td>
+                                <td>${parseFloat(p.value).toFixed(2).replace('.', ',')}</td>
+                                <td>${p.payment_method}</td>
+                                <td>${p.description || ''}</td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+            ` : ''}
+            
+            ${plan.files && plan.files.length > 0 ? `
+                <h2>Arquivos Anexados</h2>
+                <ul>
+                    ${plan.files.map(f => `<li>${f.name}</li>`).join('')}
+                </ul>
+            ` : ''}
+
+            ${plan.dentist_signature ? `
+                <div class="signature-area">
+                    <div class="signature-line"></div>
+                    <p style="margin-top: 8px;">${plan.dentist_signature}</p>
+                    <p style="font-size: 13px; color: #555;">Assinatura do Dentista</p>
+                </div>`
+             : `
+                <div class="signature-area">
+                    <div class="signature-line"></div>
+                    <p style="margin-top: 8px; font-size: 13px; color: #555;">Assinatura do Responsável</p>
+                </div>
+             `}
+             
+             <footer>
+                <p>&copy; ${new Date().getFullYear()} Top Dent. Todos os direitos reservados.</p>
+             </footer>
+        </body>
+        </html>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        setTimeout(() => {
+            try {
+                printWindow.focus();
+                printWindow.print();
+                printWindow.close();
+            } catch (e) {
+                showToast('Impressão falhou ou foi cancelada.', 'warning');
+                console.error("Print error:", e);
+                printWindow.close();
+            }
+        }, 500);
+    } else {
+        showToast('Não foi possível abrir a janela de impressão. Verifique se pop-ups estão bloqueados.', 'error');
+    }
+  };
+
 
   const requestDeletePlan = (plan: SupabaseTreatmentPlanData) => {
     if (!plan.id) return;
@@ -235,6 +357,7 @@ export const PatientTreatmentPlansPage: React.FC = () => {
                     )}
                   </div>
                   <div className="flex-shrink-0 flex items-center space-x-2">
+                     <Button variant="ghost" size="sm" onClick={() => handlePrintPlan(plan)} disabled={isDeleting} className="p-1.5" title="Imprimir Plano"><PrinterIcon className="w-4 h-4 text-gray-300 hover:text-white" /></Button>
                      <Button variant="ghost" size="sm" onClick={() => handleEditPlan(plan.id)} disabled={isDeleting} className="p-1.5" title="Editar Plano"><PencilIcon className="w-4 h-4 text-[var(--accent-cyan)]" /></Button>
                      <Button variant="ghost" size="sm" onClick={() => requestDeletePlan(plan)} disabled={isDeleting} className="p-1.5" title="Apagar Plano"><TrashIcon className="w-4 h-4 text-[var(--accent-red)]" /></Button>
                   </div>

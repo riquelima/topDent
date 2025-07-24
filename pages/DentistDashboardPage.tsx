@@ -623,7 +623,7 @@ export const DentistDashboardPage: React.FC<DentistDashboardPageProps> = ({ dent
                 <p className="text-sm font-semibold">Ativar o som das notificações</p>
                 <p className="text-xs">Clique no botão para ouvir os alertas.</p>
             </div>
-            <Button variant="secondary" onClick={unlockAudioManually} className="bg-black hover:bg-gray-800 px-3 py-1 rounded-md text-sm">
+            <Button onClick={unlockAudioManually} className="bg-black/80 hover:bg-black px-3 py-1 rounded-lg text-sm text-white">
                 Ativar Som
             </Button>
         </div>

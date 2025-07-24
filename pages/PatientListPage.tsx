@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -105,7 +99,7 @@ export const PatientListPage: React.FC = () => {
   };
 
   const renderPatientActions = (patient: Patient, isCardContext: boolean = false) => (
-    <div className={`flex items-center ${isCardContext ? 'space-x-1 justify-end' : 'space-x-2'}`}>
+    <div className={`flex items-center ${isCardContext ? 'justify-end' : 'justify-center'} ${isCardContext ? 'space-x-1' : 'space-x-2'}`}>
         <Button
             as={Link}
             to={NavigationPath.PatientDetail.replace(':patientId', patient.cpf)}
@@ -143,7 +137,7 @@ export const PatientListPage: React.FC = () => {
             <th scope="col" className="px-6 py-4 text-left text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">CPF</th>
             <th scope="col" className="px-6 py-4 text-left text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Nascimento</th>
             <th scope="col" className="px-6 py-4 text-left text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Telefone</th>
-            <th scope="col" className="px-6 py-3 text-right text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Ações</th>
+            <th scope="col" className="px-6 py-3 text-center text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Ações</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--border-color)]">
@@ -153,7 +147,7 @@ export const PatientListPage: React.FC = () => {
               <td className="px-6 py-5 whitespace-nowrap text-base text-gray-300">{patient.cpf}</td>
               <td className="px-6 py-5 whitespace-nowrap text-base text-gray-300">{isoToDdMmYyyy(patient.dob)}</td>
               <td className="px-6 py-5 whitespace-nowrap text-base text-gray-300">{patient.phone || 'N/A'}</td>
-              <td className="px-6 py-5 whitespace-nowrap text-right text-sm font-medium">{renderPatientActions(patient)}</td>
+              <td className="px-6 py-5 whitespace-nowrap text-sm font-medium">{renderPatientActions(patient)}</td>
             </tr>
           ))}
         </tbody>
