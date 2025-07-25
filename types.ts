@@ -1,5 +1,18 @@
 /// <reference types="react" />
 
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'dotlottie-wc': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+        src: string;
+        speed?: string;
+        autoPlay?: boolean;
+        loop?: boolean;
+      };
+    }
+  }
+}
+
 export interface Patient {
   id: string; // Should be unique, CPF can serve this role for now
   fullName: string;
@@ -81,7 +94,7 @@ export interface Appointment {
   dentist_name?: string | null; 
   return_date?: string | null; // Date for follow-up
   created_at?: string; // ISO timestamp string
-  updated_at?: string; // ISO timestamp string
+  updated_at?: string | null;
   missed_notification_sent?: boolean | null;
 }
 

@@ -368,29 +368,22 @@ export const AppointmentsPage: React.FC = () => {
 
     // Step 2: Call Webhook via Fetch
     try {
-        const webhookUrl = 'https://primary-production-76569.up.railway.app/webhook/waha';
+        const webhookUrl = 'https://primary-production-c86156.up.railway.app/webhook/disparofalta';
         const payload = {
-            NomePaciente: patient.fullName,
+            nomePaciente: patient.fullName,
             telefone: patient.phone.replace(/\D/g, ''),
+            dataConsulta: isoToDdMmYyyy(appointment.appointment_date)
         };
 
-        const response = await fetch(webhookUrl, {
+        await fetch(webhookUrl, {
             method: 'POST',
+            mode: 'no-cors',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'text/plain',
             },
             body: JSON.stringify(payload),
         });
 
-        if (!response.ok) {
-            let responseBody = '';
-            try {
-                responseBody = await response.text();
-            } catch (e) {
-                // Ignore
-            }
-            throw new Error(`O servidor webhook respondeu com erro ${response.status}. ${responseBody}`);
-        }
     } catch (error: any) {
         let errorMessage = `Falha ao enviar notificação via webhook: ${error.message}`;
         if (error instanceof TypeError) {
