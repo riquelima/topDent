@@ -15,10 +15,12 @@ import {
     updateTreatmentPlan,
     getTreatmentPlanById,
     getSupabaseClient,
-    getPatients 
+    getPatients,
+    getPatientByCpf
 } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import type { UserRole } from '../App';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 
 const STORAGE_BUCKET_NAME = 'treatmentfiles'; 
 
@@ -74,6 +76,9 @@ export const TreatmentPlanPage: React.FC = () => {
   
   const [localImagePreviews, setLocalImagePreviews] = useState<Record<string, string>>({});
 
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [prescriptionData, setPrescriptionData] = useState<{ patient: Patient; medication: string } | null>(null);
+
   useEffect(() => {
     // This effect runs once to get the user role for robust navigation
     try {
@@ -104,7 +109,7 @@ export const TreatmentPlanPage: React.FC = () => {
     fetchPatientsForDropdown();
   }, [fetchPatientsForDropdown]);
   
-  const clearForm = (clearCpf = true) => {
+  const clearForm = useCallback((clearCpf = true) => {
     if (clearCpf || !isEditMode) setPatientCPF(''); 
     setDescription('');
     setProceduresPerformed('');
@@ -117,7 +122,92 @@ export const TreatmentPlanPage: React.FC = () => {
     setPrescribedMedication('');
     setPayments([{ value: '', payment_method: '', payment_date: '', description: '' }]);
     setIsPatientPrefilled(false);
+  }, [isEditMode]);
+
+  const navigateToNextPage = useCallback(() => {
+    clearForm();
+    if (userRole === 'dentist') {
+      navigate(NavigationPath.Home);
+    } else if (patientCPF) {
+      navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', patientCPF));
+    } else {
+      navigate(NavigationPath.AllTreatmentPlans);
+    }
+  }, [clearForm, userRole, patientCPF, navigate]);
+
+  const handlePrintPrescription = () => {
+    if (!prescriptionData || !prescriptionData.patient) {
+        showToast("Dados do paciente ou da receita ausentes.", "error");
+        return;
+    }
+    const { patient, medication } = prescriptionData;
+
+    const printContent = `
+        <html>
+        <head>
+            <title>Receituário - ${patient.fullName}</title>
+            <style>
+                body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12pt; margin: 0; padding: 0; display: flex; justify-content: center; align-items: flex-start; background-color: #f0f0f0; }
+                @page { size: A5; margin: 0; }
+                .container { width: 148mm; min-height: 210mm; padding: 15mm; box-sizing: border-box; background-color: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+                .header { text-align: center; margin-bottom: 40px; }
+                .header img { max-width: 150px; margin-bottom: 10px; }
+                h1 { font-size: 16pt; font-weight: bold; margin: 0; text-align: center; }
+                .patient-info { margin-bottom: 30px; border-top: 1px solid #ccc; padding-top: 15px;}
+                .patient-info p { margin: 4px 0; }
+                .prescription-body { min-height: 80mm; }
+                .prescription-body h2 { font-size: 14pt; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+                .medication { white-space: pre-wrap; font-size: 12pt; line-height: 1.8; }
+                .signature-area { margin-top: 60px; text-align: center; }
+                .signature-line { border-top: 1px solid #000; width: 80%; margin: 0 auto; }
+                .signature-area p { margin-top: 8px; font-size: 11pt; }
+                @media print {
+                  body { background-color: white; }
+                  .container { box-shadow: none; border: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <img src="https://raw.githubusercontent.com/riquelima/topDentTest/refs/heads/main/logoSite.png" alt="Top Dent Logo" />
+                    <h1>Receituário Odontológico</h1>
+                </div>
+                <div class="patient-info">
+                    <p><strong>Paciente:</strong> ${patient.fullName}</p>
+                </div>
+                <div class="prescription-body">
+                    <h2>Prescrição</h2>
+                    <div class="medication">${medication}</div>
+                </div>
+                <div class="signature-area">
+                    <div class="signature-line"></div>
+                    <p>${dentistSignature || 'Assinatura do Cirurgião-Dentista'}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        setTimeout(() => {
+            try {
+                printWindow.focus();
+                printWindow.print();
+                printWindow.close();
+            } catch (e) {
+                showToast('Impressão falhou ou foi cancelada.', 'warning');
+                printWindow.close();
+            }
+        }, 500);
+    } else {
+        showToast('Não foi possível abrir a janela de impressão. Verifique se pop-ups estão bloqueados.', 'error');
+    }
   };
+
 
   useEffect(() => {
     if (isEditMode && planId) {
@@ -157,7 +247,7 @@ export const TreatmentPlanPage: React.FC = () => {
             clearForm(false);
         }
     }
-  }, [planId, isEditMode, showToast, location.state]);
+  }, [planId, isEditMode, showToast, location.state, clearForm]);
   
   useEffect(() => {
     const newPreviews: Record<string, string> = {};
@@ -326,13 +416,18 @@ export const TreatmentPlanPage: React.FC = () => {
         const { error } = await addTreatmentPlan(planDataPayload as Omit<SupabaseTreatmentPlanData, 'id' | 'created_at'>);
         if (error) throw error;
         showToast('Plano de Tratamento salvo com sucesso!', 'success');
-        clearForm();
-        if (userRole === 'dentist') {
-          navigate(NavigationPath.Home);
-        } else if (patientCPF) {
-          navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', patientCPF));
+
+        if (prescribedMedication.trim()) {
+            const { data: patientData, error: patientError } = await getPatientByCpf(patientCPF);
+            if (patientError || !patientData) {
+                showToast("Não foi possível carregar dados do paciente para imprimir a receita. O plano foi salvo.", "warning");
+                navigateToNextPage();
+            } else {
+                setPrescriptionData({ patient: patientData, medication: prescribedMedication.trim() });
+                setIsPrintModalOpen(true);
+            }
         } else {
-          navigate(NavigationPath.AllTreatmentPlans); 
+            navigateToNextPage();
         }
       }
     } catch (err: unknown) {
@@ -516,6 +611,24 @@ export const TreatmentPlanPage: React.FC = () => {
           </div>
         </form>
       </Card>
+      
+      <ConfirmationModal
+        isOpen={isPrintModalOpen}
+        onClose={() => {
+          setIsPrintModalOpen(false);
+          navigateToNextPage();
+        }}
+        onConfirm={() => {
+          handlePrintPrescription();
+          setIsPrintModalOpen(false);
+          navigateToNextPage();
+        }}
+        title="Imprimir Receita?"
+        message="O campo de medicação prescrita foi preenchido. Deseja imprimir o receituário agora?"
+        confirmButtonText="Sim, Imprimir"
+        cancelButtonText="Não"
+        confirmButtonVariant="primary"
+      />
     </div>
   );
 };

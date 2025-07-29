@@ -1,6 +1,4 @@
-// This file provides TypeScript definitions for the <dotlottie-wc> custom element.
-// This is a global declaration file that extends the JSX namespace for TypeScript.
-import React from 'react';
+/// <reference types="react" />
 
 declare global {
   namespace JSX {
@@ -14,3 +12,5 @@ declare global {
     }
   }
 }
+
+export {};

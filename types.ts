@@ -1,18 +1,5 @@
 /// <reference types="react" />
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      'dotlottie-wc': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
-        src: string;
-        speed?: string;
-        autoPlay?: boolean;
-        loop?: boolean;
-      };
-    }
-  }
-}
-
 export interface Patient {
   id: string; // Should be unique, CPF can serve this role for now
   fullName: string;

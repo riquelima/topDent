@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from './ui/Button';
 import { XMarkIcon, CheckIcon } from './icons/HeroIcons';
@@ -11,6 +10,17 @@ interface DentistChangelogModalProps {
 }
 
 const dentistChangelogEntries: ChangelogEntry[] = [
+  {
+      id: 'dentist-release-29-07-2025',
+      created_at: new Date('2025-07-29T10:00:00Z').toISOString(),
+      release_date: '2025-07-29',
+      version: 'v10.14.0',
+      changes: [
+        'Impressão de Receituário: Agora, ao salvar um novo plano de tratamento com medicação, o sistema perguntará se você deseja imprimir a receita médica.',
+        'Layout Profissional: A receita gerada inclui o logotipo da TopDent, informações do paciente e um espaço para sua assinatura, pronta para ser entregue.',
+        'Fluxo de Trabalho Otimizado: A funcionalidade está integrada de forma inteligente ao seu processo, aparecendo apenas quando necessário.',
+      ]
+  },
   {
       id: 'dentist-release-15-07-2025',
       created_at: new Date('2025-07-15T18:00:00Z').toISOString(),
