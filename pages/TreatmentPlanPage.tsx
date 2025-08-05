@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useCallback, ChangeEvent } from 'react';
 import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -21,6 +20,7 @@ import {
 import { useToast } from '../contexts/ToastContext';
 import type { UserRole } from '../App';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+import { isoToDdMmYyyy } from '../src/utils/formatDate';
 
 const STORAGE_BUCKET_NAME = 'treatmentfiles'; 
 
@@ -147,42 +147,125 @@ export const TreatmentPlanPage: React.FC = () => {
         <head>
             <title>Receituário - ${patient.fullName}</title>
             <style>
-                body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12pt; margin: 0; padding: 0; display: flex; justify-content: center; align-items: flex-start; background-color: #f0f0f0; }
-                @page { size: A5; margin: 0; }
-                .container { width: 148mm; min-height: 210mm; padding: 15mm; box-sizing: border-box; background-color: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-                .header { text-align: center; margin-bottom: 40px; }
-                .header img { max-width: 150px; margin-bottom: 10px; }
-                h1 { font-size: 16pt; font-weight: bold; margin: 0; text-align: center; }
-                .patient-info { margin-bottom: 30px; border-top: 1px solid #ccc; padding-top: 15px;}
-                .patient-info p { margin: 4px 0; }
-                .prescription-body { min-height: 80mm; }
-                .prescription-body h2 { font-size: 14pt; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-                .medication { white-space: pre-wrap; font-size: 12pt; line-height: 1.8; }
-                .signature-area { margin-top: 60px; text-align: center; }
-                .signature-line { border-top: 1px solid #000; width: 80%; margin: 0 auto; }
-                .signature-area p { margin-top: 8px; font-size: 11pt; }
+                @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+                body { 
+                    font-family: 'Montserrat', sans-serif;
+                    font-size: 11pt; 
+                    margin: 0; 
+                    padding: 0; 
+                    background-color: #f0f0f0; 
+                    display: flex; 
+                    justify-content: center; 
+                    align-items: center;
+                }
+                @page { 
+                    size: A4;
+                    margin: 0; 
+                }
+                .container { 
+                    width: 210mm; 
+                    min-height: 296mm;
+                    padding: 20mm;
+                    box-sizing: border-box; 
+                    background-color: white; 
+                    display: flex;
+                    flex-direction: column;
+                }
+                .content-wrapper {
+                    flex-grow: 1;
+                    display: flex;
+                    flex-direction: column;
+                }
+                .header-content {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    margin-bottom: 30px;
+                    text-align: center;
+                }
+                .patient-info { 
+                    margin-bottom: 30px;
+                }
+                .patient-info p { margin: 2px 0; font-size: 12pt; }
+                .prescription-body { 
+                    flex-grow: 1;
+                    min-height: 150mm;
+                }
+                .medication { 
+                    white-space: pre-wrap; 
+                    font-size: 12pt; 
+                    line-height: 1.8;
+                }
+                .signature-area { 
+                    margin-top: 40px; 
+                    text-align: center; 
+                }
+                .signature-line { 
+                    border-top: 1px solid #000; 
+                    width: 70%; 
+                    margin: 0 auto; 
+                }
+                .signature-area p { 
+                    margin-top: 5px; 
+                    font-size: 10pt; 
+                }
+                .footer {
+                    text-align: center;
+                    font-size: 9pt;
+                    color: #666;
+                    line-height: 1.4;
+                    margin-top: auto;
+                    padding-top: 20px;
+                    border-top: 1px solid #eee;
+                }
+                .footer .instagram-line {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .footer img {
+                    width: 12px;
+                    height: 12px;
+                    margin-right: 4px;
+                }
                 @media print {
-                  body { background-color: white; }
-                  .container { box-shadow: none; border: none; }
+                    body { background-color: white; }
+                    .container { 
+                        box-shadow: none; 
+                        border: none; 
+                        width: 100%; 
+                        height: 100%;
+                        padding: 15mm;
+                    }
                 }
             </style>
         </head>
         <body>
             <div class="container">
-                <div class="header">
-                    <img src="https://raw.githubusercontent.com/riquelima/topDentTest/refs/heads/main/logoSite.png" alt="Top Dent Logo" />
-                    <h1>Receituário Odontológico</h1>
-                </div>
-                <div class="patient-info">
-                    <p><strong>Paciente:</strong> ${patient.fullName}</p>
-                </div>
-                <div class="prescription-body">
-                    <h2>Prescrição</h2>
-                    <div class="medication">${medication}</div>
-                </div>
-                <div class="signature-area">
-                    <div class="signature-line"></div>
-                    <p>${dentistSignature || 'Assinatura do Cirurgião-Dentista'}</p>
+                <div class="content-wrapper">
+                    <div class="header-content">
+                        <img src="https://raw.githubusercontent.com/riquelima/topDent/refs/heads/main/logoSite.png" alt="Top Dent Logo" style="height: 80px; width: auto; margin-bottom: 15px;" />
+                        <span style="font-size: 18pt; font-weight: bold; color: black;">Top Dent - Clínica Odontológica</span>
+                    </div>
+
+                    <div class="patient-info">
+                        <p><strong>Paciente:</strong> ${patient.fullName}</p>
+                    </div>
+
+                    <div class="prescription-body">
+                        <div class="medication">${medication}</div>
+                    </div>
+                    
+                    <div class="signature-area">
+                        <div class="signature-line"></div>
+                        <p>${dentistSignature || 'Assinatura do Cirurgião-Dentista'}</p>
+                    </div>
+
+                    <div class="footer">
+                        <span>(71) 98644-5461 | 3217-0704</span><br/>
+                        <span class="instagram-line"><img src="https://img.icons8.com/ios-glyphs/30/666666/instagram-new.png" alt="Instagram">@clinica_topdent</span><br/>
+                        <span>Praça da Revolução, 225, Térreo, Periperi, Salvador/BA</span>
+                    </div>
                 </div>
             </div>
         </body>
