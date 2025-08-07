@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback, ChangeEvent } from 'react';
 import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -273,7 +274,6 @@ export const TreatmentPlanPage: React.FC = () => {
                 <div class="content-wrapper">
                     <div class="header-content">
                         <img src="https://raw.githubusercontent.com/riquelima/topDent/refs/heads/main/logoSite.png" alt="Top Dent Logo" style="height: 80px; width: auto; margin-bottom: 15px;" />
-                        <span style="font-size: 18pt; font-weight: bold; color: black;">Top Dent - Clínica Odontológica</span>
                     </div>
 
                     <div class="patient-info">
