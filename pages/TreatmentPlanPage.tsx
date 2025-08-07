@@ -135,6 +135,34 @@ export const TreatmentPlanPage: React.FC = () => {
     }
   }, [clearForm, userRole, patientCPF, navigate]);
 
+  const navigateToNextPageBasedOnContext = useCallback(() => {
+    if (isEditMode) {
+      if (userRole === 'dentist') {
+        navigate(NavigationPath.Home);
+      } else {
+        navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', originalPatientCpf || patientCPF));
+      }
+    } else {
+      navigateToNextPage();
+    }
+  }, [isEditMode, userRole, navigate, originalPatientCpf, patientCPF, navigateToNextPage]);
+
+  const handlePostSaveActions = useCallback(async () => {
+    if (prescribedMedication.trim()) {
+      const { data: patientData, error: patientError } = await getPatientByCpf(patientCPF);
+      if (patientError || !patientData) {
+        showToast("Não foi possível carregar dados do paciente para imprimir a receita. O plano foi salvo.", "warning");
+        navigateToNextPageBasedOnContext();
+      } else {
+        setPrescriptionData({ patient: patientData, medication: prescribedMedication.trim() });
+        setIsPrintModalOpen(true);
+      }
+    } else {
+      navigateToNextPageBasedOnContext();
+    }
+  }, [prescribedMedication, patientCPF, showToast, navigateToNextPageBasedOnContext, setPrescriptionData, setIsPrintModalOpen]);
+
+
   const handlePrintPrescription = () => {
     if (!prescriptionData || !prescriptionData.patient) {
         showToast("Dados do paciente ou da receita ausentes.", "error");
@@ -490,28 +518,12 @@ export const TreatmentPlanPage: React.FC = () => {
         const { error } = await updateTreatmentPlan(planId, updatePayload);
         if (error) throw error;
         showToast('Plano de Tratamento atualizado com sucesso!', 'success');
-        if (userRole === 'dentist') {
-          navigate(NavigationPath.Home);
-        } else {
-          navigate(NavigationPath.PatientTreatmentPlans.replace(':patientId', originalPatientCpf || patientCPF));
-        }
+        await handlePostSaveActions();
       } else {
         const { error } = await addTreatmentPlan(planDataPayload as Omit<SupabaseTreatmentPlanData, 'id' | 'created_at'>);
         if (error) throw error;
         showToast('Plano de Tratamento salvo com sucesso!', 'success');
-
-        if (prescribedMedication.trim()) {
-            const { data: patientData, error: patientError } = await getPatientByCpf(patientCPF);
-            if (patientError || !patientData) {
-                showToast("Não foi possível carregar dados do paciente para imprimir a receita. O plano foi salvo.", "warning");
-                navigateToNextPage();
-            } else {
-                setPrescriptionData({ patient: patientData, medication: prescribedMedication.trim() });
-                setIsPrintModalOpen(true);
-            }
-        } else {
-            navigateToNextPage();
-        }
+        await handlePostSaveActions();
       }
     } catch (err: unknown) {
         let errorMessage = "Ocorreu uma falha inesperada.";
@@ -699,12 +711,12 @@ export const TreatmentPlanPage: React.FC = () => {
         isOpen={isPrintModalOpen}
         onClose={() => {
           setIsPrintModalOpen(false);
-          navigateToNextPage();
+          navigateToNextPageBasedOnContext();
         }}
         onConfirm={() => {
           handlePrintPrescription();
           setIsPrintModalOpen(false);
-          navigateToNextPage();
+          navigateToNextPageBasedOnContext();
         }}
         title="Imprimir Receita?"
         message="O campo de medicação prescrita foi preenchido. Deseja imprimir o receituário agora?"
