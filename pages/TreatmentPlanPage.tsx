@@ -4,6 +4,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useCallback, ChangeEvent } from 'react';
 import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -232,38 +234,6 @@ export const TreatmentPlanPage: React.FC = () => {
                     line-height: 1.8;
                     white-space: pre-wrap;
                 }
-                .signature-area { 
-                    margin-top: 40px; 
-                    text-align: center; 
-                }
-                .signature-line { 
-                    border-top: 1px solid #000; 
-                    width: 70%; 
-                    margin: 0 auto; 
-                }
-                .signature-area p { 
-                    margin-top: 5px; 
-                    font-size: 10pt; 
-                }
-                .footer {
-                    text-align: center;
-                    font-size: 9pt;
-                    color: #666;
-                    line-height: 1.4;
-                    margin-top: auto;
-                    padding-top: 20px;
-                    border-top: 1px solid #eee;
-                }
-                .footer .instagram-line {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-                .footer img {
-                    width: 12px;
-                    height: 12px;
-                    margin-right: 4px;
-                }
                 @media print {
                     body { background-color: white; }
                     .container { 
@@ -289,17 +259,6 @@ export const TreatmentPlanPage: React.FC = () => {
                             <p class="medication-title">Receituário Médico</p>
                             <p class="medication-content">${medication}</p>
                         </div>
-                    </div>
-                    
-                    <div class="signature-area">
-                        <div class="signature-line"></div>
-                        <p>${dentistSignature || 'Assinatura do Cirurgião-Dentista'}</p>
-                    </div>
-
-                    <div class="footer">
-                        <span>(71) 98644-5461 | 3217-0704</span><br/>
-                        <span class="instagram-line"><img src="https://img.icons8.com/ios-glyphs/30/666666/instagram-new.png" alt="Instagram">@clinica_topdent</span><br/>
-                        <span>Praça da Revolução, 225, Térreo, Periperi, Salvador/BA</span>
                     </div>
                 </div>
             </div>
