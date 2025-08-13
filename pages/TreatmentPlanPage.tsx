@@ -1,5 +1,9 @@
 
 
+
+
+
+
 import React, { useState, useEffect, useRef, useCallback, ChangeEvent } from 'react';
 import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -205,25 +209,28 @@ export const TreatmentPlanPage: React.FC = () => {
                     display: flex;
                     flex-direction: column;
                 }
-                .header-content {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    margin-bottom: 30px;
-                    text-align: center;
-                }
                 .patient-info { 
+                    margin-top: 80mm; /* Pushed down for a clean header */
                     margin-bottom: 30px;
                 }
-                .patient-info p { margin: 2px 0; font-size: 12pt; }
+                .patient-info p { margin: 4px 0; font-size: 12pt; line-height: 1.4; }
                 .prescription-body { 
                     flex-grow: 1;
                     min-height: 150mm;
                 }
                 .medication { 
-                    white-space: pre-wrap; 
-                    font-size: 12pt; 
+                    font-size: 12pt;
+                }
+                .medication p {
+                    margin: 0;
+                }
+                .medication .medication-title {
+                    font-weight: bold;
+                    margin-bottom: 8px;
+                }
+                .medication .medication-content {
                     line-height: 1.8;
+                    white-space: pre-wrap;
                 }
                 .signature-area { 
                     margin-top: 40px; 
@@ -272,16 +279,16 @@ export const TreatmentPlanPage: React.FC = () => {
         <body>
             <div class="container">
                 <div class="content-wrapper">
-                    <div class="header-content">
-                        <img src="https://raw.githubusercontent.com/riquelima/topDent/refs/heads/main/logoSite.png" alt="Top Dent Logo" style="height: 80px; width: auto; margin-bottom: 15px;" />
-                    </div>
-
                     <div class="patient-info">
-                        <p><strong>Paciente:</strong> ${patient.fullName}</p>
+                        <p><strong>Paciente</strong></p>
+                        <p>${patient.fullName}</p>
                     </div>
 
                     <div class="prescription-body">
-                        <div class="medication">${medication}</div>
+                        <div class="medication">
+                            <p class="medication-title">Receituário Médico</p>
+                            <p class="medication-content">${medication}</p>
+                        </div>
                     </div>
                     
                     <div class="signature-area">
