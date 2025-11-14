@@ -664,12 +664,21 @@ export const deletePatientByCpf = async (cpf: string): Promise<{ data: any[] | n
 export const getPatients = async (): Promise<{ data: Patient[] | null, error: any }> => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-
-  const { data, error: supabaseError } = await (client.from('patients') as any).select('*').order('full_name', { ascending: true });
+  const queryBase = () => (client.from('patients') as any).select('*').order('full_name', { ascending: true });
+  const { data: chunk1, error: err1 } = await queryBase().range(0, 999);
+  if (err1) {
+    console.error('Error fetching patients chunk1 from Supabase:', err1.message, 'Details:', JSON.stringify(err1, null, 2));
+    return { data: null, error: err1 };
+  }
+  const { data: chunk2, error: err2 } = await queryBase().range(1000, 4999);
+  if (err2) {
+    console.error('Error fetching patients chunk2 from Supabase:', err2.message, 'Details:', JSON.stringify(err2, null, 2));
+    return { data: null, error: err2 };
+  }
+  const data = [ ...(chunk1 || []), ...(chunk2 || []) ];
   
-  if (supabaseError) {
-    console.error('Error fetching patients from Supabase:', supabaseError.message, 'Details:', JSON.stringify(supabaseError, null, 2));
-    return { data: null, error: supabaseError };
+  if (!data) {
+    return { data: [], error: null };
   }
 
   const transformedData: Patient[] = data ? data.map(transformPatientData) : [];
