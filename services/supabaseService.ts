@@ -1074,19 +1074,18 @@ export const addNotification = async (notification: Omit<Notification, 'id' | 'c
 
     const { dentist_id, message, appointment_id } = notification;
 
-    // Call the secure RPC function instead of a direct insert to bypass RLS issues
-    const { data, error } = await client.rpc('create_notification' as any, {
+    const { error } = await (client as any).rpc('send_push_notification_to_dentist', {
         p_dentist_id: dentist_id,
         p_message: message,
-        p_appointment_id: appointment_id || null
+        p_appointment_id: appointment_id
     });
     
     if (error) {
         // Log detailed error for debugging
-        console.error("Error calling RPC create_notification:", JSON.stringify(error, null, 2));
+        console.error("Error calling RPC send_push_notification_to_dentist:", JSON.stringify(error, null, 2));
     }
     
-    return { data, error };
+    return { data: null, error };
 };
 
 export const getUnreadNotificationsForDentist = async (dentistId: string) => {
@@ -1116,11 +1115,24 @@ export const subscribeToNotificationsForDentist = (dentistId: string, callback: 
 export const getMessagesBetweenUsers = async (userId1: string, userId2: string) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return (client
-      .from('chat_messages') as any)
-      .select('*')
-      .or(`and(sender_id.eq.${userId1},recipient_id.eq.${userId2}),and(sender_id.eq.${userId2},recipient_id.eq.${userId1})`)
-      .order('created_at', { ascending: true });
+    
+    // Usamos duas buscas simples e mesclamos no código para evitar bugs de sintaxe do PostgREST
+    // Isso é mais lento (2 requests), mas é 100% confiável contra desvios de UUIDs.
+    const [res1, res2] = await Promise.all([
+        (client.from('chat_messages') as any).select('*').eq('sender_id', userId1).eq('recipient_id', userId2),
+        (client.from('chat_messages') as any).select('*').eq('sender_id', userId2).eq('recipient_id', userId1)
+    ]);
+
+    if (res1.error || res2.error) {
+        console.error('Erro em query atômica de chat:', res1.error || res2.error);
+        return { data: null, error: res1.error || res2.error };
+    }
+
+    const merged = [...(res1.data || []), ...(res2.data || [])].sort((a, b) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+    return { data: merged, error: null };
 };
 
 export const sendMessage = async (message: Omit<ChatMessage, 'id' | 'created_at' | 'is_read'>) => {
@@ -1129,6 +1141,14 @@ export const sendMessage = async (message: Omit<ChatMessage, 'id' | 'created_at'
     if (!message.sender_id || !message.recipient_id) {
         return { data: null, error: { message: "Sender and Recipient are required." } };
     }
+    
+    console.log('API Trace: Enviando mensagem do chat:', {
+        sender: message.sender_id,
+        recipient: message.recipient_id,
+        has_content: !!message.content,
+        has_file: !!message.file_url
+    });
+
     return (client.from('chat_messages') as any).insert(message).select().single();
 };
 
@@ -1139,7 +1159,7 @@ export const markMessagesAsRead = async (messageIds: string[], readerId: string)
         return { data: null, error: { message: "Invalid parameters for marking messages as read." }};
     }
 
-    const { data, error } = await client.rpc('mark_messages_as_read_by_recipient', {
+    const { data, error } = await (client as any).rpc('mark_messages_as_read_by_recipient', {
         message_ids: messageIds,
         reader_id_param: readerId
     });
@@ -1165,11 +1185,23 @@ export const getUnreadMessages = async (recipientId: string) => {
 export const subscribeToMessages = (userId: string, callback: (payload: ChatMessage) => void): RealtimeChannel | null => {
     const client = getSupabaseClient();
     if (!client) return null;
-    return (client as any)
-        .channel(`public:chat_messages:recipient_id=eq.${userId}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${userId}` }, (payload) => {
-            callback(payload.new as ChatMessage);
-        });
+    
+    // We remove the server-side filter for higher reliability across different Supabase setups,
+    // and instead we'll ensure the callback is only triggered for the intended user if needed.
+    // However, since this function is intended to be a generic subscriber, we keep it simple.
+    return client
+        .channel(`public:chat_messages:recipient:${userId}`)
+        .on('postgres_changes', { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'chat_messages'
+        }, (payload) => {
+            const newMessage = payload.new as ChatMessage;
+            if (newMessage.recipient_id === userId) {
+                callback(newMessage);
+            }
+        })
+        .subscribe();
 };
 
 export const uploadChatFile = async (file: File, uploaderId: string) => {

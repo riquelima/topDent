@@ -18,7 +18,7 @@ const isImageFile = (fileType: string | null | undefined): boolean => {
   return fileType.startsWith('image/');
 };
 
-export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
+const ChatWidgetComponent: React.FC<ChatWidgetProps> = ({ adminId }) => {
   const { showToast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [dentists, setDentists] = useState<Dentist[]>([]);
@@ -95,48 +95,109 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
 
     const handleNewMessage = async (payload: any) => {
         const newMessage = payload.new as ChatMessage;
+        
+        // LOG DE DIAGNÓSTICO BRUTO - Sem filtro para identificar se a mensagem chega com IDs errados
+        console.log('DEBUG: Payload Realtime recebido (Bruto):', {
+            id: newMessage.id,
+            from: newMessage.sender_id,
+            to: newMessage.recipient_id,
+            current_admin: adminId
+        });
+
+        // Robust filtering: ignore messages not intended for us
+        if (newMessage.recipient_id !== adminId) return;
+        
+        console.log('Admin Chat: Mensagem destinada ao Admin confirmada:', newMessage.content);
+
         if (isOpenRef.current && selectedDentistRef.current?.id === newMessage.sender_id) {
-            setMessages(prev => [...prev, newMessage]);
+            setMessages(prev => {
+                // Deduplication
+                if (prev.some(m => m.id === newMessage.id)) return prev;
+                const updated = [...prev, newMessage];
+                console.log(`[CHAT_STATE] Nova mensagem Realtime. Total: ${updated.length}`);
+                return updated;
+            });
             await markMessagesAsRead([newMessage.id], adminId);
         } else {
-            playNotificationSound();
-            setUnreadMessages(prev => [...prev, newMessage]);
+            // Check if we already have this unread message
+            setUnreadMessages(prev => {
+                if (prev.some(m => m.id === newMessage.id)) return prev;
+                playNotificationSound();
+                return [...prev, newMessage];
+            });
         }
     };
 
     const handleMessageUpdate = (payload: any) => {
-      const updatedMessage = payload.new as ChatMessage;
-      
-      if (updatedMessage.sender_id === adminId && updatedMessage.is_read === true) {
-        setMessages(prevMessages =>
-          prevMessages.map(msg =>
-            msg.id === updatedMessage.id
-              ? { ...msg, is_read: true }
-              : msg
-          )
-        );
-      }
+        const updatedMessage = payload.new;
+        if (!updatedMessage) return;
+        
+        // Only care about updates to messages related to us
+        if (updatedMessage.sender_id !== adminId && updatedMessage.recipient_id !== adminId) return;
+
+        setMessages(prev => {
+            const updated = prev.map(msg => msg.id === updatedMessage.id ? (updatedMessage as ChatMessage) : msg);
+            console.log(`[CHAT_STATE] Mensagem atualizada (Read/File). Total: ${updated.length}`);
+            return updated;
+        });
+        setUnreadMessages(prev => prev.map(msg => msg.id === updatedMessage.id ? (updatedMessage as ChatMessage) : msg));
     };
 
     const channel = client
       .channel(`admin_chat_realtime_${adminId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${adminId}` }, handleNewMessage)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `sender_id=eq.${adminId}`,
-        },
-        handleMessageUpdate
-      )
-      .subscribe();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, handleNewMessage)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, handleMessageUpdate)
+      .subscribe((status) => {
+          console.log(`Admin Chat Realtime Status: ${status}`);
+      });
   
     return () => {
       client.removeChannel(channel);
     };
   }, [adminId, playNotificationSound]);
+
+  // MECANISMO DE BACKUP: Polling a cada 10 segundos
+  // Isso garante que se o Realtime falhar ou estiver lento (os 2 segundos detectados), 
+  // as mensagens ainda serão sincronizadas.
+  useEffect(() => {
+    if (!isOpen || !selectedDentist?.id || !adminId) return;
+
+    const pollInterval = setInterval(async () => {
+      console.log('Admin Chat: Executando sincronização de backup (Polling)...');
+      const { data, error } = await getMessagesBetweenUsers(adminId, selectedDentist.id);
+      if (!error && data) {
+        setMessages(prev => {
+          // Usa um Map para garantir unicidade por ID rápido
+          const messageMap = new Map();
+          
+          // Preserva o que já está na tela (incluindo envios recentes não salvos em cache)
+          prev.forEach(msg => {
+            if (msg.id) messageMap.set(msg.id, msg);
+          });
+          
+          // Adiciona as mensagens vindas do servidor (são a fonte final de verdade)
+          data.forEach(msg => {
+            if (msg.id) messageMap.set(msg.id, msg);
+          });
+          
+          // Convertendo de volta para array e ordenando por data de criação para manter o chat coerente
+          const merged = Array.from(messageMap.values()).sort((a, b) => 
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+
+          // Se nada mudou na estrutura (ids e ordem), evitamos re-render
+          if (merged.length === prev.length && merged.every((m, i) => m.id === prev[i].id)) {
+            return prev;
+          }
+
+          console.log(`[CHAT_STATE] Sincronização Polling realizada. Servidor retornou: ${data.length} mensagens.`);
+          return merged;
+        });
+      }
+    }, 10000); // 10 segundos
+
+    return () => clearInterval(pollInterval);
+  }, [isOpen, selectedDentist?.id, adminId]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
@@ -229,6 +290,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     } else {
         const fetchedMessages = data || [];
         setMessages(fetchedMessages);
+        console.log(`[CHAT_STATE] Busca Inicial realizada. Total: ${fetchedMessages.length} mensagens.`);
 
         // In the background, tell the server to mark these as read
         const idsToMarkAsRead = fetchedMessages
@@ -296,7 +358,12 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
       setAttachedFiles(filesToSend);
     } finally {
       if (sentMessages.length > 0) {
-        setMessages(prev => [...prev, ...sentMessages]);
+        setMessages(prev => {
+            const newMsgs = sentMessages.filter(sm => !prev.some(pm => pm.id === sm.id));
+            const updated = [...prev, ...newMsgs];
+            console.log(`[CHAT_STATE] Mensagem enviada pelo usuário. Total: ${updated.length}`);
+            return updated;
+        });
       }
       setIsSending(false);
     }
@@ -508,3 +575,5 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ adminId }) => {
     </>
   );
 };
+
+export const ChatWidget = React.memo(ChatWidgetComponent);

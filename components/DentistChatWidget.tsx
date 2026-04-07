@@ -18,7 +18,7 @@ const isImageFile = (fileType: string | null | undefined): boolean => {
   return fileType.startsWith('image/');
 };
 
-export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId }) => {
+const DentistChatWidgetComponent: React.FC<DentistChatWidgetProps> = ({ dentistId }) => {
   const { showToast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [adminUser, setAdminUser] = useState<Dentist | null>(null);
@@ -82,49 +82,111 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
   
     const handleNewMessage = async (payload: any) => {
         const newMessage = payload.new as ChatMessage;
+
+        // LOG DE DIAGNÓSTICO BRUTO - Sem filtro para identificar se a mensagem chega com IDs errados
+        console.log('DEBUG (Dentist): Payload Realtime recebido (Bruto):', {
+            id: newMessage.id,
+            from: newMessage.sender_id,
+            to: newMessage.recipient_id,
+            current_dentist: dentistId
+        });
+
+        // Robust filtering: ignore messages not intended for us
+        if (newMessage.recipient_id !== dentistId) return;
+
+        console.log('Dentist Chat: Mensagem destinada ao Dentista confirmada:', newMessage.content);
+
         if (isOpenRef.current) {
-            setMessages(prev => [...prev, newMessage]);
+            setMessages(prev => {
+                if (prev.some(m => m.id === newMessage.id)) return prev;
+                const updated = [...prev, newMessage];
+                console.log(`[CHAT_STATE] Nova mensagem Realtime (Recebida). Total: ${updated.length}`);
+                return updated;
+            });
             await markMessagesAsRead([newMessage.id], dentistId);
             setUnreadMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
         } else {
-            playNotificationSound();
-            setUnreadMessages(prev => [...prev, newMessage]);
+            setUnreadMessages(prev => {
+                // Deduplication
+                if (prev.some(m => m.id === newMessage.id)) return prev;
+                playNotificationSound();
+                return [...prev, newMessage];
+            });
         }
     };
 
     const handleMessageUpdate = (payload: any) => {
-      const updatedMessage = payload.new as ChatMessage;
+        const updatedMessage = payload.new;
+        if (!updatedMessage) return;
+        
+        // Only care about updates to messages related to us
+        if (updatedMessage.sender_id !== dentistId && updatedMessage.recipient_id !== dentistId) return;
 
-      if (updatedMessage.sender_id === dentistId && updatedMessage.is_read === true) {
-        setMessages(prevMessages =>
-          prevMessages.map(msg =>
-            msg.id === updatedMessage.id
-              ? { ...msg, is_read: true }
-              : msg
-          )
-        );
-      }
+        setMessages(prev => {
+            const updated = prev.map(msg => msg.id === updatedMessage.id ? (updatedMessage as ChatMessage) : msg);
+            console.log(`[CHAT_STATE] Mensagem atualizada (Status). Total: ${updated.length}`);
+            return updated;
+        });
     };
   
     const channel = client
       .channel(`dentist_chat_realtime_${dentistId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `recipient_id=eq.${dentistId}` }, handleNewMessage)
-      .on(
-        'postgres_changes',
-        {
+      .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'chat_messages' 
+      }, handleNewMessage)
+      .on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
-          table: 'chat_messages',
-          filter: `sender_id=eq.${dentistId}`,
-        },
-        handleMessageUpdate
-      )
-      .subscribe();
+          table: 'chat_messages'
+      }, handleMessageUpdate)
+      .subscribe((status) => {
+          console.log(`Dentist Chat Realtime Status: ${status}`);
+      });
   
     return () => {
       client.removeChannel(channel);
     };
   }, [dentistId, playNotificationSound]);
+
+  // MECANISMO DE BACKUP: Polling a cada 10 segundos
+  // Isso garante sincronização mesmo se o Realtime falhar.
+  useEffect(() => {
+    if (!isOpen || !dentistId || !adminUser?.id) return;
+
+    const pollInterval = setInterval(async () => {
+      const { data, error } = await getMessagesBetweenUsers(dentistId, adminUser.id);
+      if (!error && data) {
+        setMessages(prev => {
+          const messageMap = new Map();
+          
+          // Preserva localmente o que já exibimos (crucial para envios recentes)
+          prev.forEach(msg => {
+            if (msg.id) messageMap.set(msg.id, msg);
+          });
+          
+          // Integra as mensagens vindas do servidor
+          data.forEach(msg => {
+            if (msg.id) messageMap.set(msg.id, msg);
+          });
+          
+          const merged = Array.from(messageMap.values()).sort((a, b) => 
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+
+          if (merged.length === prev.length && merged.every((m, i) => m.id === prev[i].id)) {
+            return prev;
+          }
+
+          console.log(`[CHAT_STATE] Sincronização Polling realizada. Servidor retornou: ${data.length} mensagens.`);
+          return merged;
+        });
+      }
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
+  }, [isOpen, dentistId, adminUser?.id]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
@@ -185,6 +247,7 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     } else {
         const fetchedMessages = data || [];
         setMessages(fetchedMessages);
+        console.log(`[CHAT_STATE] Busca Inicial realizada. Total: ${fetchedMessages.length} mensagens.`);
 
         // In the background, tell the server to mark these as read
         const idsToMarkAsRead = fetchedMessages
@@ -276,7 +339,12 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
       setAttachedFiles(filesToSend);
     } finally {
       if (sentMessages.length > 0) {
-        setMessages(prev => [...prev, ...sentMessages]);
+        setMessages(prev => {
+            const newMsgs = sentMessages.filter(sm => !prev.some(pm => pm.id === sm.id));
+            const updated = [...prev, ...newMsgs];
+            console.log(`[CHAT_STATE] Mensagem enviada pela dentista. Total: ${updated.length}`);
+            return updated;
+        });
       }
       setIsSending(false);
     }
@@ -463,3 +531,5 @@ export const DentistChatWidget: React.FC<DentistChatWidgetProps> = ({ dentistId 
     </>
   );
 };
+
+export const DentistChatWidget = React.memo(DentistChatWidgetComponent);
