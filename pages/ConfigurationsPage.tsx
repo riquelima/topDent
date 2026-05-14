@@ -34,7 +34,7 @@ interface ProcedureFormState {
   name: string;
 }
 
-export const ConfigurationsPage = (): JSX.Element => {
+export const ConfigurationsPage: React.FC = () => {
   const { showToast } = useToast();
   // State for toggling sections
   const [openSection, setOpenSection] = useState<string | null>('dentists');

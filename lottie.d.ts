@@ -1,6 +1,6 @@
-/// <reference types="react" />
+import 'react';
 
-declare global {
+declare module 'react' {
   namespace JSX {
     interface IntrinsicElements {
       'dotlottie-wc': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & {
@@ -12,5 +12,3 @@ declare global {
     }
   }
 }
-
-export {};

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -6,11 +6,13 @@ import { Input } from '../components/ui/Input';
 import { UserPlusIcon, ClipboardDocumentListIcon, PencilIcon, TrashIcon, Squares2X2Icon, ListBulletIcon, MagnifyingGlassIcon } from '../components/icons/HeroIcons';
 import { Patient, NavigationPath } from '../types';
 import { isoToDdMmYyyy } from '../src/utils/formatDate';
-import { getPatients, deletePatientByCpf } from '../services/supabaseService'; 
+import { getPatients, searchPatients, deletePatientByCpf } from '../services/supabaseService'; 
 import { useToast } from '../contexts/ToastContext';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 
-type ViewMode = 'list' | 'card'; // Default to list
+const PAGE_SIZE = 50;
+
+type ViewMode = 'list' | 'card';
 
 interface PatientToDelete {
   cpf: string;
@@ -21,49 +23,97 @@ export const PatientListPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast(); 
   const [allPatients, setAllPatients] = useState<Patient[]>([]);
-  const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const cacheRef = useRef<Patient[] | null>(null);
+  const serverFallbackRef = useRef<Patient[] | null>(null);
 
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [patientToDelete, setPatientToDelete] = useState<PatientToDelete | null>(null);
 
-  const fetchPatients = useCallback(async () => {
+  const filteredPatients = useMemo(() => {
+    if (!searchTerm.trim()) return allPatients;
+    const lower = searchTerm.toLowerCase();
+    const local = allPatients.filter(p =>
+      p.fullName.toLowerCase().includes(lower) || p.cpf.includes(searchTerm)
+    );
+    if (local.length > 0) return local;
+    return serverFallbackRef.current || local;
+  }, [allPatients, searchTerm]);
+
+  const visiblePatients = useMemo(() => {
+    return filteredPatients.slice(0, visibleCount);
+  }, [filteredPatients, visibleCount]);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (cacheRef.current) {
+      setAllPatients(cacheRef.current);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
-    try {
-      const { data, error: supabaseError } = await getPatients();
-      if (supabaseError) {
-        setError("Falha ao carregar pacientes.");
-        showToast("Falha ao carregar pacientes.", "error");
-      } else {
-        const sortedData = (data || []).sort((a, b) => a.fullName.localeCompare(b.fullName));
-        setAllPatients(sortedData);
-        setFilteredPatients(sortedData);
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const { data, error: fetchError } = await getPatients();
+        if (fetchError) throw fetchError;
+        const sorted = (data || []).sort((a, b) => a.fullName.localeCompare(b.fullName));
+        cacheRef.current = sorted;
+        setAllPatients(sorted);
+      } catch (e: any) {
+        if (!controller.signal.aborted) {
+          setError("Falha ao carregar pacientes.");
+          showToast("Falha ao carregar pacientes.", "error");
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false);
       }
-    } catch (e: any) {
-      setError("Erro crítico ao buscar pacientes: " + (e.message || "Erro desconhecido"));
-      showToast("Erro crítico ao buscar pacientes.", "error");
-    } finally {
-      setIsLoading(false);
+    })();
+    return () => controller.abort();
+  }, [showToast]);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const term = searchTerm.trim();
+    if (!term || term.length < 3) {
+      serverFallbackRef.current = null;
+      return;
     }
-  }, [showToast]); 
+    debounceRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const { data } = await searchPatients(term);
+        if (data && data.length > 0) {
+          serverFallbackRef.current = data;
+          setAllPatients(prev => {
+            const existingCpf = new Set(prev.map(p => p.cpf));
+            const merged = [...prev];
+            data.forEach(p => { if (!existingCpf.has(p.cpf)) merged.push(p); });
+            cacheRef.current = merged.sort((a, b) => a.fullName.localeCompare(b.fullName));
+            return cacheRef.current;
+          });
+        }
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchTerm]);
 
-  useEffect(() => {
-    fetchPatients();
-  }, [fetchPatients]);
-
-  useEffect(() => {
-    const lowerSearchTerm = searchTerm.toLowerCase();
-    const filtered = allPatients.filter(patient =>
-      patient.fullName.toLowerCase().includes(lowerSearchTerm) ||
-      patient.cpf.includes(searchTerm)
-    );
-    setFilteredPatients(filtered);
-  }, [searchTerm, allPatients]);
+  const loadMore = () => {
+    setVisibleCount(prev => Math.min(prev + PAGE_SIZE, filteredPatients.length));
+  };
 
   const requestDeletePatient = (cpf: string, name: string) => {
     setPatientToDelete({ cpf, name });
@@ -88,7 +138,8 @@ export const PatientListPage: React.FC = () => {
         showToast(displayMessage, "error");
       } else {
         showToast(`Paciente ${patientToDelete.name} excluído com sucesso.`, 'success');
-        fetchPatients(); 
+        cacheRef.current = null;
+        window.location.reload();
       }
     } catch (catchedError: any) {
       showToast(`Erro inesperado ao tentar excluir: ${catchedError.message}`, "error");
@@ -141,7 +192,7 @@ export const PatientListPage: React.FC = () => {
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--border-color)]">
-          {filteredPatients.map(patient => (
+          {visiblePatients.map(patient => (
             <tr key={patient.cpf} className="hover:bg-[var(--background-light)] transition-colors duration-200">
               <td className="px-6 py-5 whitespace-nowrap"><Link to={NavigationPath.PatientDetail.replace(':patientId', patient.cpf)} className="text-base font-medium text-white hover:text-[var(--accent-cyan)]">{patient.fullName}</Link></td>
               <td className="px-6 py-5 whitespace-nowrap text-base text-gray-300">{patient.cpf}</td>
@@ -157,7 +208,7 @@ export const PatientListPage: React.FC = () => {
 
   const renderCards = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {filteredPatients.map(patient => (
+      {visiblePatients.map(patient => (
         <Card key={patient.cpf} className="flex flex-col justify-between" hoverEffect>
           <div>
             <div className="flex justify-between items-start">
@@ -173,7 +224,6 @@ export const PatientListPage: React.FC = () => {
     </div>
   );
 
-  if (isLoading && allPatients.length === 0) return <div className="text-center py-10 text-[var(--text-secondary)]">Carregando pacientes...</div>;
   if (error) return <div className="text-center py-10"><p className="text-red-500">{error}</p></div>;
 
   return (
@@ -193,12 +243,28 @@ export const PatientListPage: React.FC = () => {
         </div>
       </Card>
 
-      {filteredPatients.length === 0 && !isLoading ? (
+      {isLoading && <div className="text-center py-10 text-[var(--text-secondary)]"><span className="animate-pulse">Carregando pacientes...</span></div>}
+
+      {!isLoading && filteredPatients.length === 0 && (
         <Card><p className="text-center text-[var(--text-secondary)] py-8">{allPatients.length === 0 ? "Nenhum paciente cadastrado." : "Nenhum paciente encontrado."}</p></Card>
-      ) : (
-        <Card bodyClassName={viewMode === 'list' ? 'p-0' : 'p-6'}>
-            {viewMode === 'list' ? renderList() : renderCards()}
-        </Card>
+      )}
+
+      {filteredPatients.length > 0 && (
+        <>
+          <Card bodyClassName={viewMode === 'list' ? 'p-0' : 'p-6'}>
+              {viewMode === 'list' ? renderList() : renderCards()}
+          </Card>
+          {visibleCount < filteredPatients.length && (
+            <div className="flex flex-col items-center space-y-2">
+              <p className="text-sm text-[var(--text-secondary)]">
+                Exibindo {visibleCount} de {filteredPatients.length} pacientes
+              </p>
+              <Button onClick={loadMore} variant="ghost" disabled={isDeleting}>
+                Carregar mais {Math.min(PAGE_SIZE, filteredPatients.length - visibleCount)}
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {patientToDelete && (

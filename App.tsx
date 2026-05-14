@@ -144,7 +144,7 @@ const App: React.FC = () => {
     setIsDentistChangelogModalOpen(false);
   };
 
-  const ProtectedRoute: React.FC<{children: JSX.Element; adminOnly?: boolean}> = ({ children, adminOnly = false }) => {
+  const ProtectedRoute: React.FC<{children: React.ReactNode; adminOnly?: boolean}> = ({ children, adminOnly = false }) => {
     if (isInitializing) {
       return (
         <div className="flex items-center justify-center min-h-screen bg-[var(--background-dark)] text-white">

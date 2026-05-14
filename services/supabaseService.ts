@@ -664,24 +664,30 @@ export const deletePatientByCpf = async (cpf: string): Promise<{ data: any[] | n
 export const getPatients = async (): Promise<{ data: Patient[] | null, error: any }> => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-  const queryBase = () => (client.from('patients') as any).select('*').order('full_name', { ascending: true });
-  const { data: chunk1, error: err1 } = await queryBase().range(0, 999);
-  if (err1) {
-    console.error('Error fetching patients chunk1 from Supabase:', err1.message, 'Details:', JSON.stringify(err1, null, 2));
-    return { data: null, error: err1 };
+  const { data, error } = await (client.from('patients') as any).select('*').order('full_name', { ascending: true });
+  if (error) {
+    console.error('Error fetching patients from Supabase:', error.message, 'Details:', JSON.stringify(error, null, 2));
+    return { data: null, error };
   }
-  const { data: chunk2, error: err2 } = await queryBase().range(1000, 4999);
-  if (err2) {
-    console.error('Error fetching patients chunk2 from Supabase:', err2.message, 'Details:', JSON.stringify(err2, null, 2));
-    return { data: null, error: err2 };
-  }
-  const data = [ ...(chunk1 || []), ...(chunk2 || []) ];
-  
-  if (!data) {
-    return { data: [], error: null };
-  }
+  const transformedData: Patient[] = (data || []).map(transformPatientData);
+  return { data: transformedData, error: null };
+};
 
-  const transformedData: Patient[] = data ? data.map(transformPatientData) : [];
+export const searchPatients = async (searchTerm: string): Promise<{ data: Patient[] | null, error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+  if (!searchTerm.trim()) return getPatients();
+  const term = `%${searchTerm.trim()}%`;
+  const { data, error } = await (client.from('patients') as any)
+    .select('*')
+    .or(`full_name.ilike.${term},cpf.ilike.${term}`)
+    .order('full_name', { ascending: true })
+    .limit(200);
+  if (error) {
+    console.error('Error searching patients from Supabase:', error.message);
+    return { data: null, error };
+  }
+  const transformedData: Patient[] = (data || []).map(transformPatientData);
   return { data: transformedData, error: null };
 };
 
@@ -789,6 +795,40 @@ export const getAppointments = async (): Promise<{ data: Appointment[] | null; e
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
     return (client.from('appointments') as any).select('*').order('appointment_date', { ascending: false }).order('appointment_time', { ascending: false });
+};
+
+export const getFilteredAppointments = async (filters: {
+  dateFilter?: 'today' | 'upcoming' | 'all' | 'custom';
+  customDate?: string;
+  dentistId?: string;
+  statusFilter?: string;
+  procedureFilter?: string;
+}): Promise<{ data: Appointment[] | null; error: any }> => {
+    const client = getSupabaseClient();
+    if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
+
+    let query = (client.from('appointments') as any).select('*');
+    const today = new Date().toISOString().split('T')[0];
+
+    if (filters.dateFilter === 'today' || (!filters.dateFilter || filters.dateFilter === 'custom' && !filters.customDate)) {
+      query = query.eq('appointment_date', today);
+    } else if (filters.dateFilter === 'upcoming') {
+      query = query.gt('appointment_date', today);
+    } else if (filters.dateFilter === 'custom' && filters.customDate) {
+      query = query.eq('appointment_date', filters.customDate);
+    }
+
+    if (filters.dentistId) {
+      query = query.eq('dentist_id', filters.dentistId);
+    }
+    if (filters.statusFilter) {
+      query = query.eq('status', filters.statusFilter);
+    }
+    if (filters.procedureFilter) {
+      query = query.ilike('procedure', `%${filters.procedureFilter}%`);
+    }
+
+    return query.order('appointment_date', { ascending: false }).order('appointment_time', { ascending: false });
 };
 
 export const getAppointmentById = async (id: string): Promise<{ data: Appointment | null; error: any }> => {

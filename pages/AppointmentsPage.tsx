@@ -7,7 +7,7 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { PlusIcon, PencilIcon, TrashIcon, BellIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon, ArrowPathIcon } from '../components/icons/HeroIcons'; 
 import { Appointment, DentistUser, NavigationPath, ConsultationHistoryEntry } from '../types'; 
-import { getAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry, getProcedures, updatePatientLastAppointment, setAppointmentMissedNotificationSent } from '../services/supabaseService'; 
+import { getFilteredAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry, getProcedures, updatePatientLastAppointment, setAppointmentMissedNotificationSent } from '../services/supabaseService'; 
 import { isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal'; 
 import { useToast } from '../contexts/ToastContext'; 
@@ -96,7 +96,13 @@ export const AppointmentsPage: React.FC = () => {
     setError(null);
     try {
       const [appointmentsRes, knownDentistsRes, proceduresRes] = await Promise.all([
-        getAppointments(),
+        getFilteredAppointments({
+          dateFilter,
+          customDate: dateFilter === 'custom' ? customDate : undefined,
+          dentistId: selectedDentistId || undefined,
+          statusFilter: statusFilter || undefined,
+          procedureFilter: procedureFilter || undefined,
+        }),
         getKnownDentists(),
         getProcedures(),
       ]);
@@ -126,7 +132,7 @@ export const AppointmentsPage: React.FC = () => {
       setIsLoading(false);
       setIsLoadingDentists(false);
     }
-  }, []);
+  }, [dateFilter, customDate, selectedDentistId, statusFilter, procedureFilter]);
 
   useEffect(() => {
     fetchPageData();
