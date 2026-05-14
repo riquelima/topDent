@@ -1,0 +1,22 @@
+15:34:42.034 Running build in Washington, D.C., USA (East) – iad1
+15:34:42.034 Build machine configuration: 2 cores, 8 GB
+15:34:42.157 Cloning github.com/riquelima/topDent (Branch: main, Commit: b939e84)
+15:34:42.158 Previous build caches not available.
+15:34:44.442 Cloning completed: 2.284s
+15:34:44.986 Running "vercel build"
+15:34:45.002 (node:18) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+15:34:45.002 (Use `node --trace-deprecation ...` to show where the warning was created)
+15:34:45.008 Vercel CLI 53.3.2
+15:34:45.530 Installing dependencies...
+15:34:47.018 
+15:34:47.018 added 2 packages in 1s
+15:34:47.019 
+15:34:47.019 6 packages are looking for funding
+15:34:47.019   run `npm fund` for details
+15:34:47.051 Running "npm run build"
+15:34:47.164 
+15:34:47.164 > top-dent---v10.19@0.0.0 build
+15:34:47.164 > vite build
+15:34:47.165 
+15:34:47.171 sh: line 1: /vercel/path0/node_modules/.bin/vite: Permission denied
+15:34:47.181 Error: Command "npm run build" exited with 126
