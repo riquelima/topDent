@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, FormEvent } from 'react';
+import React, { useState, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom'; 
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -131,6 +131,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
 
   const [stats, setStats] = useState({ totalPatients: 0, appointmentsToday: 0, totalTreatments: 0, totalAppointments: 0, pendingAppointments: 0 });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [appointmentsMaxH, setAppointmentsMaxH] = useState<string>('auto');
+  const rightPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!rightPanelRef.current) return;
+    const obs = new ResizeObserver(() => {
+      const h = rightPanelRef.current?.offsetHeight;
+      if (h) setAppointmentsMaxH(`${h - 60}px`);
+    });
+    obs.observe(rightPanelRef.current);
+    return () => obs.disconnect();
+  }, []);
 
   const handleLogoutFromCard = () => {
     onLogout();
@@ -373,7 +385,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
   };
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6 lg:space-y-8">
       <div className="animate-fadeInUp opacity-0">
         <h1 className="text-3xl lg:text-4xl font-bold text-white">Bem-vindo à Top Dent</h1>
         <p className="text-[var(--text-secondary)] mt-1 text-lg">Painel administrativo da clínica</p>
@@ -390,11 +402,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <section className="lg:col-span-2 flex animate-fadeInUp stagger-3 opacity-0">
           <Card 
             className="w-full flex flex-col"
-            bodyClassName="flex-1 overflow-y-auto"
+            bodyClassName="flex-1 overflow-y-auto min-h-0"
+            style={{ maxHeight: appointmentsMaxH }}
             title={
               <div className="flex justify-between items-center">
                 <span className="flex items-center text-xl text-white -ml-4">
@@ -436,7 +449,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
           </Card>
         </section>
         
-        <div className="space-y-8 animate-fadeInUp stagger-4 opacity-0">
+        <div ref={rightPanelRef} className="space-y-8 animate-fadeInUp stagger-4 opacity-0">
           <section>
              <Card title={
                 <div className="flex justify-between items-center w-full">
