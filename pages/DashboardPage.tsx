@@ -30,7 +30,10 @@ import {
     addReminder,
     getPatients,
     getAllTreatmentPlans,
-    addAppointment
+    addAppointment,
+    getPatientCount,
+    getAppointmentCount,
+    getTreatmentPlanCount
 } from '../services/supabaseService'; 
 import { isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
 import { useToast } from '../contexts/ToastContext';
@@ -181,22 +184,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
     }
     setIsLoadingUpcomingAppointments(false);
     
-    const [remindersRes, patientsRes, treatmentsRes] = await Promise.all([
+    const [remindersRes, patientsRes, treatmentsRes, patientCountRes, appointmentCountRes, treatmentPlanCountRes] = await Promise.all([
       getActiveReminders(),
       getPatients(),
-      getAllTreatmentPlans()
+      getAllTreatmentPlans(),
+      getPatientCount(),
+      getAppointmentCount(),
+      getTreatmentPlanCount()
     ]);
     
     // Stats calculation
     const appointmentsData = allAppointments || [];
     const patientsData = patientsRes.data || [];
-    const treatmentsData = treatmentsRes.data || [];
 
     setStats({
-        totalPatients: patientsData.length,
+        totalPatients: patientCountRes.count,
         appointmentsToday: appointmentsData.filter(a => a.appointment_date === todayString).length,
-        totalTreatments: treatmentsData.length,
-        totalAppointments: appointmentsData.length,
+        totalTreatments: treatmentPlanCountRes.count,
+        totalAppointments: appointmentCountRes.count,
         pendingAppointments: appointmentsData.filter(a => a.status === 'Scheduled' || a.status === 'Confirmed').length,
     });
     setIsLoadingStats(false);

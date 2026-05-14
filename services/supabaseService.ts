@@ -664,13 +664,44 @@ export const deletePatientByCpf = async (cpf: string): Promise<{ data: any[] | n
 export const getPatients = async (): Promise<{ data: Patient[] | null, error: any }> => {
   const client = getSupabaseClient();
   if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-  const { data, error } = await (client.from('patients') as any).select('*').order('full_name', { ascending: true });
-  if (error) {
-    console.error('Error fetching patients from Supabase:', error.message, 'Details:', JSON.stringify(error, null, 2));
-    return { data: null, error };
-  }
-  const transformedData: Patient[] = (data || []).map(transformPatientData);
+  const queryBase = () => (client.from('patients') as any).select('*').order('full_name', { ascending: true });
+  const CHUNK_SIZE = 1000;
+  let allData: any[] = [];
+  let offset = 0;
+  let chunk: any[];
+  do {
+    const { data, error } = await queryBase().range(offset, offset + CHUNK_SIZE - 1);
+    if (error) {
+      console.error('Error fetching patients from Supabase:', error.message);
+      return { data: null, error };
+    }
+    chunk = data || [];
+    allData = allData.concat(chunk);
+    offset += CHUNK_SIZE;
+  } while (chunk.length === CHUNK_SIZE);
+  const transformedData: Patient[] = allData.map(transformPatientData);
   return { data: transformedData, error: null };
+};
+
+export const getPatientCount = async (): Promise<{ count: number; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { count: 0, error: { message: "Supabase client not initialized." } };
+  const { count, error } = await (client.from('patients') as any).select('*', { count: 'exact', head: true });
+  return { count: count || 0, error };
+};
+
+export const getAppointmentCount = async (): Promise<{ count: number; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { count: 0, error: { message: "Supabase client not initialized." } };
+  const { count, error } = await (client.from('appointments') as any).select('*', { count: 'exact', head: true });
+  return { count: count || 0, error };
+};
+
+export const getTreatmentPlanCount = async (): Promise<{ count: number; error: any }> => {
+  const client = getSupabaseClient();
+  if (!client) return { count: 0, error: { message: "Supabase client not initialized." } };
+  const { count, error } = await (client.from('treatment_plans') as any).select('*', { count: 'exact', head: true });
+  return { count: count || 0, error };
 };
 
 export const searchPatients = async (searchTerm: string): Promise<{ data: Patient[] | null, error: any }> => {
@@ -770,7 +801,8 @@ export const getAllTreatmentPlans = async (): Promise<{ data: TreatmentPlanWithP
             *,
             patient:patients ( full_name )
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, 999999);
 
     if (error) {
         console.error("Error fetching all treatment plans:", error);
@@ -794,7 +826,7 @@ export type SupabaseAppointmentData = Database['public']['Tables']['appointments
 export const getAppointments = async (): Promise<{ data: Appointment[] | null; error: any }> => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
-    return (client.from('appointments') as any).select('*').order('appointment_date', { ascending: false }).order('appointment_time', { ascending: false });
+    return (client.from('appointments') as any).select('*').order('appointment_date', { ascending: false }).order('appointment_time', { ascending: false }).range(0, 999999);
 };
 
 export const getFilteredAppointments = async (filters: {
