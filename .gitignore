@@ -25,6 +25,8 @@ dist-ssr
 
 # Agent and test files
 .agent/
+.agents/
+.zed/
 test-results/
 errorConsole
 

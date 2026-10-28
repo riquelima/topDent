@@ -9,11 +9,11 @@ import { Textarea } from '../components/ui/Textarea';
 import { Select } from '../components/ui/Select';
 import { ChevronUpDownIcon, MagnifyingGlassIcon, ClockIcon, ArrowUturnLeftIcon } from '../components/icons/HeroIcons';
 import { Appointment, Patient, DentistUser, NavigationPath, Procedure } from '../types';
-import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getAppointmentById, getProcedures, updatePatientLastAppointment } from '../services/supabaseService';
+import { addAppointment, getPatientByCpf, updateAppointment, getPatients, getAppointmentById, getProcedures, updatePatientLastAppointment, checkDuplicateAppointment } from '../services/supabaseService';
 import type { SupabaseAppointmentData } from '../services/supabaseService';
 import { useToast } from '../contexts/ToastContext';
 import { getKnownDentists } from '../src/utils/users';
-import { isoToDdMmYyyy, getTodayInSaoPaulo } from '../src/utils/formatDate';
+import { isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
 
 const statusOptions: { value: Appointment['status']; label: string }[] = [
   { value: 'Scheduled', label: 'Agendado' },
@@ -287,22 +287,42 @@ export const ManageAppointmentPage: React.FC = () => {
     }
 
     setIsLoading(true);
-    const selectedDentistObject = availableDentists.find(d => d.id === selectedDentistId);
-    
-    const appointmentDataPayload: SupabaseAppointmentData = {
-      patient_cpf: patientCpf,
-      patient_name: patientName.trim(),
-      appointment_date: appointmentDate,
-      appointment_time: appointmentTime,
-      procedure: procedureString,
-      notes: notes || undefined,
-      status,
-      dentist_id: selectedDentistId,
-      dentist_name: selectedDentistObject?.full_name || null,
-      return_date: null, // This is now handled by creating a new appointment
-    };
 
     try {
+      // Check for duplicate appointments (same patient, date and time, non-cancelled)
+      const { isDuplicate, existingAppointment } = await checkDuplicateAppointment(
+        patientName,
+        patientCpf,
+        appointmentDate,
+        appointmentTime,
+        appointmentId
+      );
+
+      if (isDuplicate && existingAppointment) {
+        showToast(
+          `Atenção: Já existe um agendamento para este paciente em ${isoToDdMmYyyy(appointmentDate)} às ${formatToHHMM(appointmentTime)} (Status: ${existingAppointment.status}).`,
+          'error',
+          8000
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      const selectedDentistObject = availableDentists.find(d => d.id === selectedDentistId);
+      
+      const appointmentDataPayload: SupabaseAppointmentData = {
+        patient_cpf: patientCpf,
+        patient_name: patientName.trim(),
+        appointment_date: appointmentDate,
+        appointment_time: appointmentTime,
+        procedure: procedureString,
+        notes: notes || undefined,
+        status,
+        dentist_id: selectedDentistId,
+        dentist_name: selectedDentistObject?.full_name || null,
+        return_date: null, // This is now handled by creating a new appointment
+      };
+
       let savedAppointment: Appointment | null = null;
       if (isEditMode && appointmentId) {
         const { data, error } = await updateAppointment(appointmentId, appointmentDataPayload);
@@ -358,7 +378,7 @@ export const ManageAppointmentPage: React.FC = () => {
         }
       }
 
-      navigate(NavigationPath.Appointments);
+      navigate(NavigationPath.Appointments, { state: { selectedDate: appointmentDataPayload.appointment_date } });
     } catch (error: any) {
       showToast(`Erro: ${error.message}`, 'error');
     } finally {

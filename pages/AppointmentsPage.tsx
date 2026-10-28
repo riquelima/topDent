@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select'; 
@@ -7,7 +7,7 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { PlusIcon, PencilIcon, TrashIcon, BellIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon, ArrowPathIcon } from '../components/icons/HeroIcons'; 
 import { Appointment, DentistUser, NavigationPath, ConsultationHistoryEntry } from '../types'; 
-import { getFilteredAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry, getProcedures, updatePatientLastAppointment, setAppointmentMissedNotificationSent } from '../services/supabaseService'; 
+import { getFilteredAppointments, deleteAppointment, addNotification, getPatientByCpf, updateAppointmentStatus, addConsultationHistoryEntry, getProcedures, updatePatientLastAppointment, setAppointmentMissedNotificationSent, subscribeToAppointments, unsubscribeChannel } from '../services/supabaseService'; 
 import { isoToDdMmYyyy, formatToHHMM, getTodayInSaoPaulo } from '../src/utils/formatDate';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal'; 
 import { useToast } from '../contexts/ToastContext'; 
@@ -45,6 +45,7 @@ type DateFilter = 'all' | 'today' | 'upcoming' | 'custom';
 export const AppointmentsPage: React.FC = () => {
   const { showToast } = useToast(); 
   const navigate = useNavigate();
+  const location = useLocation();
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -89,23 +90,41 @@ export const AppointmentsPage: React.FC = () => {
     gto: '',
   });
 
+  // Handle incoming navigation with a specific appointment date
+  useEffect(() => {
+    const targetDate = (location.state as any)?.selectedDate;
+    if (targetDate) {
+      const today = getTodayInSaoPaulo();
+      if (targetDate === today) {
+        setDateFilter('today');
+        setCustomDate('');
+      } else {
+        setDateFilter('custom');
+        setCustomDate(targetDate);
+        setCalendarCurrentMonth(new Date(targetDate + "T12:00:00"));
+      }
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
 
   const fetchPageData = useCallback(async () => {
     setIsLoading(true);
     setIsLoadingDentists(true);
     setError(null);
     try {
-      const [appointmentsRes, knownDentistsRes, proceduresRes] = await Promise.all([
-        getFilteredAppointments({
-          dateFilter,
-          customDate: dateFilter === 'custom' ? customDate : undefined,
-          dentistId: selectedDentistId || undefined,
-          statusFilter: statusFilter || undefined,
-          procedureFilter: procedureFilter || undefined,
-        }),
+      const [knownDentistsRes, proceduresRes] = await Promise.all([
         getKnownDentists(),
         getProcedures(),
       ]);
+      const selectedDentistObject = knownDentistsRes.find(d => d.id === selectedDentistId);
+      const appointmentsRes = await getFilteredAppointments({
+        dateFilter,
+        customDate: dateFilter === 'custom' ? customDate : undefined,
+        dentistId: selectedDentistId || undefined,
+        dentistUsername: selectedDentistObject?.username || undefined,
+        statusFilter: statusFilter || undefined,
+        procedureFilter: procedureFilter || undefined,
+      });
       
       if (appointmentsRes.error) {
         const errorMessage = appointmentsRes.error.message || "Erro desconhecido ao buscar agendamentos.";
@@ -137,6 +156,33 @@ export const AppointmentsPage: React.FC = () => {
   useEffect(() => {
     fetchPageData();
   }, [fetchPageData]);
+
+  // Realtime subscription for instant synchronization
+  useEffect(() => {
+    const channel = subscribeToAppointments((payload) => {
+      const eventType = payload.eventType;
+      const newRecord = payload.new as Appointment;
+      const oldRecord = payload.old as { id: string };
+
+      setAllAppointments(prev => {
+        if (eventType === 'INSERT') {
+          if (prev.some(a => a.id === newRecord.id)) {
+            return prev.map(a => a.id === newRecord.id ? newRecord : a);
+          }
+          return [newRecord, ...prev];
+        } else if (eventType === 'UPDATE') {
+          return prev.map(a => a.id === newRecord.id ? newRecord : a);
+        } else if (eventType === 'DELETE') {
+          return prev.filter(a => a.id !== oldRecord.id);
+        }
+        return prev;
+      });
+    });
+
+    return () => {
+      unsubscribeChannel(channel);
+    };
+  }, []);
   
   const filteredAndSortedAppointments = useMemo(() => {
     let processedAppointments = [...allAppointments];

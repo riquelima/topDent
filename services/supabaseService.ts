@@ -1,5 +1,6 @@
 // services/supabaseService.ts
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import { getTodayInSaoPaulo } from '../src/utils/formatDate';
 import { 
     Patient, 
     Appointment, 
@@ -833,6 +834,7 @@ export const getFilteredAppointments = async (filters: {
   dateFilter?: 'today' | 'upcoming' | 'all' | 'custom';
   customDate?: string;
   dentistId?: string;
+  dentistUsername?: string;
   statusFilter?: string;
   procedureFilter?: string;
 }): Promise<{ data: Appointment[] | null; error: any }> => {
@@ -840,18 +842,22 @@ export const getFilteredAppointments = async (filters: {
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
     let query = (client.from('appointments') as any).select('*');
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayInSaoPaulo();
 
     if (filters.dateFilter === 'today' || (!filters.dateFilter || filters.dateFilter === 'custom' && !filters.customDate)) {
       query = query.eq('appointment_date', today);
     } else if (filters.dateFilter === 'upcoming') {
-      query = query.gt('appointment_date', today);
+      query = query.gte('appointment_date', today);
     } else if (filters.dateFilter === 'custom' && filters.customDate) {
       query = query.eq('appointment_date', filters.customDate);
     }
 
     if (filters.dentistId) {
-      query = query.eq('dentist_id', filters.dentistId);
+      if (filters.dentistUsername) {
+        query = query.or(`dentist_id.eq.${filters.dentistId},dentist_id.eq.${filters.dentistUsername}`);
+      } else {
+        query = query.eq('dentist_id', filters.dentistId);
+      }
     }
     if (filters.statusFilter) {
       query = query.eq('status', filters.statusFilter);
@@ -919,6 +925,58 @@ export const getAppointmentsByPatientCpf = async (cpf: string) => {
     return (client.from('appointments') as any).select('*').eq('patient_cpf', cpf).order('appointment_date', { ascending: false });
 };
 
+export const checkDuplicateAppointment = async (
+    patientName: string,
+    patientCpf: string | null,
+    appointmentDate: string,
+    appointmentTime: string,
+    excludeId?: string
+): Promise<{ isDuplicate: boolean; existingAppointment?: Appointment }> => {
+    const client = getSupabaseClient();
+    if (!client) return { isDuplicate: false };
+
+    let query = (client.from('appointments') as any)
+        .select('*')
+        .eq('appointment_date', appointmentDate)
+        .eq('appointment_time', appointmentTime)
+        .neq('status', 'Cancelled');
+
+    if (excludeId) {
+        query = query.neq('id', excludeId);
+    }
+
+    const { data, error } = await query;
+    if (error || !data || data.length === 0) return { isDuplicate: false };
+
+    const normName = patientName.trim().toLowerCase();
+    const found = data.find((a: Appointment) => 
+        (patientCpf && a.patient_cpf && a.patient_cpf === patientCpf) ||
+        a.patient_name.trim().toLowerCase() === normName
+    );
+
+    return { isDuplicate: !!found, existingAppointment: found };
+};
+
+export const subscribeToAppointments = (
+    callback: (payload: { eventType: 'INSERT' | 'UPDATE' | 'DELETE'; new: Appointment; old: { id: string } }) => void
+): RealtimeChannel | null => {
+    const client = getSupabaseClient();
+    if (!client) return null;
+    return (client as any)
+        .channel('public:appointments')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, (payload: any) => {
+            callback(payload);
+        })
+        .subscribe();
+};
+
+export const unsubscribeChannel = (channel: RealtimeChannel | null) => {
+    const client = getSupabaseClient();
+    if (client && channel) {
+        client.removeChannel(channel);
+    }
+};
+
 export const getAppointmentsByDate = async (date: string, dentistId: string, dentistUsername: string) => {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
@@ -955,7 +1013,7 @@ export const getUpcomingReturns = async (): Promise<{ data: AppointmentReturnInf
     const client = getSupabaseClient();
     if (!client) return { data: null, error: { message: "Supabase client not initialized." } };
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayInSaoPaulo();
     const { data, error } = await (client
         .from('appointments') as any)
         .select('id, return_date, patient_cpf, patient_name, dentist_id, dentist_name')
